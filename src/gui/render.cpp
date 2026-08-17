@@ -271,13 +271,17 @@ static Bitu MakeAspectTable(Bitu skip,Bitu height,double scaley,Bitu miny) {
 	return linesadded;
 }
 
-//--Modified 2009-10-18 by Alun Bestor: make unstatic to permit Boxer to call this function itself
+// BOXER-BEGIN: render-reset-strategy
+// Reason: Boxer owns the Cocoa/Metal output strategy and must be able to
+// trigger render resets while also overriding DOSBox scaler decisions.
+// Preserve: RENDER_Reset remains externally callable and invokes
+// boxer_applyRenderingStrategy before DOSBox recalculates render state.
+// Upstream risk: Restoring upstream's static reset/scaler path prevents Boxer
+// from synchronizing app UI rendering choices with DOSBox frame setup.
 /* static */ void RENDER_Reset( void ) {
-//--End of modifications
 
-	//--Added 2009-03-06 by Alun Bestor to allow Boxer to override DOSBox's scaler settings
 	boxer_applyRenderingStrategy();
-	//--End of modifications
+// BOXER-END: render-reset-strategy
 
 	Bitu width=render.src.width;
 	Bitu height=render.src.height;

@@ -39,9 +39,14 @@
 #include "support.h"
 #include "timer.h"
 
-//--Added 2011-09-25 by Alun Bestor to let Boxer hook into MIDI messaging
+// BOXER-BEGIN: midi-routing
+// Reason: Boxer routes DOSBox MPU-401 output through its Cocoa MIDI stack,
+// including CoreMIDI/external device selection and MT-32 handling.
+// Preserve: DOSBox MIDI bytes and sysexes must call Boxer send functions, MIDI
+// availability must remain Boxer-owned, and DOSBox's own handlers stay bypassed.
+// Upstream risk: Restoring upstream MIDI handlers bypasses Boxer MIDI routing,
+// external device selection, MT-32 integration, and app-managed sysex policy.
 #include "BXCoalfaceAudio.h"
-//--End of modifications
 
 #define RAWBUF	1024
 
@@ -77,7 +82,7 @@ MidiHandler::MidiHandler() : next(handler_list)
 
 MidiHandler Midi_none;
 
-//--Disabled 2011-09-25 by Alun Bestor: all MIDI handling is now done by Boxer
+// DOSBox MIDI backends are intentionally disabled; Boxer owns MIDI output.
 /* Include different midi drivers, lowest ones get checked first for default.
    Each header provides an independent midi interface. */
 //
@@ -102,7 +107,6 @@ MidiHandler Midi_none;
 //#endif
 //
 //#include "midi_alsa.h"
-//--End of modifications
 
 #if C_ALSA
 MidiHandler_alsa Midi_alsa;
@@ -151,10 +155,9 @@ void MIDI_RawOutByte(uint8_t data)
 	/* Test for a realtime MIDI message */
 	if (data>=0xf8) {
 		midi.rt_buf[0]=data;
-		//--Replaced 2011-09-25 by Alun Bestor to pass messages on to our own MIDI handling
+		// Route realtime MIDI through Boxer instead of DOSBox MIDI handlers.
 		//midi.handler->PlayMsg(midi.rt_buf);
 		boxer_sendMIDIMessage(midi.rt_buf);
-		//--End of modifications
 		return;
 	}
 	/* Test for a active sysex tranfer */
@@ -170,10 +173,9 @@ void MIDI_RawOutByte(uint8_t data)
 				LOG(LOG_ALL,LOG_ERROR)("MIDI:Skipping invalid MT-32 SysEx midi message (too short to contain a checksum)");
 			} else {
 //				LOG(LOG_ALL,LOG_NORMAL)("Play sysex; address:%02X %02X %02X, length:%4d, delay:%3d", midi.sysex.buf[5], midi.sysex.buf[6], midi.sysex.buf[7], midi.sysex.used, midi.sysex.delay);
-				//--Replaced 2011-09-25 by Alun Bestor to pass messages on to our own MIDI handling
+				// Route sysex MIDI through Boxer instead of DOSBox MIDI handlers.
 				//midi.handler->PlaySysex(midi.sysex.buf, midi.sysex.used);
 				boxer_sendMIDISysex(midi.sysex.buf, midi.sysex.used);
-				//--End of modifications
 				if (midi.sysex.start) {
 					if (midi.sysex.buf[5] == 0x7F) {
 						midi.sysex.delay = 290; // All Parameters reset
@@ -183,10 +185,9 @@ void MIDI_RawOutByte(uint8_t data)
 						midi.sysex.delay = 30; // Dark Sun 1
 					} else {
 						midi.sysex.delay = delay_in_ms(midi.sysex.used);
-						//--Added 2011-04-20 by Alun Bestor as a quick fix for Colonel's Bequest,
-						//which is very time-sensitive and sends way too many sysex messages to fix one-by-one
+						// Preserve Boxer's minimum sysex delay for Colonel's
+						// Bequest and similarly timing-sensitive MT-32 output.
 						if (midi.sysex.delay < 40) midi.sysex.delay = 40;
-						//--End of modifications
 					}
 					midi.sysex.start = GetTicks();
 				}
@@ -213,20 +214,18 @@ void MIDI_RawOutByte(uint8_t data)
 			if (CaptureState & CAPTURE_MIDI) {
 				CAPTURE_AddMidi(false, midi.cmd_len, midi.cmd_buf);
 			}
-			//--Replaced 2011-09-25 by Alun Bestor to pass messages on to our own MIDI handling
+			// Route channel MIDI through Boxer instead of DOSBox MIDI handlers.
 			//midi.handler->PlayMsg(midi.cmd_buf);
 			boxer_sendMIDIMessage(midi.cmd_buf);
-			//--End of modifications
 			midi.cmd_pos=1;		//Use Running status
 		}
 	}
 }
 
-//--Disabled 2011-09-25 by Alun Bestor to let Boxer field such questions itself
+// MIDI_Available is provided by BXCoalface so Boxer can field availability.
 //bool MIDI_Available(void)  {
 //    return midi.available;
 //}
-//--End of modifications
 
 class MIDI final : public Module_base {
 public:
@@ -239,12 +238,11 @@ public:
 		lowcase(dev);
 
 		std::string fullconf=section->Get_string("midiconfig");
-		//--Added 2011-09-25 by Alun Bestor to let Boxer pick up on the suggested MIDI device
+		// Let Boxer interpret the configured MIDI handler and midiconfig.
 		boxer_suggestMIDIHandler(dev, fullconf.c_str());
-		//--End of modifications
 		/* If device = "default" go for first handler that works */
 		MidiHandler * handler;
-        //Disabled 2011-09-30 by Alun Bestor: Boxer now handles sysex delays itself
+        // Boxer handles sysex delays itself.
 		/*
 		midi.sysex.delay = 0;
 		midi.sysex.start = 0;
@@ -261,10 +259,8 @@ public:
 		midi.cmd_len=0;
 		// Value "default" exists for backwards-compatibility.
 		// TODO: Rewrite this logic without using goto
-		//--Modified 2011-09-25 by Alun Bestor: DOSBox's MIDI handlers are all disabled,
-		//so skip straight to the 'none' handler.
+		// DOSBox's MIDI handlers are disabled, so skip straight to none.
 		goto getdefault;
-		//--End of modifications
 		if (dev == "auto" || dev == "default")
 			goto getdefault;
 		handler=handler_list;
@@ -316,6 +312,7 @@ getdefault:
 		midi.handler = 0;
 	}
 };
+// BOXER-END: midi-routing
 
 void MIDI_ListAll(Program *caller)
 {

@@ -32,9 +32,9 @@
 #include "setup.h"
 #include "serialport.h"
 #include <time.h>
-//--Added 2012-10-19 by Alun Bestor to activate parallel port emulation
+// BOXER-HOOK: bios-parport-include - Boxer enables DOS parallel-port/printer
+// emulation so BIOS printer calls can reach BXEmulatedPrinter.
 #include "parport.h"
-//--End of modifications
 
 #if defined(HAVE_CLOCK_GETTIME) && !defined(WIN32)
 //time.h is already included
@@ -623,7 +623,8 @@ static Bitu INT17_Handler(void) {
 	};
 	return CBRET_NONE;
 }
-//--End of modifications
+// BOXER-HOOK: int17-printer-emulation - Boxer keeps BIOS printer services wired
+// to DOSBox parallel-port objects for app-managed printer output.
 
 static bool INT14_Wait(Bit16u port, Bit8u mask, Bit8u timeout, Bit8u* retval) {
 	const auto starttime = PIC_FullIndex();
@@ -1360,7 +1361,8 @@ public:
 			ppindex++;
 		}
          */
-        //--End of modifications
+        // BOXER-HOOK: bios-parport-detection-disabled - Proper parallel-port
+        // emulation owns LPT detection instead of hard-coded BIOS probing.
 
 		/* Setup equipment list */
 		// look http://www.bioscentral.com/misc/bda.htm
@@ -1368,7 +1370,8 @@ public:
 		//Bit16u config=0x4400;	//1 Floppy, 2 serial and 1 parallel 
 		Bit16u config = 0x0;
 		
-        //--Disabled 2012-09-11: obviated by proper parallel port emulation
+        // BOXER-HOOK: bios-equipment-parport-count - Proper parallel-port
+        // emulation updates the equipment word after port registration.
         /*
 		// set number of parallel ports
 		// if(ppindex == 0) config |= 0x8000; // looks like 0 ports are not specified
@@ -1376,7 +1379,6 @@ public:
 		if(ppindex == 2) config |= 0x4000;
 		else config |= 0xc000;	// 3 ports
          */
-        //--End of modifications
 #if (C_FPU)
 		//FPU
 		config|=0x2;
@@ -1487,7 +1489,8 @@ void BIOS_SetLPTPort(Bitu port, Bit16u baseaddr) {
 	equipmentword |= (portcount << 14);
 	mem_writew(BIOS_CONFIGURATION,equipmentword);
 }
-//--End of modifications
+// BOXER-HOOK: bios-refresh-parport-count - Boxer printer support needs the
+// BIOS equipment word synchronized with registered parallel ports.
 
 static BIOS* test;
 

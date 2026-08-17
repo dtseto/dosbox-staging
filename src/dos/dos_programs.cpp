@@ -553,9 +553,9 @@ void DOS_SetupPrograms(void)
 	PROGRAMS_MakeFile("CHOICE.COM", CHOICE_ProgramStart);
 	PROGRAMS_MakeFile("HELP.COM", HELP_ProgramStart);
 	PROGRAMS_MakeFile("IMGMOUNT.COM", IMGMOUNT_ProgramStart);
-	//--Disabled 2012-01-06 by Alun Bestor: Boxer no longer uses the INTRO command.
+	// BOXER-HOOK: hide-intro-command - Boxer provides its own app onboarding
+	// and help surfaces, so the DOSBox INTRO command is intentionally omitted.
 	//PROGRAMS_MakeFile("INTRO.COM", INTRO_ProgramStart);
-	//--End of modifications
 	PROGRAMS_MakeFile("KEYB.COM", KEYB_ProgramStart);
 	PROGRAMS_MakeFile("LOADFIX.COM", LOADFIX_ProgramStart);
 	PROGRAMS_MakeFile("LOADROM.COM", LOADROM_ProgramStart);

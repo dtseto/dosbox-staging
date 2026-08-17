@@ -56,13 +56,13 @@ bool localDrive::FileCreate(DOS_File * * file,char * name,Bit16u /*attributes*/)
 	/* Test if file exists (so we need to truncate it). don't add to dirCache then */
 	bool existing_file = false;
 	
-	//--Added 2010-01-18 by Alun Bestor to allow Boxer to selectively deny write access to files
+	// BOXER-HOOK: file-create-write-policy - Boxer prevents DOS programs from
+	// writing protected gamebox/app metadata paths.
 	if (!boxer_shouldAllowWriteAccessToPath((const char *)newname, this))
 	{
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
 	}
-	//--End of modifications
 	
 	FILE * test = fopen_wrap(temp_name,"rb+");
 	if (test) {
@@ -82,9 +82,9 @@ bool localDrive::FileCreate(DOS_File * * file,char * name,Bit16u /*attributes*/)
 	*file = new localFile(name, hand, basedir);
 	(*file)->flags=OPEN_READWRITE;
 	
-	//--Added 2010-08-21 by Alun Bestor to let Boxer monitor DOSBox's file operations
+	// BOXER-HOOK: local-file-created - Boxer tracks host files created by DOS
+	// programs so gamebox state and UI can refresh.
 	boxer_didCreateLocalFile(temp_name, this);
-	//--End of modifications
 
 	return true;
 }
@@ -139,7 +139,8 @@ bool localDrive::FileOpen(DOS_File **file, char *name, Bit32u flags)
 	CROSS_FILENAME(newname);
 	dirCache.ExpandName(newname);
 
-	//--Added 2010-01-18 by Alun Bestor to allow Boxer to selectively deny write access to files
+	// BOXER-HOOK: file-open-write-policy - Boxer can downgrade or deny writes
+	// to protected gamebox/app metadata paths.
 	if (!strcmp(type, "rb+"))
 	{
 		if (!boxer_shouldAllowWriteAccessToPath((const char *)newname, this))
@@ -153,7 +154,8 @@ bool localDrive::FileOpen(DOS_File **file, char *name, Bit32u flags)
 			}
 		}
 	}
-	//--End of modifications
+	// BOXER-HOOK: file-open-write-policy-end - This closes Boxer's write-policy
+	// downgrade/deny block before normal DOSBox file-open handling resumes.
 
 	// If the file's already open then flush it before continuing
 	// (Betrayal in Antara)
@@ -261,20 +263,20 @@ bool localDrive::FileUnlink(char * name) {
 	safe_strcat(newname, name);
 	CROSS_FILENAME(newname);
 	const char *fullname = dirCache.GetExpandName(newname);
-	//--Added 2010-12-29 by Alun Bestor to let Boxer selectively prevent file operations
+	// BOXER-HOOK: file-delete-write-policy - Boxer prevents DOS deletes of
+	// protected gamebox/app metadata paths.
 	if (!boxer_shouldAllowWriteAccessToPath((const char *)fullname, this))
 	{
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
 	}
-	//--End of modifications
 
 	// Can we remove the file without issue?
 	if (remove(fullname) == 0) {
 		dirCache.DeleteEntry(newname);
-		//--Added 2010-08-21 by Alun Bestor to let Boxer monitor DOSBox's file operations
+		// BOXER-HOOK: local-file-removed - Boxer tracks host files removed by
+		// DOS programs so gamebox state and UI can refresh.
 		boxer_didRemoveLocalFile(fullname, this);
-		//--End of modifications
 		return true;
 	}
 
@@ -293,9 +295,9 @@ bool localDrive::FileUnlink(char * name) {
 		if (remove(fullname) == 0) {
 			dirCache.DeleteEntry(newname);
 			
-			//--Added 2010-08-21 by Alun Bestor to let Boxer monitor DOSBox's file operations
+			// BOXER-HOOK: local-open-file-removed - Boxer tracks deletion that
+			// succeeds after DOSBox closes an open host file handle.
 			boxer_didRemoveLocalFile(fullname, this);
-			//--End of modifications
 			return true;
 		}
 	}
@@ -439,8 +441,13 @@ bool localDrive::MakeDir(char * dir) {
 	safe_strcpy(newdir, basedir);
 	safe_strcat(newdir, dir);
 	CROSS_FILENAME(newdir);
-	//--Modified 2010-12-29 by Alun Bestor to allow Boxer to selectively prevent file operations,
-	//and to prevent DOSBox from creating folders with the wrong file permissions.
+	// BOXER-BEGIN: local-dir-create-policy
+	// Reason: Boxer enforces gamebox write policy and creates host folders with
+	// app-controlled permissions instead of DOSBox's default mode.
+	// Preserve: Directory creation must ask Boxer for write permission and call
+	// boxer_createLocalDir before updating the DOSBox directory cache.
+	// Upstream risk: Restoring upstream create_dir can expose protected package
+	// paths or create folders with permissions Boxer does not expect.
 	/*
 	const int temp = create_dir(dirCache.GetExpandName(newdir), 0775);
 	if (temp == 0)
@@ -460,7 +467,7 @@ bool localDrive::MakeDir(char * dir) {
 	bool created = boxer_createLocalDir(dirCache.GetExpandName(newdir), this);
 	if (created) dirCache.CacheOut(newdir,true);
 	return created;
-	//--End of modifications
+	// BOXER-END: local-dir-create-policy
 }
 
 bool localDrive::RemoveDir(char * dir) {
@@ -580,9 +587,9 @@ localDrive::localDrive(const char * startdir,
 {
 	safe_strcpy(basedir, startdir);
 	sprintf(info,"local directory %s",startdir);
-	//--Added 2009-10-25 by Alun Bestor to allow Boxer to track the system path for DOSBox drives
+	// BOXER-HOOK: local-drive-system-path - Boxer records the host folder path
+	// backing local drives for gamebox/file-management integration.
 	safe_strcpy(systempath, startdir);
-	//--End of modifications
 	dirCache.SetBaseDir(basedir);
 }
 
@@ -639,7 +646,8 @@ bool localFile::Read(uint8_t *data, uint16_t *size)
         //which appears to be the behaviour expected by DOS.
         return true;
     }
-    //--End of modifications
+    // BOXER-HOOK: unavailable-file-read - Boxer can invalidate host handles
+    // while DOS still sees the file open; reads must fail DOS-compatibly.
     
 	// Seek if we last wrote
 	if (last_action == WRITE)
@@ -683,7 +691,8 @@ bool localFile::Write(uint8_t *data, uint16_t *size)
         //which appears to be the behaviour expected by DOS.
         return true;
     }
-    //--End of modifications
+    // BOXER-HOOK: unavailable-file-write - Boxer can invalidate host handles
+    // while DOS still sees the file open; writes must fail DOS-compatibly.
     
 	// Seek if we last read
 	if (last_action == READ)
@@ -743,7 +752,8 @@ bool localFile::Seek(uint32_t *pos_addr, uint32_t type)
 		//which appears to be the behaviour expected by DOS.
 		return true;
 	}
-	//--End of modifications
+	// BOXER-HOOK: unavailable-file-seek - Boxer can invalidate host handles
+	// while DOS still sees the file open; seeks must fail DOS-compatibly.
 
 	// The inbound position is actually an int32_t being passed through a
 	// uint32_t* pointer (pos_addr), so reinterpret the underlying memory as
@@ -839,9 +849,9 @@ bool localFile::UpdateDateTimeFromHost()
 	if (!open)
 		return false;
 
-	//--Added 2011-11-03 by Alun Bestor to avoid errors on closed files
+	// BOXER-HOOK: unavailable-file-timestamp - Boxer skips timestamp refresh
+	// after it has closed an unavailable host handle.
 	if (!fhandle) return false;
-	//--End of modifications
 	// Legal defaults if we're unable to populate them
 	time = 1;
 	date = 1;
@@ -863,8 +873,14 @@ bool localFile::UpdateDateTimeFromHost()
 	return true;
 }
 
-//--Added 2011-11-03 by Alun Bestor to let Boxer inform open file handles
-//that their physical backing media will be removed.
+// BOXER-BEGIN: local-file-unavailable
+// Reason: Boxer can remove/eject backing gamebox media while DOS still has
+// files open, so host handles must close without making DOS think the file was
+// normally closed.
+// Preserve: Closing fhandle leaves the DOS file object logically open and
+// reports success to DOS reads/writes as appropriate for unavailable media.
+// Upstream risk: Removing this hook can leave stale host file descriptors into
+// moved/removed gamebox contents.
 void localFile::willBecomeUnavailable()
 {
     //If the real file is about to become unavailable, then close
@@ -875,7 +891,7 @@ void localFile::willBecomeUnavailable()
         fhandle = 0;
     }
 }
-//--End of modification
+// BOXER-END: local-file-unavailable
 
 
 void localFile::Flush()

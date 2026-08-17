@@ -1456,7 +1456,13 @@ void VGA_SetupOther()
 }
 
 
-//--Added 2013-02-10 by Alun Bestor to give Boxer control over Hercules graphics options
+// BOXER-BEGIN: display-mode-controls
+// Reason: Boxer exposes Hercules tint and CGA composite controls in its Cocoa UI
+// and must update active DOSBox palettes immediately when users change them.
+// Preserve: Boxer getter/setter functions for Hercules tint, CGA hue, and CGA
+// component/composite state must keep mutating DOSBox's live VGA state.
+// Upstream risk: Upstream-only video option handling would strand Boxer's UI
+// controls or defer changes until a full DOSBox reconfiguration.
 Bit8u boxer_herculesTintMode()
 {
     return herc_pal;
@@ -1492,7 +1498,6 @@ void boxer_setCGACompositeHueOffset(double offset)
     }
 }
 
-//--Added 2019-10-18 by C.W. Betts to give Boxer control over CGA composite mode
 Bit8u boxer_CGAComponentMode(void)
 {
 	return (Bit8u)cga_comp;
@@ -1506,15 +1511,21 @@ void boxer_setCGAComponentMode(Bit8u newCGA)
 		write_cga(0x3d8,vga.tandy.mode_control, io_width_t::byte);
 	}
 }
-//--End of modifications
+// BOXER-END: display-mode-controls
 
-//--Added 2022-03-25 by C.W. Betts to give Boxer information about a display's refresh rate.
+// BOXER-BEGIN: display-refresh-rate
+// Reason: BXCoalface remaps GFX_GetDisplayRefreshRate so DOSBox timing can ask
+// Boxer for the host display rate used by its presentation path.
+// Preserve: Keep the Boxer-facing GFX_GetDisplayRefreshRate implementation
+// available even when upstream changes display timing APIs.
+// Upstream risk: Returning to upstream SDL display queries bypasses Boxer's
+// Cocoa/Metal display ownership and can desynchronize frame pacing.
 //TODO: stub!
 int boxer_GetDisplayRefreshRate(void)
 {
 	return 60;
 }
-//--End of modifications
+// BOXER-END: display-refresh-rate
 
 static void composite_init(Section *sec)
 {

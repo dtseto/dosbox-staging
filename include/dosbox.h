@@ -23,9 +23,18 @@
 #include "compiler.h"
 #include "types.h"
 
-//--Added 2010-05-30 by Alun Bestor to ensure sdlmain function calls are replaced throughout DOSBox
+// BOXER-BEGIN: coalface-remaps
+// Reason: Boxer owns the macOS app shell, Cocoa/Metal presentation, event loop,
+// mouse capture, capture-file placement, logging, error reporting, and MIDI
+// availability through BXCoalface remaps of DOSBox's SDL-facing APIs.
+// Preserve: All GFX_*, Mouse_AutoLock, MIDI_Available, OpenCaptureFile, and
+// E_Exit uses must continue resolving to the Boxer bridge where BXCoalface
+// defines them.
+// Upstream risk: Restoring upstream's SDL functions here bypasses Boxer's app
+// lifecycle, rendering path, input capture, MIDI availability, capture routing,
+// and Objective-C error handling.
 #include "BXCoalface.h"
-//--End of modifications
+// BOXER-END: coalface-remaps
 
 #include <memory>
 

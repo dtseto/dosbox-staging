@@ -413,11 +413,11 @@ void IMGMOUNT::Run(void) {
         WriteOut(MSG_Get("PROGRAM_IMGMOUNT_MOUNT_NUMBER"),drive - '0',temp_line.c_str());
     }
 
-	//--Added 2010-01-18 by Alun Bestor: let Boxer know that the drive state has changed
+	// BOXER-HOOK: imgmount-drive-mounted - Boxer refreshes gamebox/UI drive
+	// state after IMGMOUNT changes DOSBox drive mappings.
 	boxer_driveDidMount(drive-'A');
-	//--End of modifications
 
-    // check if volume label is given. be careful for cdrom
+	// check if volume label is given. be careful for cdrom
     //if (cmd->FindString("-label",label,true)) newdrive->dirCache.SetLabel(label.c_str());
     return;
 }

@@ -213,7 +213,9 @@ static Bitu DOS_21Handler(void) {
 		}
 		break;
 	case 0x05:		/* Write Character to PRINTER */
-        //--Added 2012-09-11 by Alun Bestor for printer emulation 
+        // BOXER-HOOK: int21-printer-output - DOS INT 21h printer output is
+        // routed through the parallel-port objects so Boxer printer emulation
+        // receives application print data.
         {
             for(int i = 0; i < 3; i++) {
                 // look up a parallel port
@@ -224,7 +226,6 @@ static Bitu DOS_21Handler(void) {
             }
             break;
         }
-        //--End of modifications
 	case 0x06:		/* Direct Console Output / Input */
 		switch (reg_dl) {
 		case 0xFF:	/* Input */
@@ -1403,13 +1404,13 @@ public:
 		}
 	}
 	~DOS(){
-		//--Modified 2009-12-20 by Alun Bestor to properly clear drives on shutdown.
-		//We could also do this with Files, but DOS_SetupFiles() already does this.
+		// BOXER-HOOK: shutdown-drive-clear - Boxer expects DOS drives to be
+		// released on shutdown so gamebox media and file handles are not held
+		// after the emulator stops.
 		for (Bit16u i = 0; i < DOS_DRIVES; i++) {
 			delete Drives[i];
 			Drives[i] = 0;
 		}
-		//--End of modifications
 		// de-init devices, this allows DOSBox to cleanly re-initialize
 		// without throwing an inevitable `DOS: Too many devices added`
 		// exception

@@ -36,9 +36,9 @@ Bitu call_shellstop;
  * remove things from the environment */
 DOS_Shell *first_shell = nullptr;
 
-//--Added 2013-09-22 by Alun Bestor to track the currently active shell
+// BOXER-HOOK: active-shell-global - Boxer uses this pointer for command
+// injection and for knowing which DOS shell owns current input.
 DOS_Shell *currentShell = NULL;
-//--End of modifications
 
 static Bitu shellstop_handler()
 {
@@ -343,11 +343,18 @@ void DOS_Shell::RunInternal()
 extern int64_t ticks_at_program_launch; // from shell_cmd
 void DOS_Shell::Run()
 {
-    //--Added 2013-09-22 by Alun Bestor to keep a record of the currently-processing shell
+    // BOXER-BEGIN: shell-run-lifecycle
+    // Reason: Boxer tracks the active shell, autoexec progress, prompt returns,
+    // pending app-injected commands, and shell shutdown from the Cocoa side.
+    // Preserve: Shell start/finish callbacks bracket DOS_Shell::Run, startup
+    // messages remain Boxer-overridable, pending commands preempt DOS input,
+    // and Boxer can stop the shell loop.
+    // Upstream risk: Upstream shell flow leaves Boxer unable to track prompt
+    // state, inject commands safely, suppress startup text, or unwind shell
+    // state during shutdown.
     boxer_shellWillStart(this);
     DOS_Shell *previousShell = currentShell;
     currentShell = this;
-    //--End of modifications
 	
 	// Initialize the tick-count only when the first shell has launched.
 	// This ensures that slow-performing configurable tasks (like loading MIDI SF2 files) have already
@@ -368,23 +375,19 @@ void DOS_Shell::Run()
 		temp.echo = echo;
 		temp.ParseLine(input_line);		//for *.exe *.com  |*.bat creates the bf needed by runinternal;
 		temp.RunInternal();				// exits when no bf is found.
-		//--Added 2013-09-22 by Alun Bestor to keep a record of the currently-processing shell
 		currentShell = previousShell;
 		boxer_shellDidFinish(this);
-		//--End of modifications
 		return;
 	}
 	/* Start a normal shell and check for a first command init */
 	if (cmd->FindString("/INIT",line,true)) {
-		//--Added 2020-07-14 by Alun Bestor to let Boxer monitor the autoexec process
+		// Let Boxer monitor autoexec processing.
 		boxer_shellWillStartAutoexec(this);
-		//--End of modifications
 
-		//--Modified 2012-08-19 by Alun Bestor to allow selective overriding of the startup messages.
+		// Let Boxer decide whether DOSBox startup text should be visible.
 		const bool wants_welcome_banner = (control->GetStartupVerbosity() >=
 		                                  Verbosity::Medium) ||
 										  boxer_shellShouldDisplayStartupMessages(this);
-		//--End of modifications
 		if (wants_welcome_banner) {
 			WriteOut(MSG_Get("SHELL_STARTUP_BEGIN"),
 			         DOSBOX_GetDetailedVersion(), PRIMARY_MOD_NAME,
@@ -413,13 +416,12 @@ void DOS_Shell::Run()
 		WriteOut(MSG_Get("SHELL_STARTUP_SUB"), DOSBOX_GetDetailedVersion());
 	}
 	do {
-        //--Added 2012-08-19 by Alun Bestor to let Boxer insert its own commands into batch processing.
+        // Let Boxer-injected commands preempt batch/prompt input.
         if (boxer_hasPendingCommandsForShell(this))
         {
             boxer_executeNextPendingCommandForShell(this);
         }
 		else if (bf){
-        //--End of modifications
             if(bf->ReadLine(input_line)) {
 				if (echo) {
 					if (input_line[0]!='@') {
@@ -433,25 +435,21 @@ void DOS_Shell::Run()
 				bf.reset();
 			}
 		} else {
-			//--Added 2009-11-29 by Alun Bestor as a hook for detecting when control has returned to the DOS prompt.
+			// Notify Boxer when control returns to the DOS prompt.
 			boxer_didReturnToShell(this);
-			//--End of modifications
 			if (echo) ShowPrompt();
 			InputCommand(input_line);
-			//--Added 2012-08-19 by Alun Bestor to let Boxer interrupt the command input with its own commands.
 			if (boxer_shellShouldContinue(this) && !boxer_hasPendingCommandsForShell(this))
 			{
-				//--End of modifications
 			ParseLine(input_line);
 				if (echo && !bf) WriteOut_NoParsing("\n");
 			}
 		}
 	} while (boxer_shellShouldContinue(this) && !shutdown_requested);
 	
-	//--Added 2013-09-22 by Alun Bestor to keep a record of the currently-processing shell
 	currentShell = previousShell;
 	boxer_shellDidFinish(this);
-	//--End of modifications
+	// BOXER-END: shell-run-lifecycle
 }
 
 void DOS_Shell::SyntaxError()

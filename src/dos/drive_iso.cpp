@@ -182,9 +182,9 @@ isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &e
 		} else error = 6; //Corrupt image
 	}
 
-    //--Added 2009-10-25 by Alun Bestor to allow Boxer to track the system path for DOSBox drives
+    // BOXER-HOOK: iso-drive-system-path - Boxer records the host image path
+    // backing ISO drives for gamebox/file-management integration.
     safe_strcpy(systempath, fileName);
-    //--End of modifications
 }
 
 isoDrive::~isoDrive() { }

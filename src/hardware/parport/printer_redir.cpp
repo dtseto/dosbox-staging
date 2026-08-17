@@ -22,6 +22,13 @@
 #include "parport.h"
 //#include "callback.h"
 #include "printer_redir.h"
+// BOXER-BEGIN: printer-redirection
+// Reason: Boxer implements the virtual printer in Cocoa/Objective-C and needs
+// DOSBox LPT register access redirected to BXEmulatedPrinter.
+// Preserve: CPrinterRedir must call boxer_PRINTER_* for status, control, and
+// data register reads/writes instead of writing to DOSBox-host files directly.
+// Upstream risk: Upstream printer backends would bypass Boxer's print session
+// UI and output pipeline.
 #import "BXCoalface.h"
 
 // Purpose of this is to pass LPT register access to the virtual printer 
@@ -69,5 +76,6 @@ void CPrinterRedir::Write_CON(Bitu val) {
 void CPrinterRedir::Write_IOSEL(Bitu val) {
 	// nothing
 }
+// BOXER-END: printer-redirection
 void CPrinterRedir::handleUpperEvent(Bit16u type) {}
 #endif // C_PRINTER

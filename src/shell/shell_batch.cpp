@@ -25,9 +25,9 @@
 #include "logging.h"
 #include "support.h"
 
-//--Added 2013-09-22 by Alun Bestor to let Boxer track batch files
+// BOXER-HOOK: batch-lifecycle-bridge - Boxer tracks batch file completion so
+// game launch/install workflows know when scripted commands have finished.
 #include "BXCoalface.h"
-//--End of modifications
 // Permitted ASCII control characters in batch files
 constexpr uint8_t BACKSPACE = 8;
 constexpr uint8_t CARRIAGE_RETURN = '\r';
@@ -69,9 +69,9 @@ BatchFile::~BatchFile() {
 	shell->bf = prev;
 	shell->echo = echo;
 
-    //--Added 2013-09-22 by Alun Bestor to let Boxer track the lifecycle of the batch file
+    // BOXER-HOOK: batch-file-ended - Boxer receives the delayed batch-end
+    // callback when DOSBox destroys the active BatchFile.
     boxer_shellDidEndBatchFile(shell, filename.c_str());
-    //--End of modifications
 }
 
 // TODO: Refactor this sprawling function into smaller ones without GOTOs

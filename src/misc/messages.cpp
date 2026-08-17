@@ -142,11 +142,17 @@ static bool LoadMessageFile(const std_fs::path &filename)
 	return true;
 }
 
-//--Modified 2009-02-23 by Alun Bestor: replaced this function to route all localizations off to our own translation files
+// BOXER-BEGIN: localization-routing
+// Reason: Boxer uses the macOS app localization bundle for DOSBox-visible
+// strings so UI language and DOSBox shell messages stay consistent.
+// Preserve: MSG_Get must delegate to boxer_localizedStringForKey.
+// Upstream risk: Restoring DOSBox's internal language map bypasses Boxer's
+// localized resources and can show untranslated or inconsistent shell text.
 const char * MSG_Get(char const * msg)
 {
 	return boxer_localizedStringForKey(msg);
 }
+// BOXER-END: localization-routing
 /*
 
 const char *MSG_Get(char const *requested_name)
@@ -157,7 +163,8 @@ const char *MSG_Get(char const *requested_name)
 	return "Message not Found!\n";
 }
 */
-//--End of modifications
+// BOXER-HOOK: upstream-localization-disabled - Boxer intentionally leaves
+// DOSBox's map-backed MSG_Get implementation disabled.
 
 // Write the names and messages (in the order they were added) to the given location
 bool MSG_Write(const char * location) {

@@ -92,7 +92,13 @@ static struct {
 
 } capture = {};
 
-//Overridden 2014-11-30 by Alun Bestor to allow Boxer to decide where captured files should go and what they should be named.
+// BOXER-BEGIN: capture-file-routing
+// Reason: BXCoalface remaps OpenCaptureFile so Boxer decides capture filenames
+// and destinations inside its app/gamebox-managed storage.
+// Preserve: DOSBox's built-in capturedir filename generator stays disabled in
+// Boxer builds; capture file creation is delegated through the Boxer bridge.
+// Upstream risk: Restoring upstream capture naming writes screenshots/audio to
+// DOSBox's capturedir instead of Boxer's user-visible capture locations.
 
 #if 0
 FILE * OpenCaptureFile(const char * type,const char * ext) {
@@ -150,6 +156,7 @@ FILE * OpenCaptureFile(const char * type,const char * ext) {
 	return handle;
 }
 #endif
+// BOXER-END: capture-file-routing
 
 #if (C_SSHOT)
 static void CAPTURE_AddAviChunk(const char * tag, Bit32u size, void * data, Bit32u flags) {

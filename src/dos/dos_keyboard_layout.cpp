@@ -99,12 +99,12 @@ public:
 	const char* get_layout_name();
 	const char* main_language_code();
     
-    //--Added 2012-02-25 by Alun Bestor to support limited on-the-fly layout switching
+    // BOXER-HOOK: keyboard-layout-switching-api - Boxer needs limited
+    // on-the-fly layout switching and layout metadata for its keyboard UI.
     bool foreign_layout_active();
     bool is_US_layout();
     const char *real_layout_name();
     bool supports_language_code(const char *code);
-    //--End of modifications
 
 
 private:
@@ -787,9 +787,9 @@ Bitu keyboard_layout::read_codepage_file(const char* codepage_file_name, Bit32s 
 		}
 	}
 
-	//--Modified 2011-06-20 by Alun Bestor: there is no reason in the world for this to be static
+	// BOXER-HOOK: keyboard-cpi-buffer-storage - Boxer-era layout loading keeps
+	// this CPI buffer instance-accessible rather than function-static.
 	/* static */Bit8u cpi_buf[65536];
-	//--End of modifications
 	Bit32u cpi_buf_size=0,size_of_cpxdata=0;;
 	bool upxfound=false;
 	size_t found_at_pos = 5;
@@ -1104,7 +1104,8 @@ bool keyboard_layout::is_US_layout() {
 }
 
 bool keyboard_layout::foreign_layout_active() { return use_foreign_layout; }
-//--End of modifications
+// BOXER-HOOK: keyboard-layout-state-methods - Boxer queries these layout state
+// helpers through the keyboard-layout bridge.
 
 static keyboard_layout* loaded_layout=NULL;
 
@@ -1163,8 +1164,13 @@ const char* DOS_GetLoadedLayout(void) {
 	return NULL;
 }
 
-//--Added 2012-02-24 by Alun Bestor to let Boxer check if any layout has been loaded.
-
+// BOXER-BEGIN: keyboard-layout-bridge
+// Reason: Boxer reflects DOSBox keyboard layout state in the macOS UI and can
+// toggle compatible loaded layouts without changing DOS codepages.
+// Preserve: Keep Boxer-facing queries and activation control for the loaded
+// DOS keyboard layout.
+// Upstream risk: Removing these accessors leaves Boxer's keyboard-layout UI
+// unable to report or adjust DOSBox's active layout.
 const char * boxer_keyboardLayoutName()
 {
     if (loaded_layout)
@@ -1210,7 +1216,7 @@ void boxer_setKeyboardLayoutActive(bool active)
             loaded_layout->switch_foreign_layout();
     }
 }
-//--End of modifications
+// BOXER-END: keyboard-layout-bridge
 
 
 class DOS_KeyboardLayout final : public Module_base {
@@ -1371,11 +1377,11 @@ public:
 #endif
 
 		if (!strncmp(layoutname, "auto", 4)) {
-			//--Added 2009-02-23 by Alun Bestor: if auto layout was specified, ask Boxer to provide a layout
+			// BOXER-HOOK: macos-preferred-keyboard-layout - Boxer supplies the
+			// current macOS keyboard layout when DOSBox config asks for auto.
 			const char *preferredLayout = boxer_preferredKeyboardLayout();
 			if (preferredLayout)
 				layoutname = preferredLayout;
-			//--End of modifications
 		}
 #if defined (WIN32)
 		// this condition may only occur on Windows
@@ -1408,12 +1414,12 @@ public:
 			}
 		}
         
-        //--Added 2012-05-21 by Alun Bestor to fix US-858 layout loading up with keyboard remapping enabled.
+        // BOXER-HOOK: us-layout-remap-fix - Boxer disables foreign-layout
+        // remapping when DOSBox auto-loads US layouts such as US-858.
         if (loaded_layout->is_US_layout() && loaded_layout->foreign_layout_active())
         {
             loaded_layout->switch_foreign_layout();
         }
-        //--End of modifications
 	}
 
 	~DOS_KeyboardLayout(){

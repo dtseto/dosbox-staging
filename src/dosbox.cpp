@@ -50,12 +50,12 @@
 #include "mapper.h"
 #include "ints/int10.h"
 #include "render.h"
-//--Added 2012-10-19 by Alun Bestor to allow parallel port emulation
+// BOXER-HOOK: dosbox-parport-init - Boxer enables parallel-port emulation so
+// DOS printer output can route to the app printer bridge.
 #include "parport.h"
-//--End of modifications
-//--Added 2021-02-10 by C.W. Betts to allow using our custom MT-32 emulation
+// BOXER-HOOK: boxer-mt32-config-include - Boxer adds a custom MT-32 config
+// section backed by its app/framework MIDI implementation.
 #include "BXMIDIConfig.hpp"
-//--End of modifications
 #include "pci_bus.h"
 #include "midi.h"
 #include "hardware.h"
@@ -154,9 +154,9 @@ void Null_Init([[maybe_unused]] Section *sec) {
 static Bitu Normal_Loop() {
 	Bits ret;
 	while (1) {
-		//--Added 2009-12-27 by Alun Bestor to short-circuit the emulation loop when we need to
+		// BOXER-HOOK: runloop-termination - Boxer can stop emulation from
+		// Cocoa-side lifecycle events without waiting for DOSBox shutdown.
 		if (!boxer_runLoopShouldContinue()) return 1;
-		//--End of modifications
 
 		if (PIC_RunQueue()) {
 			ret = (*cpudecoder)();
@@ -173,9 +173,9 @@ static Bitu Normal_Loop() {
 			if (!GFX_Events()) {
 				return 0;
 			}
-			//--Check again at this point in case our own events have cancelled the emulation.
+			// BOXER-HOOK: runloop-event-cancellation - Boxer event processing
+			// can request shutdown while DOSBox is idle between PIC ticks.
 			if (!boxer_runLoopShouldContinue()) return 1;
-			//--End of modifications
 			if (ticksRemain > 0) {
 				TIMER_AddTick();
 				ticksRemain--;
@@ -326,14 +326,18 @@ void DOSBOX_RunMachine()
 {
 	Bitu ret = 0;
 	while (ret == 0 && !shutdown_requested) {
-        //--Modified 2011-09-25 by Alun Bestor to bracket iterations of the run loop
-        //with our own callbacks. We pass along the contextInfo parameter so that
-        //Boxer knows which iteration of the runloop is running (in case of nested runloops).
+        // BOXER-BEGIN: runloop-context
+        // Reason: Boxer needs Objective-C-side setup/teardown around each DOSBox
+        // machine-loop iteration and must distinguish nested run loops.
+        // Preserve: Pair boxer_runLoopWillStartWithContextInfo and
+        // boxer_runLoopDidFinishWithContextInfo around the loop invocation.
+        // Upstream risk: A plain upstream loop loses Boxer's nested-runloop
+        // bookkeeping and can leave app lifecycle state unbalanced.
         void *contextInfo;
         boxer_runLoopWillStartWithContextInfo(&contextInfo);
 		ret=(*loop)();
         boxer_runLoopDidFinishWithContextInfo(contextInfo);
-        //--End of modifications.
+        // BOXER-END: runloop-context
 	};
 }
 
@@ -718,11 +722,11 @@ void DOSBOX_Init() {
 		"fluidsynth",
 #endif
 		"mt32",
-		//--Disabled 2020-12-31 by C.W. Betts: We handle our own MT32 emulation.
+		// BOXER-HOOK: mt32-device-value - Boxer exposes mt32 while handling
+		// MT-32 routing through its own config section and framework bridge.
 		//#if C_MT32EMU
 		//		"mt32",
 		//#endif
-		//--End of modifications
 		"none",
 		0 };
 
@@ -734,14 +738,13 @@ void DOSBOX_Init() {
 	        "'fluidsynth', to use the built-in MIDI synthesizer. See the\n"
 	        "       [fluidsynth] section for detailed configuration.\n"
 #endif
-					  //--Disabled 2021-02-10 by C.W. Betts: We handle our own MT32 emulation.
+					  // BOXER-HOOK: mt32-help-unconditional - Boxer keeps mt32
+					  // help visible because its own MT-32 implementation is
+					  // configured outside DOSBox-Staging's C_MT32EMU block.
 					  //#if C_MT32EMU
-					  //--End of modifications
 	        "'mt32', to use the built-in Roland MT-32 synthesizer.\n"
 	        "       See the [mt32] section for detailed configuration.\n"
-					  //--Disabled 2021-02-10 by C.W. Betts: We handle our own MT32 emulation.
 					  //#endif
-					  //--End of modifications
 	        "'auto', to use the first working external MIDI player. This\n"
 	        "       might be a software synthesizer or physical device.");
 
@@ -750,9 +753,10 @@ void DOSBOX_Init() {
 	        "Configuration options for the selected MIDI interface.\n"
 	        "This is usually the id or name of the MIDI synthesizer you want\n"
 	        "to use (find the id/name with DOS command 'mixer /listmidi').\n"
-					  //--Modified 2021-02-10 by C.W. Betts: We handle our own MT32 emulation.
+					  // BOXER-HOOK: mt32-midiconfig-help - Boxer treats mt32
+					  // as app-managed, so midiconfig help must match the
+					  // custom MT-32 routing behavior.
 #if (C_FLUIDSYNTH == 1 || /*C_MT32EMU == 1*/ 1)
-					  //--End of modifications
 	        "- This option has no effect when using the built-in synthesizers\n"
 	        "  (mididevice = fluidsynth or mt32).\n"
 #endif
@@ -783,9 +787,10 @@ void DOSBOX_Init() {
 	MT32_AddConfigSection(control);
 #endif
 	
-	//--Added 2021-02-10 by C.W. Betts to allow using our custom MT-32 emulation
+	// BOXER-HOOK: mt32-config-section - Boxer adds app-managed MT-32 routing
+	// and MT32Emu.framework configuration in addition to DOSBox-Staging's MT-32
+	// settings.
 	BXMIDIMT32_AddConfigSection(control);
-	//--End of modifications
 
 #if C_DEBUG
 	secprop=control->AddSection_prop("debug",&DEBUG_Init);
@@ -1017,7 +1022,8 @@ void DOSBOX_Init() {
 	Pstring->Set_help("see parallel1");
 	Pstring = secprop->Add_string("parallel3",Property::Changeable::WhenIdle,"disabled");
 	Pstring->Set_help("see parallel1");
-//--End of modifications
+// BOXER-HOOK: parallel-config-section - Boxer exposes parallel-port settings
+// for printer redirection into the app's virtual printer.
 
 	/* All the DOS Related stuff, which will eventually start up in the shell */
 	secprop=control->AddSection_prop("dos",&DOS_Init,false);//done

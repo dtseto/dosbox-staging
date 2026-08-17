@@ -26,9 +26,9 @@
 #include "timer.h"
 #include "support.h"
 
-//--Added 2012-02-24 by Alun Bestor to give Boxer more hooks into keyboard behaviour
+// BOXER-HOOK: keyboard-buffer-capacity - Boxer queries DOSBox's keyboard queue
+// capacity before injecting Cocoa paste/input keycodes.
 #import "BXCoalface.h"
-//--End of modifications
 
 #define KEYBUFSIZE 32
 #define KEYDELAY   0.300 // Considering 20-30 khz serial clock and 11 bits/char

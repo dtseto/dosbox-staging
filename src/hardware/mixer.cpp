@@ -56,9 +56,14 @@
 #include "programs.h"
 #include "midi.h"
 
-//--Added 2012-02-26 by Alun Bestor to give Boxer control over the mixer.
+// BOXER-BEGIN: mixer-volume-bridge
+// Reason: Boxer owns the app-level master volume and must apply it to DOSBox's
+// mixed audio without replacing DOSBox channel mixing.
+// Preserve: Mixer channel volume calculations and MIXER.COM display use
+// boxer_masterVolume, and Boxer can force all channels to recompute volumes.
+// Upstream risk: Restoring upstream master-volume math ignores Boxer's UI
+// volume and leaves app-side volume changes unapplied to active channels.
 #import "BXCoalfaceAudio.h"
-//--End of modifications
 
 #define MIXER_SSIZE 4
 
@@ -182,10 +187,9 @@ void MixerChannel::UpdateVolume()
 	// Don't scale by volmain[] if the level is being managed by the source
 	const float level_l = apply_level ? 1 : volmain[0];
 	const float level_r = apply_level ? 1 : volmain[1];
-	//--Modified 2012-02-26 by Alun Bestor to give Boxer control over master volume
+	// Apply Boxer's app-level master volume on top of DOSBox channel levels.
 	volmul[0] = static_cast<int>((1 << MIXER_VOLSHIFT) * scale[0] * level_l * boxer_masterVolume(BXLeftChannel));
 	volmul[1] = static_cast<int>((1 << MIXER_VOLSHIFT) * scale[1] * level_r * boxer_masterVolume(BXRightChannel));
-	//--End of modifications
 }
 
 void MixerChannel::SetVolume(float _left,float _right) {
@@ -928,9 +932,9 @@ public:
 		if (cmd->FindExist("/NOSHOW"))
 			return;
 		WriteOut("Channel  Main    Main(dB)\n");
-		//--Modified 2012-02-26 by Alun Bestor to show Boxer's master volume instead.
+		// Show Boxer's app-level master volume instead of DOSBox's internal
+		// master level.
 		ShowVolume("MASTER", boxer_masterVolume(BXLeftChannel), boxer_masterVolume(BXRightChannel));
-		//--End of modifications
 
 		lock.lock();
 		for (auto &it : mixer.channels)
@@ -1051,11 +1055,10 @@ void MIXER_CloseAudioDevice()
 }
 
 
-//--Added 2012-02-26 by Alun Bestor to give Boxer an easy way to update channel volumes.
 void boxer_updateVolumes()
 {
 	std::lock_guard<std::mutex> lock(mixer.channel_mutex);
 	for (auto &it : mixer.channels)
 		it.second->UpdateVolume();
 }
-//--End of modifications
+// BOXER-END: mixer-volume-bridge

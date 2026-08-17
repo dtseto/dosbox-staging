@@ -158,10 +158,10 @@ static void add_key(Bit16u code) {
 }
 
 static bool get_key(Bit16u &code) {
-    //--Added 2012-04-15 to let Boxer insert its own keys
+    // BOXER-HOOK: bios-key-paste-pop - Boxer feeds Cocoa paste/input events
+    // through the BIOS keyboard buffer before DOSBox checks hardware keys.
     if (boxer_getNextKeyCodeInPasteBuffer(&code, true))
         return true;
-    //--End of modifications
     
 	Bit16u start,end,head,tail,thead;
 	if (machine==MCH_PCJR) {
@@ -184,10 +184,10 @@ static bool get_key(Bit16u &code) {
 }
 
 static bool check_key(Bit16u &code) {
-    //--Added 2012-04-15 to let Boxer insert its own keys
+    // BOXER-HOOK: bios-key-paste-peek - Boxer exposes pending injected keys
+    // to non-consuming INT 16h status checks.
     if (boxer_getNextKeyCodeInPasteBuffer(&code, false))
         return true;
-    //--End of modifications
     
 	Bit16u head,tail;
 	head =mem_readw(BIOS_KEYBOARD_BUFFER_HEAD);
@@ -307,9 +307,9 @@ static Bitu IRQ1_Handler(void) {
 		}
 		break;
 	case 0x3a:flags2 |=0x40;break;//CAPSLOCK
-		//--Modified 2011-03-13 by Alun Bestor to let Boxer sniff the state of lock keys.
+		// BOXER-HOOK: caps-lock-state - Boxer mirrors DOS lock-key state into
+		// the macOS-facing keyboard model.
 	case 0xba:flags1 ^=0x40;flags2 &=~0x40;leds ^=0x04;boxer_setCapsLockActive(flags1 & 0x40);break;
-		//--End of modifications
 	case 0x45:
 		if (flags3 &0x01) {
 			/* last scancode of pause received; first remove 0xe1-prefix */
@@ -341,12 +341,14 @@ static Bitu IRQ1_Handler(void) {
 			flags1^=0x20;
 			leds^=0x02;
 			flags2&=~0x20;
-			//--Added 2011-03-13 by Alun Bestor to let Boxer sniff the state of lock keys.
+			// BOXER-HOOK: num-lock-state - Boxer mirrors DOS lock-key state
+			// into the macOS-facing keyboard model.
 			boxer_setNumLockActive(flags1 & 0x20);
-			//--End of modifications
 		}
 		break;
 	case 0x46:flags2 |=0x10;break;				/* Scroll Lock SDL Seems to do this one fine (so break and make codes) */
+	// BOXER-HOOK: scroll-lock-state - Boxer mirrors DOS lock-key state into
+	// the macOS-facing keyboard model.
 	case 0xc6:flags1 ^=0x10;flags2 &=~0x10;leds ^=0x01;boxer_setScrollLockActive(flags1 & 0x10);break;
 //	case 0x52:flags2|=128;break;//See numpad					/* Insert */
 	case 0xd2:	
@@ -484,12 +486,12 @@ static bool IsEnhancedKey(Bit16u &key) {
 static Bitu INT16_Handler(void) {
 	Bit16u temp=0;
     
-    //--Added 2012-08-19 by Alun Bestor to let Boxer interrupt keyboard listening loops
+    // BOXER-HOOK: int16-cancel - Boxer can break DOS keyboard polling loops
+    // during app-side command injection or emulator shutdown.
     if (!boxer_continueListeningForKeyEvents())
     {
         return CBRET_STOP;
     }
-    //--End of modifications
     
 	switch (reg_ah) {
 	case 0x00: /* GET KEYSTROKE */
@@ -657,4 +659,3 @@ void BIOS_SetupKeyboard(void) {
 		//	iret
 	}
 }
-

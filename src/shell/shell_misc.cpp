@@ -34,9 +34,9 @@ DOS_Shell::~DOS_Shell() {
 	bf.reset();
 }
 
-//--Added 2010-01-21 by Alun Bestor to let Boxer hook into DOSBox internals
+// BOXER-HOOK: shell-misc-bridge - Boxer observes shell input and program launch
+// lifecycle through BXCoalface callbacks in this file.
 #include "BXCoalface.h"
-//--End of modifications
 
 void DOS_Shell::ShowPrompt(void) {
 	Bit8u drive=DOS_GetDefaultDrive()+'A';
@@ -69,8 +69,14 @@ void DOS_Shell::InputCommand(char * line) {
 	while (size && !shutdown_requested) {
 		dos.echo=false;
 		
-		//--Modified 2012-08-19 by Alun Bestor to let Boxer inject its own input
-        //and cancel keyboard input listening.
+		// BOXER-BEGIN: shell-input-injection
+		// Reason: Boxer can inject/edit shell command input from the Cocoa UI
+		// and cancel blocking reads during app-controlled command execution.
+		// Preserve: Input reads are bracketed by Boxer callbacks, polling checks
+		// boxer_continueListeningForKeyEvents, and Boxer can rewrite the command
+		// buffer and request immediate execution.
+		// Upstream risk: Upstream-only shell input prevents Boxer command
+		// injection, cancellation, and cursor correction from working.
         boxer_shellWillReadCommandInputFromHandle(this, input_handle);
 		while(boxer_continueListeningForKeyEvents() && !DOS_ReadFile(input_handle,&c,&n)) {
 			Bit16u dummy;
@@ -105,7 +111,7 @@ void DOS_Shell::InputCommand(char * line) {
 				continue;
 			}
 		}
-		//--End of modifications
+		// BOXER-END: shell-input-injection
 		
 		if (!n) {
 			size=0;			//Kill the while loop
@@ -540,10 +546,15 @@ bool DOS_Shell::Execute(char * name,char * args) {
 			return false;
 	}
 
-	//--Added 2010-01-21 by Alun Bestor to let Boxer track the executed program
+	// BOXER-BEGIN: program-launch-lifecycle
+	// Reason: Boxer tracks DOS program and batch execution to drive game launch,
+	// installer workflows, and return-to-shell behavior in the app UI.
+	// Preserve: Canonical DOS paths are reported before and after executable
+	// launch, and batch begin/end is paired with BatchFile destruction.
+	// Upstream risk: Removing these callbacks makes Boxer lose track of which
+	// DOS executable or batch is running and when it has completed.
 	char canonicalPath[DOS_PATHLENGTH+4];
 	DOS_Canonicalize(fullname, canonicalPath);
-	//--End of modifications
 	if (strcasecmp(extension, ".bat") == 0)
 	{	/* Run the .bat file */
 		/* delete old batch file if call is not active*/
@@ -551,14 +562,12 @@ bool DOS_Shell::Execute(char * name,char * args) {
 		if (bf && !call)
 			bf.reset();
 
-		//--Added 2010-01-21 by Alun Bestor to let Boxer track the launched batch file
 		boxer_shellWillBeginBatchFile(this, canonicalPath, args);
 		
 		bf = std::make_shared<BatchFile>(this, fullname, name, line);
 		echo = temp_echo; // restore it.
 
-		//--Note: boxer_didEndBatchFile will be called once the batch file completes much later, in the batch file's own destructor.
-		//--End of modifications
+		// boxer_shellDidEndBatchFile is called later by the batch file's destructor.
 	}
 	else 
 	{	/* only .bat .exe .com extensions maybe be executed by the shell */
@@ -566,9 +575,7 @@ bool DOS_Shell::Execute(char * name,char * args) {
 		{
 			if(strcasecmp(extension, ".exe") !=0) return false;
 		}
-		//--Added 2010-01-21 by Alun Bestor to let Boxer track the executed program
 		boxer_shellWillExecuteFileAtDOSPath(this, canonicalPath, args);
-		//--End of modifications
 		/* Run the .exe or .com file from the shell */
 		/* Allocate some stack space for tables in physical memory */
 		reg_sp-=0x200;
@@ -672,10 +679,9 @@ bool DOS_Shell::Execute(char * name,char * args) {
 		SegSet16(cs,oldcs);
 #endif
 		
-        //--Added 2010-01-21 by Alun Bestor to let Boxer track the executed program
         boxer_shellDidExecuteFileAtDOSPath(this, canonicalPath);
-        //--End of modifications
 	}
+	// BOXER-END: program-launch-lifecycle
 	return true; //Executable started
 }
 

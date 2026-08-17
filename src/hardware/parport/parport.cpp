@@ -294,8 +294,9 @@ public:
                 LOG_MSG("LPT%" sBitfs(d) " already taken, skipping", i+1);
                 continue;
             }
-            //--End of modifications
-                
+            // BOXER-HOOK: parport-skip-occupied-lpt - Boxer printer routing
+            // must not register a virtual LPT port over an existing BIOS port.
+
 			pname[8] = '1' + i;
             CommandLine cmd(0,section->Get_string(pname));
 
