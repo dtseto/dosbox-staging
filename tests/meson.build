@@ -78,3 +78,16 @@ foreach ut : unit_tests
                    include_directories : incdir, cpp_args : cpp_args)
   test('gtest ' + name, exe)
 endforeach
+
+boxer_contract_tests = [
+  'boxer_integration_regression',
+  'boxer_merge_smoke',
+]
+
+foreach name : boxer_contract_tests
+  exe = executable(name, [name + '_tests.cpp', 'stubs.cpp'],
+                   dependencies : [gmock_dep, gtest_dep, libghc_dep, libloguru_dep, libmisc_dep],
+                   include_directories : incdir, cpp_args : cpp_args)
+  test('gtest ' + name, exe,
+       workdir : project_source_root)
+endforeach
