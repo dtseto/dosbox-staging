@@ -451,8 +451,6 @@ public:
 		// BOXER-HOOK: gameport-timing-config - Boxer keeps gameport timing
 		// mutable and installs switchable handlers for port 0x201.
 		gameport_timed = section->Get_bool("timed");
-		ReadHandler.Install(0x201,read_p201_switchable,io_width_t::byte);
-		WriteHandler.Install(0x201,write_p201_switchable,io_width_t::byte);
 		
 		assert(section);
 
