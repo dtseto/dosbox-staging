@@ -784,9 +784,8 @@ void DOSBOX_Init()
 #if C_FLUIDSYNTH
 		"fluidsynth",
 #endif
-#if C_MT32EMU
+		// Boxer routes MT-32 MIDI through its own host-side synthesizer.
 		"mt32",
-#endif
 		"none",
 		0 };
 
