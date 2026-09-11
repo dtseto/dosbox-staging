@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -91,7 +91,7 @@ private:
 		float half_ms           = max_possible_pit_ms / 2.0f;
 		float new_half_ms       = max_possible_pit_ms / 2.0f;
 		float index             = 0.0f;
-		float last_index        = index;
+		float last_index        = 0.0f;
 		float mode1_pending_max = 0.0f;
 
 		// PIT boolean state

@@ -209,3 +209,7 @@ Manual v0.80.0 validation subsequently confirmed that Boxer mouse detection is n
 ## Manual-only coverage
 
 Physical controller behavior, real MIDI/MT-32 output, audible audio, Cocoa/Metal presentation and frame pacing, fullscreen/window transitions, real printer UI/output, real removable-media handling, and user-facing localization selection remain manual. Automated fakes should protect routing and lifecycle semantics without claiming those physical or presentation checks.
+
+## v0.80.1 pre-adaptation merge checkpoint (2026-09-11)
+
+Official DOSBox Staging `v0.80.1` (`5c9161dc2397a898ff1dc4c83c4df8ac9a14b1cc`) merged cleanly into the documented v0.80.0 integration at `f503493bdc60626498da14170372f2ad36fc4d26`; there were no textual conflicts or unresolved markers. The first Xcode build-for-testing attempt reached linking and failed only for `GFX_HaveDesktopEnvironment()` and `GFX_CenterMouse()`. These are new v0.80.1 mouse-host boundaries implemented by upstream SDL code but absent from Boxer's Cocoa host replacement. They are classified as intentional upstream redesign/adapter drift and are retained as the explicit pre-adaptation failure for the following mouse checkpoint. No tests could run from this intermediate state.

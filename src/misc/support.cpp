@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -289,7 +289,7 @@ static const std::deque<std_fs::path> &GetResourceParentPaths()
 	if (!xdg_data_dirs_env)
 		xdg_data_dirs_env = "/usr/local/share:/usr/share";
 
-	for (auto xdg_data_dir : split(xdg_data_dirs_env, ':')) {
+	for (auto& xdg_data_dir : split(xdg_data_dirs_env, ':')) {
 		trim(xdg_data_dir);
 		if (!xdg_data_dir.empty()) {
 			const std_fs::path resolved_dir = CROSS_ResolveHome(

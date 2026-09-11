@@ -329,11 +329,15 @@ klawiszowego.
 :CONFIG_MOUSE_CAPTURE
 Sposób przejmowania kursora myszy:
   onclick:   Po kliknięciu w obrębie okna emulatora.
-  onstart:   Natychmiast po starcie.
+  onstart:   Natychmiast po starcie. Może nie działać poprawnie z niektórymi
+             systemami operacyjnymi.
   seamless:  Kursor myszy płynnie zintegrowany z kursorem systemu gospodarza.
              Przejmuje kursor po kliknięciu środkowym przyciskiem myszy.
+             Może być niekompatybilne z niektórymi grami, Windows 3.1x
+             wymaga specjalnego sterownika myszy do poprawnego działania.
   nomouse:   Tryb bez użycia myszy; nie przekazuje ruchów myszy do programu.
              Mysz pozostaje widoczna dla uruchomionych gier/programów.
+Jeśli chcesz używać ekranu dotykowego, wybierz ustawienie 'seamless'.
 .
 :CONFIG_MOUSE_MIDDLE_RELEASE
 Czy środkowy przycisk myszy ma zwalniać przejęty kursor. Również włącza
@@ -1082,6 +1086,46 @@ enumeracja nieobsługiwana
 :MIDI_DEVICE_NOT_CONFIGURED
 urządzenie nie zostało skonfigurowane
 .
+:PROGRAM_FMPDRV_HELP_LONG
+Ładuje lub usuwa wbudowany sterownik karty ReelMagic Full Motion Player.
+
+Składnia:
+  [color=green]fmpdrv[reset]    (ładuje sterownik)
+  [color=green]fmpdrv[reset] /u (usuwa sterownik z pamięci)
+
+Uwagi:
+  Ustawienie "reelmagic = on" ładuje sterownik podczas startu i uniemożliwia
+  jego usunięcie z pamięci.
+
+.
+:PROGRAM_FMPDRV_TITLE
+ReelMagic Full Motion Player (wbudowany sterownik) %hhu.%hhu
+
+.
+:PROGRAM_FMPDRV_LOADED
+[reset][color=light-yellow]Sterownik załadowany na przerwaniu %xh[reset]
+
+.
+:PROGRAM_FMPDRV_LOAD_FAILED_ALREADY_LOADED
+[reset][color=light-yellow]Sterownik został już załadowany na przerwaniu %xh[reset]
+
+.
+:PROGRAM_FMPDRV_LOAD_FAILED_INT_CONFLICT
+[reset][color=red]Sterownik nie załadowany: brak wolnych przerwań![reset]
+
+.
+:PROGRAM_FMPDRV_UNLOADED
+[reset][color=light-yellow]Sterownik usunięty[reset]
+
+.
+:PROGRAM_FMPDRV_UNLOAD_FAILED_NOT_LOADED
+[reset][color=light-yellow]Sterownik nie został załadowany[reset]
+
+.
+:PROGRAM_FMPDRV_UNLOAD_FAILED_BLOCKED
+[reset][color=light-yellow]Sterownik nie został usunięty: skonfigurowany jako rezydentny[reset]
+
+.
 :MOUNT_TYPE_LOCAL_DIRECTORY
 katalog lokalny
 .
@@ -1119,10 +1163,11 @@ Gdzie:
   [color=cyan]KLAWISZE[reset]  jeden lub więcej klawiszy oddzielonych spacjami.
 
 Uwagi:
-  Symulowane naciśnięcia klawiszy [color=cyan]KLAWISZE[reset] rozpoczną się po [color=white]CZAS[reset] sekund,
+  Symulowanie naciśnięć klawiszy [color=cyan]KLAWISZE[reset] rozpoczyna się po [color=white]CZAS[reset] sekundach,
   co [color=white]TEMPO[reset] sekund każde. Dodatkowe [color=white]TEMPO[reset] sekund opóźnienia może zostać dodane
   przy użyciu przecinka ('[color=cyan],[reset]'). Domyślne wartości [color=white]CZAS[reset] i [color=white]TEMPO[reset] to 2 i 0.5
-  sekundy odpowiednio. Listę klawiszy można wyświetlić używając opcji -list.
+  sekundy, odpowiednio. Listę dostępnych klawiszy można wyświetlić używając
+  argumentu -list.
 
 Przykłady:
   [color=green]autotype[reset] -list
@@ -1201,46 +1246,6 @@ Dostępne komendy kartridży PCjr: %s
 .
 :PROGRAM_BOOT_CART_NO_CMDS
 Nie znaleziono komend kartridża PCjr.
-.
-:PROGRAM_FMPDRV_HELP_LONG
-Ładuje lub usuwa wbudowany sterownik karty ReelMagic Full Motion Player.
-
-Składnia:
-  [color=green]fmpdrv[reset]    (ładuje sterownik)
-  [color=green]fmpdrv[reset] /u (usuwa sterownik z pamięci)
-
-Uwagi:
-  Ustawienie "reelmagic = on" ładuje sterownik podczas startu i uniemożliwia
-  jego usunięcie z pamięci.
-
-.
-:PROGRAM_FMPDRV_TITLE
-ReelMagic Full Motion Player (wbudowany sterownik) %hhu.%hhu
-
-.
-:PROGRAM_FMPDRV_LOADED
-[reset][color=light-yellow]Sterownik załadowany na przerwaniu %xh[reset]
-
-.
-:PROGRAM_FMPDRV_LOAD_FAILED_ALREADY_LOADED
-[reset][color=light-yellow]Sterownik został już załadowany na przerwaniu %xh[reset]
-
-.
-:PROGRAM_FMPDRV_LOAD_FAILED_INT_CONFLICT
-[reset][color=red]Sterownik nie załadowany: brak wolnych przerwań![reset]
-
-.
-:PROGRAM_FMPDRV_UNLOADED
-[reset][color=light-yellow]Sterownik usunięty[reset]
-
-.
-:PROGRAM_FMPDRV_UNLOAD_FAILED_NOT_LOADED
-[reset][color=light-yellow]Sterownik nie został załadowany[reset]
-
-.
-:PROGRAM_FMPDRV_UNLOAD_FAILED_BLOCKED
-[reset][color=light-yellow]Sterownik nie został usunięty: skonfigurowany jako rezydentny[reset]
-
 .
 :MSCDEX_SUCCESS
 MSCDEX zainstalowany.
@@ -1875,15 +1880,15 @@ Składnia:
   [color=green]mousectl[reset] [[color=white]INTERFEJS[reset] ...] -r [min_częstotliwość]
 
 Gdzie:
-  [color=white]INTERFEJS[reset]      jeden z: [color=white]DOS[reset], [color=white]PS/2[reset], [color=white]COM1[reset], [color=white]COM2[reset], [color=white]COM3[reset], [color=white]COM4[reset]
-  -map -unmap    mapowanie/odmapowanie myszy, w [color=cyan]NAME[reset] można używać '*' lub '?'
-  -s -sx -sy     czułość myszy / dla osi x / dla osi y, od -999 do +999
-  -r             wymuszona minimalna częstotliwość próbkowania
-  -on -off       włączenie/wyłączenie myszy na danym interfejsie
-  -reset         przywrócenie domyślnych ustawień
+  [color=white]INTERFEJS[reset]      jeden z: [color=white]DOS[reset], [color=white]PS/2[reset], [color=white]COM1[reset], [color=white]COM2[reset], [color=white]COM3[reset], [color=white]COM4[reset].
+  -map -unmap    mapowanie/odmapowanie myszy, w [color=cyan]NAME[reset] można używać '*' lub '?'.
+  -s -sx -sy     czułość myszy / dla osi x / dla osi y, od -999 do +999.
+  -r             wymuszona minimalna częstotliwość próbkowania.
+  -on -off       włącz/wyłącz myszy na danym interfejsie.
+  -reset         przywróć ustawienia domyślne.
 
 Uwagi:
-  Pominięcie czułości lub częstotliwości przywraca wartość domyślną.
+  Pominięcie wartości czułości lub częstotliwości przywraca wartość domyślną.
 
 Przykłady:
   [color=green]mousectl[reset] [color=white]DOS[reset] [color=white]COM1[reset] -map    ; prosi o wybór fizycznych myszy dla dwóch graczy

@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -355,6 +355,38 @@ void GFX_RefreshTitle()
 {
 	constexpr int8_t refresh_cycle_count = -1;
 	GFX_SetTitle(refresh_cycle_count);
+}
+
+// Detects if we're running within a desktop environment (or window manager).
+bool GFX_HaveDesktopEnvironment()
+{
+// On BSD and Linux, it's possible that the user is running directly on the
+// console without a windowing environment. For example, SDL can directly
+// interface with the host's OpenGL/GLES drivers, the console's frame buffer, or
+// the Raspberry Pi's DISPMANX driver.
+//
+#if defined(BSD) || defined(LINUX)
+	// The presence of any of the following variables set by either the
+	// login manager, display manager, or window manager itself is
+	// sufficient evidence to say the user has a desktop session.
+	//
+	// References:
+	// https://www.freedesktop.org/software/systemd/man/pam_systemd.html#desktop=
+	// https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#recognized-keys
+	// https://askubuntu.com/questions/72549/how-to-determine-which-window-manager-and-desktop-environment-is-running
+	// https://unix.stackexchange.com/questions/116539/how-to-detect-the-desktop-environment-in-a-bash-script
+	//
+	constexpr const char* vars[] = {"XDG_CURRENT_DESKTOP",
+	                                "XDG_SESSION_DESKTOP",
+	                                "DESKTOP_SESSION",
+	                                "GDMSESSION"};
+
+	return std::any_of(std::begin(vars), std::end(vars), std::getenv);
+
+#else
+	// Assume we have a desktop environment on all other systems
+	return true;
+#endif
 }
 
 static double get_host_refresh_rate()
@@ -718,8 +750,8 @@ static void log_display_properties(int source_w, int source_h,
 	const auto scale_y = static_cast<double>(target_h) / source_h;
 	const auto out_par = scale_y / scale_x;
 
-	const auto [type_name, type_colours] = VGA_DescribeType(CurMode->type,
-	                                                        CurMode->mode);
+	const auto [mode_type, mode_id] = VGA_GetCurrentMode();
+	const auto [mode_desc, colours_desc] = VGA_DescribeMode(mode_type, mode_id);
 
 	const char *frame_mode = nullptr;
 	switch (sdl.frame.mode) {
@@ -727,28 +759,32 @@ static void log_display_properties(int source_w, int source_h,
 	case FRAME_MODE::VFR: frame_mode = "VFR"; break;
 	case FRAME_MODE::SYNCED_CFR: frame_mode = "synced CFR"; break;
 	case FRAME_MODE::THROTTLED_VFR: frame_mode = "throttled VFR"; break;
-	case FRAME_MODE::UNSET: break;
+	case FRAME_MODE::UNSET: frame_mode = "Unset frame_mode"; break;
 	}
-	assert(frame_mode);
 
 	// Some DOS FPS rates are double-scanned in hardware, so multiply them
 	// up to avoid confusion (ie: 30 Hz should actually be shown at 60Hz)
 	auto refresh_rate = VGA_GetPreferredRate();
 	const auto double_scanned_str = (refresh_rate <= REFRESH_RATE_DOS_DOUBLED_MAX)
-	                                        ? "double-scanned "
-	                                        : "";
-	LOG_MSG("DISPLAY: %s %dx%d%s (%Xh) at %s%2.5g Hz %s, scaled"
-	        " by %.1fx%.1f to %dx%d with %#.2g pixel-aspect",
-	        type_name,
+	                                      ? "double-scanned "
+	                                      : "";
+
+	// Double check all the char* string variables
+	assert(mode_desc);
+	assert(colours_desc);
+	assert(double_scanned_str);
+	assert(frame_mode);
+
+	LOG_MSG("DISPLAY: %s %dx%d %s (mode %02Xh) at %s%2.5g Hz %s, scaled"
+	        " to %dx%d with %.4g pixel aspect ratio",
+	        mode_desc,
 	        source_w,
 	        source_h,
-	        type_colours,
-	        CurMode->mode,
+	        colours_desc,
+	        mode_id,
 	        double_scanned_str,
 	        refresh_rate,
 	        frame_mode,
-	        scale_x,
-	        scale_y,
 	        target_w,
 	        target_h,
 	        out_par);
@@ -2234,6 +2270,16 @@ void GFX_SetMouseHint(const MouseHint hint_id)
 	}
 
 	GFX_RefreshTitle();
+}
+
+void GFX_CenterMouse()
+{
+	int current_width  = 0;
+	int current_height = 0;
+
+	assert(sdl.window);
+	SDL_GetWindowSize(sdl.window, &current_width, &current_height);
+	SDL_WarpMouseInWindow(sdl.window, current_width / 2, current_height / 2);
 }
 
 void GFX_SetMouseRawInput(const bool requested_raw_input)

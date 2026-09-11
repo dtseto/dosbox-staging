@@ -7,10 +7,31 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CCACHE_DIR:      "/dev/shm/.ccache"
-  CCACHE_MAXSIZE:  "64M"
-  CCACHE_COMPRESS: "true"
+  CCACHE_COMPRESS:      "true"
+  CCACHE_COMPRESSLEVEL: "6"
+  CCACHE_DIR:           "/dev/shm/.ccache"
+  CCACHE_DIRECT:        "true"
+  CCACHE_MAXSIZE:       "128M"
+  CCACHE_SLOPPINESS:    "pch_defines,time_macros"
+  CCACHE_UMASK:         "002"
+
   CLAMDB_DIR:      "/var/lib/clamav"
+
+  DOCKER_RUN: >-
+    docker run --rm
+    -u "$(id --user):$(id --group)"
+    -v "$PWD:$PWD"
+    -v "$CCACHE_DIR:$CCACHE_DIR"
+    -e HOME
+    -e CCACHE_COMPRESS
+    -e CCACHE_COMPRESSLEVEL
+    -e CCACHE_DIR
+    -e CCACHE_DIRECT
+    -e CCACHE_MAXSIZE
+    -e CCACHE_SLOPPINESS
+    -e CCACHE_UMASK
+    --workdir "$PWD"
+    ghcr.io/dosbox-staging/debian-cross
 
 jobs:
   build_ubuntu:
@@ -20,48 +41,96 @@ jobs:
     strategy:
       matrix:
         conf:
+          - name: GCC, Ubuntu 18.04
+            os: ubuntu-18.04
+            build_flags: -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-gcc-9.ini
+            max_warnings: 0
+            needs_all_deps: true
+
           - name: GCC 10, Ubuntu 20.04
             os: ubuntu-20.04
             packages: g++-10
             build_flags: -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-gcc-10.ini
             max_warnings: 0
+            needs_all_deps: true
 
           - name: Clang 12, Ubuntu 20.04
             os: ubuntu-20.04
             packages: clang-12
             build_flags: -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-clang-12.ini
             max_warnings: 0
+            needs_all_deps: true
 
-          - name: GCC, Ubuntu 18.04
-            os: ubuntu-18.04
-            build_flags: -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-gcc-9.ini
+          - name: GCC, Debian 10, ARMv7
+            os: ubuntu-20.04
+            build_flags: -Dbuildtype=debug --cross-file dosbox-cross
+            max_warnings: 2
+            run_tests: true
+            cross: true
+            arch: armhf
+            deb_vers: 10
+            needs_min_deps: false
+
+          - name: GCC, Debian 10, aarch64
+            os: ubuntu-20.04
+            build_flags: -Dbuildtype=debug --cross-file dosbox-cross
             max_warnings: 0
+            run_tests: true
+            cross: true
+            arch: arm64
+            deb_vers: 10
+            needs_min_deps: false
+
+          - name: GCC, Debian 11, ARMv7
+            os: ubuntu-20.04
+            build_flags: -Dbuildtype=debug --cross-file dosbox-cross
+            max_warnings: 0
+            run_tests: true
+            cross: true
+            arch: armhf
+            deb_vers: 11
+            needs_min_deps: false
+
+          - name: GCC, Debian 11, aarch64
+            os: ubuntu-20.04
+            build_flags: -Dbuildtype=debug --cross-file dosbox-cross
+            max_warnings: 0
+            run_tests: true
+            cross: true
+            arch: arm64
+            deb_vers: 11
+            needs_min_deps: false
 
           - name: GCC, +tests
             os: ubuntu-20.04
             build_flags: -Dbuildtype=debug
             run_tests: true
             max_warnings: -1
+            needs_all_deps: true
 
           - name: GCC, +debugger
             os: ubuntu-20.04
             build_flags: -Denable_debugger=normal
             max_warnings: 0
+            needs_all_deps: true
 
           - name: GCC, -dyn-x86
             os: ubuntu-20.04
             build_flags: -Dbuildtype=debug -Dunit_tests=disabled -Ddynamic_core=dynrec
             max_warnings: 0
+            needs_all_deps: true
 
           - name: GCC, -dyn-x86, +debugger
             os: ubuntu-20.04
             build_flags: -Ddynamic_core=dynrec -Dunit_tests=disabled -Denable_debugger=normal
             max_warnings: 0
+            needs_all_deps: true
 
           - name: GCC, -network
             os: ubuntu-20.04
             build_flags: -Dbuildtype=debug -Dunit_tests=disabled -Duse_sdl2_net=false -Duse_slirp=false
             max_warnings: 0
+            needs_all_deps: true
 
           - name: GCC, minimum build
             os: ubuntu-20.04
@@ -76,7 +145,7 @@ jobs:
               -Duse_sdl2_image=false
               -Duse_sdl2_net=false
               -Duse_slirp=false
-            min_dependencies: true
+            needs_min_deps: true
             max_warnings: 0
 
     steps:
@@ -85,9 +154,8 @@ jobs:
         with:
           submodules: false
 
-      - run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get update
+#      - name: Update host repository
+#        run: |
           # use the following to force full upgrades
           # sudo apt-get -y upgrade
           # sudo apt-get -y --with-new-pkgs upgrade
@@ -96,15 +164,19 @@ jobs:
           # sudo apt-get update
           # sudo apt-get -y upgrade
 
-      - name: Install dependencies (minimum set)
-        if:   matrix.conf.min_dependencies
+      - name: Install minimum dependencies
+        if:   matrix.conf.needs_min_deps
         run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
           sudo apt-get install -y build-essential ccache libsdl2-dev libopusfile-dev libspeexdsp-dev python3-setuptools
           sudo pip3 install --upgrade meson ninja
 
-      - name: Install dependencies
-        if:   matrix.conf.min_dependencies != true
+      - name: Install all dependencies
+        if:   matrix.conf.needs_all_deps
         run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
           sudo apt-get install -y \
             ${{ matrix.conf.packages }} \
             $(cat packages/${{ matrix.conf.os }}-apt.txt)
@@ -120,7 +192,7 @@ jobs:
           echo "yesterday=$(date --date=yesterday -I)"                           >> $GITHUB_OUTPUT
           echo "name_hash=$(echo '${{ matrix.conf.name }}' | shasum | cut -b-8)" >> $GITHUB_OUTPUT
 
-      - uses:  actions/cache@v3.0.11
+      - uses:  actions/cache@v3.2.2
         id:    cache-ccache
         with:
           path: ${{ steps.prep-ccache.outputs.dir }}
@@ -129,7 +201,7 @@ jobs:
             ccache-${{ matrix.conf.os }}-${{ steps.prep-ccache.outputs.name_hash }}-${{ steps.prep-ccache.outputs.yesterday }}-1
 
       - name:  Cache subprojects
-        uses:  actions/cache@v3.0.11
+        uses:  actions/cache@v3.2.2
         with:
           path: subprojects/packagecache
           key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}
@@ -137,20 +209,42 @@ jobs:
       - name: Log environment
         run:  ./scripts/log-env.sh
 
-      - run:  meson setup ${{ matrix.conf.build_flags }} build
+      - name: Set binary names
+        id: bins
+        run: |
+          set -x
+          git fetch --prune --unshallow
+          git fetch --all --tags --force
+          if [ -z "${{matrix.conf.cross}}" ]; then
+            echo "MESON_BIN=meson" >> $GITHUB_OUTPUT
+            echo "CCACHE_BIN=ccache" >> $GITHUB_OUTPUT
+          else
+            if $(git describe | grep -qs '-'); then
+              vers="${{matrix.conf.deb_vers}}-$(git describe | cut -d '-' -f 1)-dev-${{matrix.conf.arch}}"
+            else
+              vers="${{matrix.conf.deb_vers}}-$(git describe)-${{matrix.conf.arch}}"
+            fi
+            echo "MESON_BIN=${{env.DOCKER_RUN}}:${vers} meson" >> $GITHUB_OUTPUT
+            echo "CCACHE_BIN=${{env.DOCKER_RUN}}:${vers} ccache" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Meson setup
+        run:  |
+          ${{steps.bins.outputs.MESON_BIN}} setup ${{ matrix.conf.build_flags }} build \
+          || ( cat build/meson-logs/meson-log.txt ; exit 1 )
 
       - name: Build
         run: |
           set -xo pipefail
-          meson compile -C build |& tee build.log
-          ccache -s
+          ${{steps.bins.outputs.CCACHE_BIN}} -z
+          ${{steps.bins.outputs.MESON_BIN}} compile -C build |& tee build.log
+          ${{steps.bins.outputs.CCACHE_BIN}} -s
 
       - name: Run tests
         if:   matrix.conf.run_tests
-        run:  meson test --num-processes 128 -t 0 -C build --print-errorlogs
+        run:  ${{steps.bins.outputs.MESON_BIN}} test --num-processes 128 -t 0 -C build --print-errorlogs
 
       - name: Summarize warnings
-        if:   matrix.conf.run_tests != true
         env:
           MAX_WARNINGS: ${{ matrix.conf.max_warnings }}
         run:  ./scripts/count-warnings.py -lf build.log
@@ -188,7 +282,7 @@ jobs:
           echo "today=$(date -I)"                      >> $GITHUB_OUTPUT
           echo "yesterday=$(date --date=yesterday -I)" >> $GITHUB_OUTPUT
 
-      - uses:  actions/cache@v3.0.11
+      - uses:  actions/cache@v3.2.2
         id:    cache-ccache
         with:
           path: ${{ steps.prep-ccache.outputs.dir }}
@@ -197,7 +291,7 @@ jobs:
             ccache-linux-release-${{ steps.prep-ccache.outputs.yesterday }}-1
 
       - name:  Cache subprojects
-        uses:  actions/cache@v3.0.11
+        uses:  actions/cache@v3.2.2
         with:
           path: subprojects/packagecache
           key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
@@ -216,6 +310,7 @@ jobs:
       - name: Setup release build
         run: |
           meson setup \
+            -Duse_xinput2=false \
             -Ddefault_library=static \
             --wrap-mode=forcefallback \
             -Db_lto=true -Db_lto_threads=$(nproc) \
@@ -243,7 +338,7 @@ jobs:
           sudo chmod 777 "${CLAMDB_DIR}"
           echo "today=$(date -I)"                      >> $GITHUB_OUTPUT
           echo "yesterday=$(date --date=yesterday -I)" >> $GITHUB_OUTPUT
-      - uses:  actions/cache@v3.0.11
+      - uses:  actions/cache@v3.2.2
         id:    cache-clamdb
         with:
           path: ${{ env.CLAMDB_DIR }}/*.cvd

@@ -509,9 +509,15 @@ void VGA_SetupOther(void);
 void VGA_SetupXGA(void);
 void VGA_AddCompositeSettings(Config &conf);
 
-/* Some Support Functions */
-std::pair<const char *, const char *> VGA_DescribeType(const VGAModes type,
-                                                       const uint16_t mode);
+/* Some support functions */
+
+// Get the current video mode's type and numeric ID
+std::pair<VGAModes, uint16_t> VGA_GetCurrentMode();
+
+// Describes the given video mode's type and ID, ie: "VGA, "256 color"
+std::pair<const char*, const char*> VGA_DescribeMode(const VGAModes video_mode_type,
+                                                     const uint16_t video_mode_id);
+
 void VGA_SetClock(Bitu which, uint32_t target);
 
 // Save, get, and limit refresh and clock functions
