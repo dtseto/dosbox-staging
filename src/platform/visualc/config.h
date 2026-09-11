@@ -8,7 +8,7 @@
 // Additional labels for pre-release and build metadata are available as extensions to the MAJOR.MINOR.PATCH format.
 // Ref: https://semver.org/
 
-#define VERSION "0.79.1"
+#define VERSION "0.80.0"
 
 /* This macro is going to be overriden via CI */
 #define DOSBOX_DETAILED_VERSION "git"
@@ -16,7 +16,10 @@
 /* Define to 1 to enable internal debugger, requires libcurses */
 #define C_DEBUG 0
 
-/* Define to 1 to enable screenshots, requires libpng */
+/* Define to 1 to enable rendered screenshots, requires SDL_image */
+#define C_SDL_IMAGE 1
+
+/* Define to 1 to enable surface screenshots, requires libpng */
 #define C_SSHOT 1
 
 /* Define to 1 to use opengl display output support */
@@ -78,6 +81,9 @@
 // Enables mathematical constants under Visual Studio, such as M_PI
 // https://docs.microsoft.com/en-us/cpp/c-runtime-library/math-constants
 #define _USE_MATH_DEFINES
+
+// Modern MSVC provides POSIX-like routines, so prefer that over built-in
+#define HAVE_STRNLEN
 
 // MSVC issues pedantic warnings on POSIX functions; for portability we don't
 // want to deal with these warnings, as the only way to avoid them is using

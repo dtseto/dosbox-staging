@@ -218,8 +218,14 @@ static void write_p61(io_port_t, io_val_t value, io_width_t)
 	// Update the state
 	port_b.data = new_port_b.data;
 
-	if (machine < MCH_EGA && port_b.xt_clear_keyboard)
-		KEYBOARD_ClrBuffer();
+	if (machine < MCH_EGA && port_b.xt_clear_keyboard) {
+		//  On XT only, Bit 7 is a request to clear keyboard. This is
+		//  only a pulse, and is normally kept at 0. We "ack" the
+		//  request by switching the bit back normal (0) state. However,
+		//  we leave the keyboard as is, because clearing it can cause
+		//  duplicate key strokes in AlleyCat.
+		port_b.xt_clear_keyboard.clear();
+	}
 
 	if (!output_changed)
 		return;
@@ -414,6 +420,10 @@ void KEYBOARD_AddKey(KBD_KEYS keytype,bool pressed) {
 	case KBD_f11:ret=87;break;
 	case KBD_f12:ret=88;break;
 
+	// International keys
+
+	case KBD_intl1:ret=89;break;
+
 	//The Extended keys
 
 	case KBD_kpenter:extend=true;ret=28;break;
@@ -430,11 +440,9 @@ void KEYBOARD_AddKey(KBD_KEYS keytype,bool pressed) {
 	case KBD_pagedown:extend=true;ret=81;break;
 	case KBD_insert:extend=true;ret=82;break;
 	case KBD_delete:extend=true;ret=83;break;
-	case KBD_leftgui: ret = 89; break;
-	case KBD_rightgui:
-		extend = true;
-		ret = 89;
-		break;
+	case KBD_leftgui:extend=true;ret=90;break;
+	case KBD_rightgui:extend=true;ret=89;break;
+	
 	case KBD_pause:
 		KEYBOARD_AddBuffer(0xe1);
 		KEYBOARD_AddBuffer(29|(pressed?0:0x80));

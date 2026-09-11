@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2020-2022  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,25 +36,13 @@ typedef enum {
 
 typedef void (*GFX_CallBack_t)( GFX_CallBackFunctions_t function );
 
-#define GFX_CAN_8   0x0001
-#define GFX_CAN_15  0x0002
-#define GFX_CAN_16  0x0004
-#define GFX_CAN_32  0x0008
-
-#define GFX_LOVE_8  0x0010
-#define GFX_LOVE_15 0x0020
-#define GFX_LOVE_16 0x0040
-#define GFX_LOVE_32 0x0080
-
-#define GFX_RGBONLY 0x0100
-#define GFX_DBL_H   0x0200 /* double-width  flag */
-#define GFX_DBL_W   0x0400 /* double-height flag */
-
-#define GFX_SCALING		0x1000
-#define GFX_HARDWARE	0x2000
-
-#define GFX_CAN_RANDOM  0x4000 //If the interface can also do random access surface
-#define GFX_UNITY_SCALE 0x8000 /* turn of all scaling in render.cpp */
+constexpr uint8_t GFX_CAN_8      = 1 << 0;
+constexpr uint8_t GFX_CAN_15     = 1 << 1;
+constexpr uint8_t GFX_CAN_16     = 1 << 2;
+constexpr uint8_t GFX_CAN_32     = 1 << 3;
+constexpr uint8_t GFX_DBL_H      = 1 << 4; // double-width  flag
+constexpr uint8_t GFX_DBL_W      = 1 << 5; // double-height flag
+constexpr uint8_t GFX_CAN_RANDOM = 1 << 6; // interface can also do random acces
 
 // return code of:
 // - true means event loop can keep running.
@@ -80,10 +69,25 @@ void GFX_SwitchFullScreen(void);
 bool GFX_StartUpdate(uint8_t * &pixels, int &pitch);
 void GFX_EndUpdate( const uint16_t *changedLines );
 void GFX_GetSize(int &width, int &height, bool &fullscreen);
-void GFX_UpdateMouseState();
 void GFX_LosingFocus();
 void GFX_RegenerateWindow(Section *sec);
-bool GFX_MouseIsAvailable();
+
+enum class MouseHint {
+    None,                    // no hint to display
+    NoMouse,                 // no mouse mode
+    CapturedHotkey,          // mouse captured, use hotkey to release
+    CapturedHotkeyMiddle,    // mouse captured, use hotkey or middle-click to release
+    ReleasedHotkey,          // mouse released, use hotkey to capture
+    ReleasedHotkeyMiddle,    // mouse released, use hotkey or middle-click to capture
+    ReleasedHotkeyAnyButton, // mouse released, use hotkey or any click to capture
+    SeamlessHotkey,          // seamless mouse, use hotkey to capture
+    SeamlessHotkeyMiddle,    // seamless mouse, use hotkey or middle-click to capture
+};
+
+void GFX_SetMouseHint(const MouseHint requested_hint_id);
+void GFX_SetMouseCapture(const bool requested_capture);
+void GFX_SetMouseVisibility(const bool requested_visible);
+void GFX_SetMouseRawInput(const bool requested_raw_input);
 
 #if defined (REDUCE_JOYSTICK_POLLING)
 void MAPPER_UpdateJoysticks(void);

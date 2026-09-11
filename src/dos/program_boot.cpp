@@ -30,10 +30,13 @@
 #include "dma.h"
 #include "drives.h"
 #include "mapper.h"
+#include "mouse.h"
+#include "program_more_output.h"
 #include "regs.h"
 #include "string_utils.h"
 
-FILE *BOOT::getFSFile_mounted(char const *filename, uint32_t *ksize, uint32_t *bsize, uint8_t *error)
+FILE* BOOT::getFSFile_mounted(const char* filename, uint32_t* ksize,
+                              uint32_t* bsize, uint8_t* error)
 {
 	// if return NULL then put in error the errormessage code if an error
 	// was requested
@@ -84,7 +87,8 @@ FILE *BOOT::getFSFile_mounted(char const *filename, uint32_t *ksize, uint32_t *b
 	}
 }
 
-FILE *BOOT::getFSFile(char const *filename, uint32_t *ksize, uint32_t *bsize, bool tryload)
+FILE* BOOT::getFSFile(const char* filename, uint32_t* ksize, uint32_t* bsize,
+                      bool tryload)
 {
 	uint8_t error = tryload ? 1 : 0;
 	FILE *tmpfile = getFSFile_mounted(filename, ksize, bsize, &error);
@@ -165,7 +169,9 @@ void BOOT::Run(void)
 	}
 
 	if (HelpRequested()) {
-		WriteOut(MSG_Get("SHELL_CMD_BOOT_HELP_LONG"));
+		MoreOutputStrings output(*this);
+		output.AddString(MSG_Get("PROGRAM_BOOT_HELP_LONG"));
+		output.Display();
 		return;
 	}
 	if (cmd->GetCount() == 1) {
@@ -221,8 +227,7 @@ void BOOT::Run(void)
 				continue;
 			}
 
-
-			if (imageDiskList[0] != nullptr || imageDiskList[1] != nullptr) {
+			if (imageDiskList[0] || imageDiskList[1]) {
 				WriteOut(MSG_Get("PROGRAM_BOOT_IMAGE_MOUNTED"));
 				return;
 			}
@@ -442,6 +447,8 @@ void BOOT::Run(void)
 			for (auto &disk : diskSwap)
 				disk.reset();
 
+			MOUSE_NotifyBooting();
+
 			if (cart_cmd.empty()) {
 				uint32_t old_int18 = mem_readd(0x60);
 				/* run cartridge setup */
@@ -469,6 +476,7 @@ void BOOT::Run(void)
 	} else {
 		disable_umb_ems_xms();
 		MEM_RemoveEMSPageFrame();
+		MOUSE_NotifyBooting();
 		WriteOut(MSG_Get("PROGRAM_BOOT_BOOT"), drive);
 		for (i = 0; i < 512; i++)
 			real_writeb(0, 0x7c00 + i, bootarea.rawdata[i]);
@@ -498,7 +506,7 @@ void BOOT::Run(void)
 }
 
 void BOOT::AddMessages() {
-	MSG_Add("SHELL_CMD_BOOT_HELP_LONG",
+	MSG_Add("PROGRAM_BOOT_HELP_LONG",
 	        "Boots DOSBox Staging from a DOS drive or disk image.\n"
 	        "\n"
 	        "Usage:\n"
@@ -527,8 +535,8 @@ void BOOT::AddMessages() {
 	        "no drive letter is specified, this defaults to booting from the A drive.\n"
 	        "The only bootable drive letters are A, C, and D.  For booting from a hard\n"
 	        "drive (C or D), the image should have already been mounted using the\n"
-	        "\033[34;1mIMGMOUNT\033[0m command.\n\n"
-	        "Type \033[34;1mBOOT /?\033[0m for the syntax of this command.\033[0m\n");
+	        "[color=blue]IMGMOUNT[reset] command.\n\n"
+	        "Type [color=blue]BOOT /?[reset] for the syntax of this command.\n");
 	MSG_Add("PROGRAM_BOOT_UNABLE","Unable to boot off of drive %c");
 	MSG_Add("PROGRAM_BOOT_IMAGE_OPEN","Opening image file: %s\n");
 	MSG_Add("PROGRAM_BOOT_IMAGE_MOUNTED","Floppy image(s) already mounted.\n");

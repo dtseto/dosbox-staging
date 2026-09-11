@@ -44,7 +44,8 @@ std::string To_Label(const char* name) {
 	return label;
 }
 
-void Set_Label(char const * const input, char * const output, bool cdrom) {
+void Set_Label(const char* const input, char* const output, bool cdrom)
+{
 	Bitu togo     = 8;
 	Bitu vnamePos = 0;
 	Bitu labelPos = 0;
@@ -188,12 +189,13 @@ DOS_Drive::DOS_Drive()
 	info[0] = '\0';
 	// BOXER-HOOK: initialize-drive-system-path - Boxer relies on DOS_Drive
 	// system paths starting empty before subclasses set backing host paths.
-	systempath[0]=0;
+	systempath[0] = '\0';
 }
 
 // BOXER-HOOK: retrieve-drive-system-path - Boxer queries DOS drive backing
 // paths for gamebox/file-management integration.
-char * DOS_Drive::getSystemPath(void) {
+char *DOS_Drive::getSystemPath()
+{
 	return systempath;
 }
 
@@ -274,7 +276,7 @@ void DriveManager::CycleDisks(int requested_drive, bool notify)
 		currentDisk = (currentDisk + 1) % numDisks;
 		DOS_Drive* newDisk = driveInfos[drive].disks[currentDisk];
 		driveInfos[drive].currentDisk = currentDisk;
-		if (drive < MAX_DISK_IMAGES && imageDiskList[drive] != nullptr) {
+		if (drive < MAX_DISK_IMAGES && imageDiskList[drive]) {
 			if (newDisk->GetType() == DosDriveType::Fat) {
 				imageDiskList[drive] = reinterpret_cast<fatDrive *>(newDisk)->loadedDisk;
 			} else {

@@ -73,6 +73,7 @@ jobs:
               -Duse_mt32emu=false
               -Duse_opengl=false
               -Duse_png=false
+              -Duse_sdl2_image=false
               -Duse_sdl2_net=false
               -Duse_slirp=false
             min_dependencies: true
@@ -114,12 +115,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p "${CCACHE_DIR}"
-          echo "::set-output name=dir::$CCACHE_DIR"
-          echo "::set-output name=today::$(date -I)"
-          echo "::set-output name=yesterday::$(date --date=yesterday -I)"
-          echo "::set-output name=name_hash::$(echo '${{ matrix.conf.name }}' | shasum | cut -b-8)"
+          echo "dir=$CCACHE_DIR"                                                 >> $GITHUB_OUTPUT
+          echo "today=$(date -I)"                                                >> $GITHUB_OUTPUT
+          echo "yesterday=$(date --date=yesterday -I)"                           >> $GITHUB_OUTPUT
+          echo "name_hash=$(echo '${{ matrix.conf.name }}' | shasum | cut -b-8)" >> $GITHUB_OUTPUT
 
-      - uses:  actions/cache@v2
+      - uses:  actions/cache@v3.0.11
         id:    cache-ccache
         with:
           path: ${{ steps.prep-ccache.outputs.dir }}
@@ -128,7 +129,7 @@ jobs:
             ccache-${{ matrix.conf.os }}-${{ steps.prep-ccache.outputs.name_hash }}-${{ steps.prep-ccache.outputs.yesterday }}-1
 
       - name:  Cache subprojects
-        uses:  actions/cache@v2
+        uses:  actions/cache@v3.0.11
         with:
           path: subprojects/packagecache
           key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}
@@ -146,7 +147,7 @@ jobs:
 
       - name: Run tests
         if:   matrix.conf.run_tests
-        run:  meson test -C build --print-errorlogs
+        run:  meson test --num-processes 128 -t 0 -C build --print-errorlogs
 
       - name: Summarize warnings
         if:   matrix.conf.run_tests != true
@@ -164,7 +165,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: false
-          fetch-depth: 0
 
       - run:  sudo apt-get update
 
@@ -184,11 +184,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p "${CCACHE_DIR}"
-          echo "::set-output name=dir::$CCACHE_DIR"
-          echo "::set-output name=today::$(date -I)"
-          echo "::set-output name=yesterday::$(date --date=yesterday -I)"
+          echo "dir=$CCACHE_DIR"                       >> $GITHUB_OUTPUT
+          echo "today=$(date -I)"                      >> $GITHUB_OUTPUT
+          echo "yesterday=$(date --date=yesterday -I)" >> $GITHUB_OUTPUT
 
-      - uses:  actions/cache@v2
+      - uses:  actions/cache@v3.0.11
         id:    cache-ccache
         with:
           path: ${{ steps.prep-ccache.outputs.dir }}
@@ -197,7 +197,7 @@ jobs:
             ccache-linux-release-${{ steps.prep-ccache.outputs.yesterday }}-1
 
       - name:  Cache subprojects
-        uses:  actions/cache@v2
+        uses:  actions/cache@v3.0.11
         with:
           path: subprojects/packagecache
           key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
@@ -208,7 +208,7 @@ jobs:
       - name: Inject version string
         run: |
           set -x
-          git fetch --prune --unshallow || true
+          git fetch --prune --unshallow
           git fetch --all --tags --force
           export VERSION=$(git describe --abbrev=0)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
@@ -241,9 +241,9 @@ jobs:
         run: |
           sudo mkdir -p "${CLAMDB_DIR}"
           sudo chmod 777 "${CLAMDB_DIR}"
-          echo "::set-output name=today::$(date -I)"
-          echo "::set-output name=yesterday::$(date --date=yesterday -I)"
-      - uses:  actions/cache@v2
+          echo "today=$(date -I)"                      >> $GITHUB_OUTPUT
+          echo "yesterday=$(date --date=yesterday -I)" >> $GITHUB_OUTPUT
+      - uses:  actions/cache@v3.0.11
         id:    cache-clamdb
         with:
           path: ${{ env.CLAMDB_DIR }}/*.cvd
@@ -261,7 +261,7 @@ jobs:
           clamscan --heuristic-scan-precedence=yes --recursive --infected .
 
       - name: Upload tarball
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         # GitHub automatically zips the artifacts (there's no way to create
         # a tarball), and it removes all executable flags while zipping.
         # Letting it zip a tarball preserves flags in the compressed files.
@@ -287,13 +287,13 @@ jobs:
       - name: Generate changelog
         run: |
           set +x
-          git fetch --unshallow || true
+          git fetch --unshallow
           git fetch --all --tags --force
           VERSION=$(git describe --abbrev=0)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           NEWEST_TAG=$(git describe --abbrev=0)
           git log "$NEWEST_TAG..HEAD" > changelog-$VERSION.txt
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           # Keep exactly this artifact name; it's being used to propagate
           # version info via GitHub REST API

@@ -231,7 +231,8 @@ static const std::deque<std_fs::path> &GetResourceParentPaths()
 		return paths;
 
 	auto add_if_exists = [&](const std_fs::path &p) {
-		if (std_fs::is_directory(p))
+		std::error_code ec = {};
+		if (std_fs::is_directory(p, ec))
 			paths.emplace_back(p);
 	};
 
@@ -361,19 +362,30 @@ std_fs::path GetResourcePath(const std_fs::path &subdir, const std_fs::path &nam
 static std::vector<std_fs::path> GetFilesInPath(const std_fs::path &dir,
                                                 const std::string_view files_ext)
 {
-	std::vector<std_fs::path> files;
+	using namespace std_fs;
+	std::vector<std_fs::path> files = {};
 
 	// Check if the directory exists
-	if (!std_fs::is_directory(dir))
+	std::error_code ec = {};
+	if (!std_fs::is_directory(dir, ec))
 		return files;
 
 	// Ensure the extension is valid
 	assert(files_ext.length() && files_ext[0] == '.');
 
-	for (const auto &entry : std_fs::recursive_directory_iterator(dir))
-		if (entry.is_regular_file() && entry.path().extension() == files_ext)
-			files.emplace_back(entry.path().lexically_relative(dir));
+	// Keep recursing past permission issues and follow symlinks
+	constexpr auto idir_opts = directory_options::skip_permission_denied |
+	                           directory_options::follow_directory_symlink;
+	for (const auto &entry : recursive_directory_iterator(dir, idir_opts, ec)) {
+		if (ec)
+			break; // problem iterating, so skip the directory
 
+		if (!entry.is_regular_file(ec))
+			continue; // problem with entry, move onto the next one
+
+		if (entry.path().extension() == files_ext)
+			files.emplace_back(entry.path().lexically_relative(dir));
+	}
 	std::sort(files.begin(), files.end());
 	return files;
 }
@@ -394,33 +406,23 @@ std::map<std_fs::path, std::vector<std_fs::path>> GetFilesInResource(
 std::vector<std::string> GetResourceLines(const std_fs::path &name,
                                           const ResourceImportance importance)
 {
-	const auto resource_path = GetResourcePath(name);
+	auto lines = get_lines(name);
+	if (lines)
+		return std::move(*lines);
 
-	std::ifstream input_file(resource_path, std::ios::binary);
+	// the resource didn't exist but it's optional
+	if (importance == ResourceImportance::Optional)
+		return {};
 
-	if (!input_file.is_open()) {
-		if (importance == ResourceImportance::Optional) {
-			return {};
-		}
-		assert(importance == ResourceImportance::Mandatory);
-		LOG_ERR("RESOURCE: Could not open mandatory resource '%s', tried:",
-		        name.string().c_str());
-		for (const auto &path : GetResourceParentPaths()) {
-			LOG_WARNING("RESOURCE:  - '%s'",
-			            (path / name).string().c_str());
-		}
-		E_Exit("RESOURCE: Mandatory resource failure (see detailed message)");
+	// the resource didn't exist and it was mandatory, so verbosely quit
+	assert(importance == ResourceImportance::Mandatory);
+	LOG_ERR("RESOURCE: Could not open mandatory resource '%s', tried:",
+	        name.string().c_str());
+	for (const auto &path : GetResourceParentPaths()) {
+		LOG_WARNING("RESOURCE:  - '%s'", (path / name).string().c_str());
 	}
-
-	std::vector<std::string> lines = {};
-
-	std::string line = {};
-	while (getline(input_file, line)) {
-		lines.emplace_back(std::move(line));
-		line = {}; // reset after moving
-	}
-	input_file.close();
-	return lines;
+	E_Exit("RESOURCE: Mandatory resource failure (see detailed message)");
+	return {};
 }
 
 // Get resource lines from a text file
@@ -475,8 +477,12 @@ bool path_exists(const std_fs::path &path)
 bool is_writable(const std_fs::path &p)
 {
 	using namespace std_fs;
-	std::error_code ec; // avoid exceptions
-	const auto perms = status(p, ec).permissions();
+	std::error_code ec  = {}; // avoid exceptions
+	const auto p_status = status(p, ec);
+	if (ec)
+		return false;
+
+	const auto perms = p_status.permissions();
 	return ((perms & perms::owner_write) != perms::none ||
 	        (perms & perms::group_write) != perms::none ||
 	        (perms & perms::others_write) != perms::none);
@@ -485,8 +491,12 @@ bool is_writable(const std_fs::path &p)
 bool is_readable(const std_fs::path &p)
 {
 	using namespace std_fs;
-	std::error_code ec; // avoid exceptions
-	const auto perms = status(p, ec).permissions();
+	std::error_code ec  = {}; // avoid exceptions
+	const auto p_status = status(p, ec);
+	if (ec)
+		return false;
+
+	const auto perms = p_status.permissions();
 	return ((perms & perms::owner_read) != perms::none ||
 	        (perms & perms::group_read) != perms::none ||
 	        (perms & perms::others_read) != perms::none);
@@ -562,3 +572,37 @@ bool is_time_valid(const uint32_t hour, const uint32_t minute, const uint32_t se
 	return true;
 }
 
+template <typename T>
+std::pair<std::unique_ptr<T[]>, T*> make_unique_aligned_array(
+        const size_t byte_alignment, const size_t req_elems, const T& initial_value)
+{
+	// Are the inputs valid?
+	assert(byte_alignment > 0);
+	assert(byte_alignment % sizeof(T) == 0); // multiple of the type-size
+	assert(req_elems > 0);
+
+	// Allocate the buffer with enough "space" to accomodate the alignment:
+	const auto space_elems = req_elems + byte_alignment / sizeof(T);
+	auto buffer = std::make_unique<T[]>(space_elems); // moved on return
+
+	// Convert the number of elements into bytes, to be used by align
+	const auto req_bytes = req_elems * sizeof(T);
+	auto space_bytes = space_elems * sizeof(T); // adjusted by align
+
+	// Align the pointer within our buffer
+	auto ptr = reinterpret_cast<void*>(buffer.get());
+	std::align(byte_alignment, req_bytes, ptr, space_bytes);
+
+	// Verify that the adjust space is sufficient and that the ptr is aligned
+	assert(space_bytes >= req_bytes);
+	assert(reinterpret_cast<uintptr_t>(ptr) % byte_alignment == 0);
+
+	// Initialize the elements
+	const auto obj_ptr = reinterpret_cast<T*>(ptr);
+	std::fill_n(obj_ptr, req_elems, initial_value);
+
+	return {std::move(buffer), obj_ptr};
+}
+// Explicit template instantiations
+template std::pair<std::unique_ptr<uint8_t[]>, uint8_t*>
+make_unique_aligned_array<uint8_t>(const size_t, const size_t, const uint8_t&);

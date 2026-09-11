@@ -55,10 +55,12 @@
 #include "mapper.h"
 #include "midi.h"
 #include "mixer.h"
+#include "mouse.h"
 #include "ne2000.h"
 #include "pci_bus.h"
 #include "pic.h"
 #include "programs.h"
+#include "reelmagic.h"
 #include "render.h"
 #include "setup.h"
 #include "shell.h"
@@ -72,7 +74,6 @@ MachineType machine;
 SVGACards svgaCard;
 
 /* The whole load of startups for all the subfunctions */
-void MSG_Init(Section_prop *);
 void LOG_StartUp();
 void MEM_Init(Section *);
 void PAGING_Init(Section *);
@@ -102,7 +103,6 @@ void PCI_Init(Section*);
 
 void KEYBOARD_Init(Section*);	//TODO This should setup INT 16 too but ok ;)
 void JOYSTICK_Init(Section*);
-void MOUSE_Init(Section*);
 void SBLASTER_Init(Section*);
 void MPU401_Init(Section*);
 void PCSPEAKER_Init(Section*);
@@ -189,7 +189,7 @@ static Bitu Normal_Loop() {
 }
 
 void increaseticks() { //Make it return ticksRemain and set it in the function above to remove the global variable.
-	ZoneScoped
+	ZoneScoped;
 	if (GCC_UNLIKELY(ticksLocked)) { // For Fast Forward Mode
 		ticksRemain=5;
 		/* Reset any auto cycle guessing for this frame */
@@ -374,7 +374,6 @@ static void DOSBOX_RealInit(Section * sec) {
 	ticksLast=GetTicks();
 	ticksLocked = false;
 	DOSBOX_SetLoop(&Normal_Loop);
-	MSG_Init(section);
 
 	MAPPER_AddHandler(DOSBOX_UnlockSpeed, SDL_SCANCODE_F12, MMOD2,
 	                  "speedlock", "Speedlock");
@@ -459,7 +458,6 @@ void DOSBOX_Init()
 	Prop_string* Pstring; // use pstring when touching properties
 	Prop_string *pstring;
 	Prop_bool* Pbool;
-	PropMultiVal *pmulti;
 	PropMultiValRemain* pmulti_remain;
 
 	// Specifies if and when a setting can be changed
@@ -483,8 +481,8 @@ void DOSBOX_Init()
 	        "Select a language to use: de, en, es, fr, it, nl, pl, and ru\n"
 	        "Notes: This setting will override the 'LANG' environment, if set.\n"
 	        "       The 'resources/translations' directory bundled with the executable holds\n"
-	        "       these files. Please keep it along-side the executable to support this feature.");
-
+	        "       these files. Please keep it along-side the executable to support this\n"
+	        "       feature.");
 	pstring = secprop->Add_string("machine", only_at_start, "svga_s3");
 	pstring->Set_values(machines);
 	pstring->Set_help("The type of machine DOSBox tries to emulate.");
@@ -519,7 +517,8 @@ void DOSBOX_Init()
 	        "  repair:  Repair (and report) faults using adjacent chain blocks.\n"
 	        "  report:  Report faults but otherwise proceed as-is.\n"
 	        "  allow:   Allow faults to go unreported (hardware behavior).\n"
-	        "The default (deny) is recommended unless a game is failing with MCB corruption errors.");
+	        "The default (deny) is recommended unless a game is failing with MCB corruption\n"
+	        "errors.");
 	pstring->Set_values(mcb_fault_strategies);
 
 	const char *vmemsize_choices[] = {
@@ -538,8 +537,8 @@ void DOSBOX_Init()
 	};
 	pstring = secprop->Add_string("vmemsize", only_at_start, "auto");
 	pstring->Set_values(vmemsize_choices);
-	pstring->Set_help(
-	        "Video memory in MiB (1-8) or KiB (256 to 8192). 'auto' uses the default per video adapter.");
+	pstring->Set_help("Video memory in MiB (1-8) or KiB (256 to 8192). 'auto' uses the default per\n"
+	                  "video adapter.");
 
 	pstring = secprop->Add_string("dos_rate", when_idle, "default");
 	pstring->Set_help(
@@ -615,9 +614,9 @@ void DOSBOX_Init()
 
 	secprop = control->AddSection_prop("render", &RENDER_Init, true);
 	secprop->AddEarlyInitFunction(&RENDER_InitShaderSource, true);
-	pint = secprop->Add_int("frameskip", always, 0);
-	pint->SetMinMax(0, 10);
-	pint->Set_help("How many frames DOSBox skips before drawing one.");
+
+	pint = secprop->Add_int("frameskip", deprecated, 0);
+	pint->Set_help("Consider capping frame-rates using the '[sdl] host_rate' setting.");
 
 	Pbool = secprop->Add_bool("aspect", always, true);
 	Pbool->Set_help("Scales the vertical resolution to produce a 4:3 display aspect\n"
@@ -636,63 +635,53 @@ void DOSBOX_Init()
 
 	pstring = secprop->Add_string("cga_colors", only_at_start, "default");
 	pstring->Set_help(
-	        "Sets the interpretation of CGA RGBI colors. Affects all machine types capable of\n"
-	        "displaying CGA or better graphics. Built-in presets:\n"
-	        "  default:       The canonical CGA palette, as emulated by VGA adapters (default).\n"
-	        "  tandy [BL]:    Emulation of an idealised Tandy monitor with adjustable Brown Level\n"
-	        "                 (0 - red, 50 - brown, 100 - dark yellow; defaults to 50).\n"
-	        "  tandy-warm:    Emulation of the actual color output of an unknown Tandy monitor.\n"
-	        "  ibm5153 [C]:   Emulation of the actual color output of an IBM 5153 monitor with\n"
-	        "                 a unique Contrast control that dims non-bright colors only\n"
-	        "                 (0 to 100; defaults to 100).\n"
+	        "Sets the interpretation of CGA RGBI colors. Affects all machine types capable\n"
+	        "of displaying CGA or better graphics. Built-in presets:\n"
+	        "  default:       The canonical CGA palette, as emulated by VGA adapters\n"
+	        "                 (default).\n"
+	        "  tandy [BL]:    Emulation of an idealised Tandy monitor with adjustable\n"
+	        "                 brown level. The brown level can be provided as an optional\n"
+	        "                 second parameter (0 - red, 50 - brown, 100 - dark yellow;\n"
+	        "                 defaults to 50). E.g. tandy 100\n"
+	        "  tandy-warm:    Emulation of the actual color output of an unknown Tandy\n"
+	        "                 monitor.\n"
+	        "  ibm5153 [C]:   Emulation of the actual color output of an IBM 5153 monitor\n"
+	        "                 with a unique contrast control that dims non-bright colors\n"
+	        "                 only. The contrast can be optionally provided as a second\n"
+	        "                 parameter (0 to 100; defaults to 100), e.g. ibm5153 60\n"
 	        "  agi-amiga-v1, agi-amiga-v2, agi-amiga-v3:\n"
 	        "                 Palettes used by the Amiga ports of Sierra AGI games\n"
 	        "                 (see the manual for further details).\n"
-	        "  agi-amigaish:  A mix of EGA and Amiga colors used by the Sarien AGI-interpreter.\n"
+	        "  agi-amigaish:  A mix of EGA and Amiga colors used by the Sarien\n"
+	        "                 AGI-interpreter.\n"
 	        "  scumm-amiga:   Palette used by the Amiga ports of LucasArts EGA games.\n"
 	        "  colodore:      Commodore 64 inspired colors based on the Colodore palette.\n"
 	        "  colodore-sat:  Colodore palette with 20% more saturation.\n"
-	        "  dga16:         A modern take on the canonical CGA palette with dialed back contrast.\n"
-			"You can also set custom colors by specifying 16 space or comma separated color values,\n"
-			"either as 3 or 6-digit hex codes (e.g. #f00 or #ff0000 for full red), or decimal\n"
-			"RGB triplets (e.g. (255, 0, 255) for magenta).");
+	        "  dga16:         A modern take on the canonical CGA palette with dialed back\n"
+	        "                 contrast.\n"
+	        "You can also set custom colors by specifying 16 space or comma separated color\n"
+	        "values, either as 3 or 6-digit hex codes (e.g. #f00 or #ff0000 for full red),\n"
+	        "or decimal RGB triplets (e.g. (255, 0, 255) for magenta). The 16 colors are\n"
+	        "ordered as follows:\n"
+	        "black, blue, green, cyan, red, magenta, brown, light-grey, dark-grey,\n"
+	        "light-blue, light-green, light-cyan, light-red, light-magenta, yellow,\n"
+	        "and white.\n"
+	        "Their default values, shown here in 6-digit hex code format, are:\n"
+	        "#000000 #0000aa #00aa00 #00aaaa #aa0000 #aa00aa #aa5500 #aaaaaa #555555\n"
+	        "#5555ff #55ff55 #55ffff #ff5555 #ff55ff #ffff55 and #ffffff, respectively.");
 
-	pmulti = secprop->AddMultiVal("scaler", always, " ");
-	pmulti->SetValue("none");
-	pmulti->Set_help("Scaler used to enlarge/enhance low resolution modes.\n"
-	                 "If 'forced' is appended, then the scaler will be used even if\n"
-	                 "the result might not be desired.\n"
-	                 "Note that some scalers may use black borders to fit the image\n"
-	                 "within your configured display resolution. If this is\n"
-	                 "undesirable, try either a different scaler or enabling\n"
-	                 "fullresolution output.");
-
-	pstring = pmulti->GetSection()->Add_string("type", always, "none");
-
-	const char *scalers[] = {
-		"none", "normal2x", "normal3x",
-#if RENDER_USE_ADVANCED_SCALERS>2
-		"advmame2x", "advmame3x", "advinterp2x", "advinterp3x", "hq2x", "hq3x", "2xsai", "super2xsai", "supereagle",
-#endif
-#if RENDER_USE_ADVANCED_SCALERS>0
-		"tv2x", "tv3x", "rgb2x", "rgb3x", "scan2x", "scan3x",
-#endif
-		0 };
-	pstring->Set_values(scalers);
-
-	const char *force[] = {"", "forced", 0};
-	pstring = pmulti->GetSection()->Add_string("force", always, "");
-	pstring->Set_values(force);
+	pstring = secprop->Add_string("scaler", deprecated, "none");
+	pstring->Set_help(
+	        "Software scalers are deprecated in favour of hardware-accelerated options:\n"
+	        " - If you used the normal2x/3x scalers, set a desired 'windowresolution' instead.\n"
+	        " - If you used an advanced scaler, consider one of the 'glshader' options instead.");
 
 #if C_OPENGL
 	pstring = secprop->Add_path("glshader", always, "default");
-	pstring->Set_help("Either 'none' or a GLSL shader name. Works only with\n"
-	                  "OpenGL output.  Can be either an absolute path, a file\n"
-	                  "in the 'glshaders' subdirectory of the DOSBox\n"
-	                  "configuration directory, one of the bundled shaders:\n"
-	                  "advinterp2x, advinterp3x, advmame2x, advmame3x,\n"
-	                  "crt-easymode-flat, crt-fakelottes-flat, rgb2x, rgb3x,\n"
-	                  "scan2x, scan3x, tv2x, tv3x, sharp (default).");
+	pstring->Set_help(
+	        "Options include 'default', 'none', a shader listed using the --list-glshaders\n"
+	        "command-line argument, or an absolute or relative path to a file.\n"
+	        "In all cases, you may omit the shader's '.glsl' file extension.");
 #endif
 
 	// Add the [composite] conf block after [render]
@@ -756,6 +745,8 @@ void DOSBOX_Init()
 	secprop=control->AddSection_prop("pci",&PCI_Init,false); //PCI bus
 #endif
 
+	// Configure mouse
+	MOUSE_AddConfigSection(control);
 
 	// Configure mixer
 	MIXER_AddConfigSection(control);
@@ -899,8 +890,8 @@ void DOSBOX_Init()
 	        "  auto:      Use the appropriate filter determined by 'sbtype'.\n"
 	        "  sb1, sb2, sbpro1, sbpro2, sb16:\n"
 	        "             Use the filter of this Sound Blaster model.\n"
-	        "  modern:    Use linear interpolation upsampling that acts as a low-pass filter;\n"
-	        "             this is the legacy DOSBox behaviour (default).\n"
+	        "  modern:    Use linear interpolation upsampling that acts as a low-pass\n"
+	        "             filter; this is the legacy DOSBox behaviour (default).\n"
 	        "  off:       Don't filter the output.\n"
 	        "  <custom>:  One or two custom filters in the following format:\n"
 	        "               TYPE ORDER FREQ\n"
@@ -971,7 +962,7 @@ void DOSBOX_Init()
 	Pstring = secprop->Add_string("tandy", when_idle, "auto");
 	Pstring->Set_values(tandys);
 	Pstring->Set_help(
-	        "Enable Tandy Sound System emulation."
+	        "Enable Tandy Sound System emulation.\n"
 	        "For 'auto', emulation is present only if machine is set to 'tandy'.");
 
 	Pstring = secprop->Add_string("tandy_filter", when_idle, "on");
@@ -985,7 +976,7 @@ void DOSBOX_Init()
 	Pstring->Set_help(
 	        "Filter for the Tandy DAC output:\n"
 	        "  on:        Filter the output (default).\n"
-	        "  off:       Don't filter the output."
+	        "  off:       Don't filter the output.\n"
 	        "  <custom>:  Custom filter definition; see 'sb_filter' for details.");
 
 	// LPT DAC device emulation
@@ -1029,6 +1020,30 @@ void DOSBOX_Init()
 	                  "  off:       Don't filter the output.\n"
 	                  "  <custom>:  Custom filter definition; see 'sb_filter' for details.");
 
+	// ReelMagic Emulator
+	secprop = control->AddSection_prop("reelmagic", &ReelMagic_Init, true);
+	pstring = secprop->Add_string("reelmagic", when_idle, "off");
+	pstring->Set_help(
+	        "ReelMagic (aka REALmagic) MPEG playback support.\n"
+	        "  off:      Disable support (default).\n"
+	        "  cardonly: Initialize the card without loading the FMPDRV.EXE driver.\n"
+	        "  on:       Initialize the card and load the FMPDRV.EXE on start-up.");
+
+	pstring = secprop->Add_string("reelmagic_key", when_idle, "auto");
+	pstring->Set_help(
+	        "Set the 32-bit magic key used to decode the game's videos.\n"
+	        "  auto:     Use the built-in routines to determine the key (default).\n"
+	        "  common:   Use the most commonly found key, which is 0x40044041.\n"
+	        "  thehorde: Use The Horde's key, which is 0xC39D7088.\n"
+	        "  <custom>: Set a custom key in hex format (e.g., 0x12345678).");
+
+	pint = secprop->Add_int("reelmagic_fcode", when_idle, 0);
+	pint->Set_help(
+	        "Override the frame rate code used during video playback.\n"
+	        "  0:        No override: attempt automatic rate discovery (default).\n"
+	        "  1 to 7:   Override the frame rate to one the following (use 1 through 7):\n"
+	        "            1=23.976, 2=24, 3=25, 4=29.97, 5=30, 6=50, or 7=59.94 FPS.");
+
 	// Joystick emulation
 	secprop=control->AddSection_prop("joystick",&BIOS_Init,false);//done
 
@@ -1042,17 +1057,19 @@ void DOSBOX_Init()
 	Pstring->Set_help(
 	        "Type of joystick to emulate: auto (default),\n"
 	        "auto     : Detect and use any joystick(s), if possible.,\n"
-	        "2axis    : Support up to two joysticks.\n"
-	        "4axis    : Support the first joystick only.\n"
-	        "4axis_2  : Support the second joystick only.\n"
-	        "fcs      : Support a Thrustmaster-type joystick.\n"
-	        "ch       : Support a CH Flightstick-type joystick.\n"
-	        "hidden   : Prevent DOS from seeing the joystick(s), but enable them for mapping.\n"
+	        "2axis    : Support up to two joysticks, each with 2 axis\n"
+	        "4axis    : Support the first joystick only, as a 4-axis type.\n"
+	        "4axis_2  : Support the second joystick only, as a 4-axis type.\n"
+	        "fcs      : Emulate joystick as an original Thrustmaster FCS.\n"
+	        "ch       : Emulate joystick as an original CH Flightstick.\n"
+	        "hidden   : Prevent DOS from seeing the joystick(s), but enable them for\n"
+	        "           mapping.\n"
 	        "disabled : Fully disable joysticks: won't be polled, mapped, or visible in DOS.\n"
 	        "(Remember to reset DOSBox's mapperfile if you saved it earlier)");
 
 	Pbool = secprop->Add_bool("timed", when_idle, true);
-	Pbool->Set_help("enable timed intervals for axis. Experiment with this option, if your joystick drifts (away).");
+	Pbool->Set_help("enable timed intervals for axis. Experiment with this option, if your\n"
+	                "joystick drifts (away).");
 
 	Pbool = secprop->Add_bool("autofire", when_idle, false);
 	Pbool->Set_help("continuously fires as long as you keep the button pressed.");
@@ -1064,17 +1081,19 @@ void DOSBOX_Init()
 	Pbool->Set_help("enable button wrapping at the number of emulated buttons.");
 
 	Pbool = secprop->Add_bool("circularinput", when_idle, false);
-	Pbool->Set_help("enable translation of circular input to square output.\n"
-	                "Try enabling this if your left analog stick can only move in a circle.");
+	Pbool->Set_help(
+	        "enable translation of circular input to square output.\n"
+	        "Try enabling this if your left analog stick can only move in a circle.");
 
 	Pint = secprop->Add_int("deadzone", when_idle, 10);
-	Pint->SetMinMax(0,100);
+	Pint->SetMinMax(0, 100);
 	Pint->Set_help("the percentage of motion to ignore. 100 turns the stick into a digital one.");
 
 	Pbool = secprop->Add_bool("use_joy_calibration_hotkeys", when_idle, false);
 	Pbool->Set_help(
 	        "Activates hotkeys to allow realtime calibration of the joystick's x and y axis.\n"
-	        "Only consider this if in-game calibration fails and other settings have been tried.\n"
+	        "Only consider this if in-game calibration fails and other settings have been\n"
+	        "tried.\n"
 	        " - Ctrl/Cmd+Arrow-keys adjusts the axis' scalar value:\n"
 	        "     - left and right diminish or magnify the x-axis scalar, respectively.\n"
 	        "     - down and up diminish or magnify the y-axis scalar, respectively.\n"
@@ -1082,8 +1101,9 @@ void DOSBOX_Init()
 	        "     - left and right shift x-axis offset in the given direction.\n"
 	        "     - down and up shift the y-axis offset in the given direction.\n"
 	        " - Reset the X and Y calibration using Ctrl+Delete and Ctrl+Home, respectively.\n"
-	        "Each tap will report X or Y calibration values you can set below. When you find parameters that work,\n"
-	        "quit the game, switch this setting back to false, and populate the reported calibration parameters.");
+	        "Each tap will report X or Y calibration values you can set below. When you find\n"
+	        "parameters that work, quit the game, switch this setting back to false, and\n"
+	        "populate the reported calibration parameters.");
 
 	pstring = secprop->Add_string("joy_x_calibration", when_idle, "auto");
 	pstring->Set_help(
@@ -1094,13 +1114,8 @@ void DOSBOX_Init()
 	        "Apply Y-axis calibration parameters from the hotkeys. Default is 'auto'.");
 
 	secprop = control->AddSection_prop("serial", &SERIAL_Init, true);
-	const char *serials[] = {"dummy",
-	                         "disabled",
-	                         "mouse",
-	                         "modem",
-	                         "nullmodem",
-	                         "direct",
-	                         0};
+	const char* serials[] = {
+	        "dummy", "disabled", "mouse", "modem", "nullmodem", "direct", 0};
 
 	pmulti_remain = secprop->AddMultiValRemain("serial1", when_idle, " ");
 	Pstring = pmulti_remain->GetSection()->Add_string("type", when_idle, "dummy");
@@ -1113,14 +1128,7 @@ void DOSBOX_Init()
 	        "Additional parameters must be on the same line in the form of\n"
 	        "parameter:value. Parameter for all types is irq (optional).\n"
 	        "for mouse:\n"
-	        "   type, can be one of:\n"
-	        "      2btn:  2 buttons, Microsoft serial mouse\n"
-	        "      3btn:  3 buttons, Logitech serial mouse\n"
-	        "      wheel: 3 buttons + wheel serial mouse\n"
-	        "      msm:   3 buttons, Mouse Systems Mouse\n"
-	        "      2btn+msm, 3btn+msm, wheel+msm : autoselection\n"
-	        "   rate, can be normal or smooth (more frequent updates than on real PC)\n"
-	        "   Default is type:wheel+msm rate:smooth\n"
+	        "   model, overrides setting from [mouse] section\n"
 	        "for direct: realport (required), rxdelay (optional).\n"
 	        "   (realport:COM1 realport:ttyS0).\n"
 	        "for modem: listenport, sock, baudrate (all optional).\n"
@@ -1161,19 +1169,20 @@ void DOSBOX_Init()
 	}
 
 	/* All the DOS Related stuff, which will eventually start up in the shell */
-	secprop=control->AddSection_prop("dos",&DOS_Init,false);//done
-	secprop->AddInitFunction(&XMS_Init,true);//done
+	secprop = control->AddSection_prop("dos", &DOS_Init, false); // done
+	secprop->AddInitFunction(&XMS_Init, true);                   // done
 	Pbool = secprop->Add_bool("xms", when_idle, true);
 	Pbool->Set_help("Enable XMS support.");
 
-	secprop->AddInitFunction(&EMS_Init,true);//done
-	const char* ems_settings[] = { "true", "emsboard", "emm386", "false", 0};
+	secprop->AddInitFunction(&EMS_Init, true); // done
+	const char* ems_settings[] = {"true", "emsboard", "emm386", "false", 0};
 	Pstring = secprop->Add_string("ems", when_idle, "true");
 	Pstring->Set_values(ems_settings);
-	Pstring->Set_help("Enable EMS support. The default (=true) provides the best\n"
-		"compatibility but certain applications may run better with\n"
-		"other choices, or require EMS support to be disabled (=false)\n"
-		"to work at all.");
+	Pstring->Set_help(
+	        "Enable EMS support. The default (=true) provides the best\n"
+	        "compatibility but certain applications may run better with\n"
+	        "other choices, or require EMS support to be disabled (=false)\n"
+	        "to work at all.");
 
 	Pbool = secprop->Add_bool("umb", when_idle, true);
 	Pbool->Set_help("Enable UMB support.");
@@ -1194,8 +1203,8 @@ void DOSBOX_Init()
 	                "while in the DOS command shell. FreeDOS and MS-DOS 7/8\n"
 	                "COMMAND.COM supports this behavior.");
 
-	secprop->AddInitFunction(&DOS_KeyboardLayout_Init,true);
-	Pstring = secprop->Add_string("keyboardlayout", when_idle,  "auto");
+	secprop->AddInitFunction(&DOS_KeyboardLayout_Init, true);
+	Pstring = secprop->Add_string("keyboardlayout", when_idle, "auto");
 	Pstring->Set_help("Language code of the keyboard layout (or none).");
 
 	// Mscdex
@@ -1203,8 +1212,8 @@ void DOSBOX_Init()
 	secprop->AddInitFunction(&DRIVES_Init);
 	secprop->AddInitFunction(&CDROM_Image_Init);
 #if C_IPX
-	secprop=control->AddSection_prop("ipx",&IPX_Init,true);
-	Pbool = secprop->Add_bool("ipx", when_idle,  false);
+	secprop = control->AddSection_prop("ipx", &IPX_Init, true);
+	Pbool   = secprop->Add_bool("ipx", when_idle, false);
 	Pbool->Set_help("Enable ipx over UDP/IP emulation.");
 #endif
 

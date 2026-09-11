@@ -1,7 +1,7 @@
 /*
  * This file is part of libsidplayfp, a SID player engine.
  *
- * Copyright 2011-2016 Leandro Nini <drfiemost@users.sourceforge.net>
+ * Copyright 2011-2022 Leandro Nini <drfiemost@users.sourceforge.net>
  * Copyright 2007-2010 Antti Lankila
  * Copyright 2004,2010 Dag Lem <resid@nimrod.no>
  *
@@ -84,9 +84,11 @@ namespace reSIDfp
 class WaveformGenerator
 {
 private:
-    matrix_t* model_wave = nullptr;
+    matrix_t* model_wave = {};
+    matrix_t* model_pulldown = {};
 
-    short* wave = nullptr;
+    short* wave = {};
+    short* pulldown = {};
 
     // PWout = (PWn/40.95)%
     unsigned int pw = 0;
@@ -153,6 +155,7 @@ private:
 
 public:
     void setWaveformModels(matrix_t* models);
+    void setPulldownModels(matrix_t* models);
 
     /**
      * Set the chip model.
@@ -182,7 +185,9 @@ public:
      */
     WaveformGenerator() :
         model_wave(nullptr),
+        model_pulldown(nullptr),
         wave(nullptr),
+        pulldown(nullptr),
         pw(0),
         shift_register(0),
         shift_pipeline(0),
@@ -307,7 +312,7 @@ void WaveformGenerator::clock()
         const unsigned int accumulator_old = accumulator;
         accumulator = (accumulator + freq) & 0xffffff;
 
-        // Check which bit have changed
+        // Check which bit have changed from low to high
         const unsigned int accumulator_bits_set = ~accumulator_old & accumulator;
 
         // Check whether the MSB is set high. This is used for synchronization.
@@ -323,7 +328,7 @@ void WaveformGenerator::clock()
         else if (unlikely(shift_pipeline != 0) && --shift_pipeline == 0)
         {
             // bit0 = (bit22 | test) ^ bit17
-            clock_shift_register(((shift_register << 22) ^ (shift_register << 17)) & (1 << 22));
+            clock_shift_register(((shift_register << 22) ^ (shift_register << 17)) & (1u << 22));
         }
     }
 }
@@ -339,12 +344,17 @@ unsigned int WaveformGenerator::output(const WaveformGenerator* ringModulator)
         // The bit masks no_pulse and no_noise are used to achieve branch-free
         // calculation of the output value.
         waveform_output = wave[ix] & (no_pulse | pulse_output) & no_noise_or_noise_output;
+        if (pulldown != nullptr)
+            waveform_output = pulldown[waveform_output];
 
         // Triangle/Sawtooth output is delayed half cycle on 8580.
-        // This will appear as a one cycle delay on OSC3 as it is latched first phase of the clock.
+        // This will appear as a one cycle delay on OSC3 as it is latched
+        // in the first phase of the clock.
         if ((waveform & 3) && !is6581)
         {
             osc3 = tri_saw_pipeline & (no_pulse | pulse_output) & no_noise_or_noise_output;
+            if (pulldown != nullptr)
+                osc3 = pulldown[osc3];
             tri_saw_pipeline = wave[ix];
         }
         else
@@ -354,9 +364,10 @@ unsigned int WaveformGenerator::output(const WaveformGenerator* ringModulator)
 
         // In the 6581 the top bit of the accumulator may be driven low by combined waveforms
         // when the sawtooth is selected
-        // FIXME doesn't seem to always happen
-        if ((waveform & 2) && unlikely(waveform & 0xd) && is6581)
-            accumulator &= (waveform_output << 12) | 0x7fffff;
+        if (is6581
+                && (waveform & 0x2)
+                && ((waveform_output & 0x800) == 0))
+            accumulator &= 0x7fffff;
 
         write_shift_register();
     }

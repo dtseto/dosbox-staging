@@ -512,12 +512,14 @@ CDROM_Interface_Image::~CDROM_Interface_Image()
 	refCount--;
 
 	// Stop playback before wiping out the CD Player
-	if (refCount == 0 && player.cd) {
-		StopAudio();
+	if (refCount == 0) {
+		LOG_MSG("CDROM: Shutting down CD-DA player");
+
+		if (player.cd) {
+			StopAudio();
+		}
+		MIXER_DeregisterChannel(player.channel);
 		player.channel.reset();
-#ifdef DEBUG
-		LOG_MSG("CDROM: Released CD Player resources");
-#endif
 	}
 	if (player.cd == this) {
 		player.cd = nullptr;
@@ -838,10 +840,8 @@ void CDROM_Interface_Image::ChannelControl(TCtrl ctrl)
 #endif
 		return;
 	}
-
 	// Adjust the volume of our mixer channel as defined by the application
-	player.channel->SetVolumeScale(static_cast<float>(ctrl.vol[0] / 255.0), // left vol
-	                               static_cast<float>(ctrl.vol[1] / 255.0)); // right vol
+	player.channel->SetAppVolume(ctrl.vol[0] / 255.0f, ctrl.vol[1] / 255.0f);
 
 	// Map the audio channels in our mixer channel as defined by the application
 	const auto left_mapped = static_cast<LINE_INDEX>(ctrl.out[0]);

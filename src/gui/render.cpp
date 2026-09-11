@@ -24,6 +24,7 @@
 #include <cstring>
 #include <fstream>
 #include <functional>
+#include <map>
 #include <regex>
 #include <sstream>
 #include <unordered_map>
@@ -174,11 +175,6 @@ bool RENDER_StartUpdate(void)
 		return false;
 	if (GCC_UNLIKELY(!render.active))
 		return false;
-	if (GCC_UNLIKELY(render.frameskip.count < render.frameskip.max)) {
-		render.frameskip.count++;
-		return false;
-	}
-	render.frameskip.count = 0;
 	if (render.scale.inMode == scalerMode8) {
 		Check_Palette();
 	}
@@ -248,10 +244,7 @@ void RENDER_EndUpdate(bool abort)
 		}
 		auto fps = render.src.fps;
 		pitch    = render.scale.cachePitch;
-		if (render.frameskip.max) {
-			const double fps_skip = 1 + render.frameskip.max;
-			fps /= fps_skip;
-		}
+
 		CAPTURE_AddImage(render.src.width,
 		                 render.src.height,
 		                 render.src.bpp,
@@ -263,33 +256,20 @@ void RENDER_EndUpdate(bool abort)
 	}
 	if (render.scale.outWrite) {
 		GFX_EndUpdate(abort ? NULL : Scaler_ChangedLines);
-		render.frameskip.hadSkip[render.frameskip.index] = 0;
 	} else {
-#if 0
-		Bitu total = 0, i;
-		render.frameskip.hadSkip[render.frameskip.index] = 1;
-		for (i = 0;i<RENDER_SKIP_CACHE;i++) 
-			total += render.frameskip.hadSkip[i];
-		LOG_MSG( "Skipped frame %d %d", PIC_Ticks, (total * 100) / RENDER_SKIP_CACHE );
-#endif
 		// If we made it here, then there's nothing new to render.
 		GFX_EndUpdate(nullptr);
 	}
-	render.frameskip.index = (render.frameskip.index + 1) &
-	                         (RENDER_SKIP_CACHE - 1);
 	render.updating = false;
 }
 
-static Bitu MakeAspectTable(Bitu skip, Bitu height, double scaley, Bitu miny)
+static Bitu MakeAspectTable(Bitu height, double scaley, Bitu miny)
 {
 	Bitu i;
 	double lines    = 0;
 	Bitu linesadded = 0;
-	for (i = 0; i < skip; i++)
-		Scaler_Aspect[i] = 0;
 
-	height += skip;
-	for (i = skip; i < height; i++) {
+	for (i = 0; i < height; i++) {
 		lines += scaley;
 		if (lines >= miny) {
 			Bitu templines = (Bitu)lines;
@@ -309,7 +289,6 @@ static void RENDER_Reset(void)
 	boxer_applyRenderingStrategy();
 
 	Bitu width  = render.src.width;
-	Bitu height = render.src.height;
 	bool dblw   = render.src.dblw;
 	bool dblh   = render.src.dblh;
 
@@ -317,8 +296,7 @@ static void RENDER_Reset(void)
 	double gfx_scaleh;
 
 	Bitu gfx_flags, xscale, yscale;
-	ScalerSimpleBlock_t *simpleBlock   = &ScaleNormal1x;
-	ScalerComplexBlock_t *complexBlock = 0;
+	ScalerSimpleBlock_t* simpleBlock = &ScaleNormal1x;
 	if (render.aspect) {
 		if (render.src.ratio > 1.0) {
 			gfx_scalew = 1;
@@ -333,77 +311,16 @@ static void RENDER_Reset(void)
 	}
 
 	/* Don't do software scaler sizes larger than 4k */
-	Bitu maxsize_current_input = SCALER_MAXLINE_WIDTH / width;
+	Bitu maxsize_current_input = SCALER_MAXWIDTH / width;
 	if (render.scale.size > maxsize_current_input)
 		render.scale.size = maxsize_current_input;
 
-	if ((dblh && dblw) || (render.scale.forced && !dblh && !dblw)) {
+	if (dblh && dblw) {
 		/* Initialize always working defaults */
-		if (render.scale.size == 2)
-			simpleBlock = &ScaleNormal2x;
-		else if (render.scale.size == 3)
-			simpleBlock = &ScaleNormal3x;
-		else
-			simpleBlock = &ScaleNormal1x;
-			/* Maybe override them */
-#if RENDER_USE_ADVANCED_SCALERS > 0
-		switch (render.scale.op) {
-#	if RENDER_USE_ADVANCED_SCALERS > 2
-		case scalerOpAdvInterp:
-			if (render.scale.size == 2)
-				complexBlock = &ScaleAdvInterp2x;
-			else if (render.scale.size == 3)
-				complexBlock = &ScaleAdvInterp3x;
-			break;
-		case scalerOpAdvMame:
-			if (render.scale.size == 2)
-				complexBlock = &ScaleAdvMame2x;
-			else if (render.scale.size == 3)
-				complexBlock = &ScaleAdvMame3x;
-			break;
-		case scalerOpHQ:
-			if (render.scale.size == 2)
-				complexBlock = &ScaleHQ2x;
-			else if (render.scale.size == 3)
-				complexBlock = &ScaleHQ3x;
-			break;
-		case scalerOpSuperSaI:
-			if (render.scale.size == 2)
-				complexBlock = &ScaleSuper2xSaI;
-			break;
-		case scalerOpSuperEagle:
-			if (render.scale.size == 2)
-				complexBlock = &ScaleSuperEagle;
-			break;
-		case scalerOpSaI:
-			if (render.scale.size == 2)
-				complexBlock = &Scale2xSaI;
-			break;
-#	endif
-		case scalerOpTV:
-			if (render.scale.size == 2)
-				simpleBlock = &ScaleTV2x;
-			else if (render.scale.size == 3)
-				simpleBlock = &ScaleTV3x;
-			break;
-		case scalerOpRGB:
-			if (render.scale.size == 2)
-				simpleBlock = &ScaleRGB2x;
-			else if (render.scale.size == 3)
-				simpleBlock = &ScaleRGB3x;
-			break;
-		case scalerOpScan:
-			if (render.scale.size == 2)
-				simpleBlock = &ScaleScan2x;
-			else if (render.scale.size == 3)
-				simpleBlock = &ScaleScan3x;
-			break;
-		default: break;
-		}
-#endif
+		simpleBlock = &ScaleNormal1x;
 	} else if (dblw) {
 		simpleBlock = &ScaleNormalDw;
-		if (width * simpleBlock->xscale > SCALER_MAXLINE_WIDTH) {
+		if (width * simpleBlock->xscale > SCALER_MAXWIDTH) {
 			// This should only happen if you pick really bad
 			// values... but might be worth adding selecting a
 			// scaler that fits
@@ -412,86 +329,42 @@ static void RENDER_Reset(void)
 	} else if (dblh) {
 		simpleBlock = &ScaleNormalDh;
 	} else {
-	forcenormal:
-		complexBlock = 0;
 		simpleBlock  = &ScaleNormal1x;
 	}
-	if (complexBlock) {
-#if RENDER_USE_ADVANCED_SCALERS > 1
-		if ((width >= SCALER_COMPLEXWIDTH - 16) ||
-		    height >= SCALER_COMPLEXHEIGHT - 16) {
-			LOG_MSG("Scaler can't handle this resolution, going back to normal");
-			goto forcenormal;
-		}
-#else
-		goto forcenormal;
-#endif
-		gfx_flags = complexBlock->gfxFlags;
-		xscale    = complexBlock->xscale;
-		yscale    = complexBlock->yscale;
-		//		LOG_MSG("Scaler:%s",complexBlock->name);
-	} else {
-		gfx_flags = simpleBlock->gfxFlags;
-		xscale    = simpleBlock->xscale;
-		yscale    = simpleBlock->yscale;
-		//		LOG_MSG("Scaler:%s",simpleBlock->name);
-	}
+
+	gfx_flags = simpleBlock->gfxFlags;
+	xscale    = simpleBlock->xscale;
+	yscale    = simpleBlock->yscale;
+	//		LOG_MSG("Scaler:%s",simpleBlock->name);
 	switch (render.src.bpp) {
-	case 8:
-		render.src.start = (render.src.width * 1) / sizeof(Bitu);
-		if (gfx_flags & GFX_CAN_8)
-			gfx_flags |= GFX_LOVE_8;
-		else
-			gfx_flags |= GFX_LOVE_32;
-		break;
+	case 8: render.src.start = (render.src.width * 1) / sizeof(Bitu); break;
 	case 15:
 		render.src.start = (render.src.width * 2) / sizeof(Bitu);
-		gfx_flags |= GFX_LOVE_15;
-		gfx_flags = (gfx_flags & ~GFX_CAN_8) | GFX_RGBONLY;
+		gfx_flags = (gfx_flags & ~GFX_CAN_8);
 		break;
 	case 16:
 		render.src.start = (render.src.width * 2) / sizeof(Bitu);
-		gfx_flags |= GFX_LOVE_16;
-		gfx_flags = (gfx_flags & ~GFX_CAN_8) | GFX_RGBONLY;
+		gfx_flags = (gfx_flags & ~GFX_CAN_8);
 		break;
 	case 24:
 		render.src.start = (render.src.width * 3) / sizeof(Bitu);
-		gfx_flags |= GFX_LOVE_32;
-		gfx_flags = (gfx_flags & ~GFX_CAN_8) | GFX_RGBONLY;
+		gfx_flags = (gfx_flags & ~GFX_CAN_8);
 		break;
 	case 32:
 		render.src.start = (render.src.width * 4) / sizeof(Bitu);
-		gfx_flags |= GFX_LOVE_32;
-		gfx_flags = (gfx_flags & ~GFX_CAN_8) | GFX_RGBONLY;
+		gfx_flags = (gfx_flags & ~GFX_CAN_8);
 		break;
 	}
 	gfx_flags = GFX_GetBestMode(gfx_flags);
 	if (!gfx_flags) {
-		if (!complexBlock && simpleBlock == &ScaleNormal1x)
+		if (simpleBlock == &ScaleNormal1x) {
 			E_Exit("Failed to create a rendering output");
-		else
-			goto forcenormal;
-	}
-	width *= xscale;
-	Bitu skip = complexBlock ? 1 : 0;
-	if (gfx_flags & GFX_SCALING) {
-		height = MakeAspectTable(skip, render.src.height, yscale, yscale);
-	} else {
-		if ((gfx_flags & GFX_CAN_RANDOM) && gfx_scaleh > 1) {
-			gfx_scaleh *= yscale;
-			height = MakeAspectTable(skip,
-			                         render.src.height,
-			                         gfx_scaleh,
-			                         yscale);
-		} else {
-			gfx_flags &= ~GFX_CAN_RANDOM; // Hardware surface when
-			                              // possible
-			height = MakeAspectTable(skip, render.src.height, yscale, yscale);
 		}
 	}
+	width *= xscale;
+	const auto height = MakeAspectTable(render.src.height, yscale, yscale);
 
 	// Setup the scaler variables
-
 	if (dblh)
 		gfx_flags |= GFX_DBL_H;
 	if (dblw)
@@ -523,32 +396,9 @@ static void RENDER_Reset(void)
 		render.scale.outMode = scalerMode32;
 	else
 		E_Exit("Failed to create a rendering output");
-	ScalerLineBlock_t *lineBlock;
-	if (gfx_flags & GFX_HARDWARE) {
-#if RENDER_USE_ADVANCED_SCALERS > 1
-		if (complexBlock) {
-			lineBlock = &ScalerCache;
-			render.scale.complexHandler =
-			        complexBlock->Linear[render.scale.outMode];
-		} else
-#endif
-		{
-			render.scale.complexHandler = 0;
-			lineBlock                   = &simpleBlock->Linear;
-		}
-	} else {
-#if RENDER_USE_ADVANCED_SCALERS > 1
-		if (complexBlock) {
-			lineBlock = &ScalerCache;
-			render.scale.complexHandler =
-			        complexBlock->Random[render.scale.outMode];
-		} else
-#endif
-		{
-			render.scale.complexHandler = 0;
-			lineBlock                   = &simpleBlock->Random;
-		}
-	}
+
+	const auto lineBlock = gfx_flags & GFX_CAN_RANDOM ? &simpleBlock->Random
+	                                                  : &simpleBlock->Linear;
 	switch (render.src.bpp) {
 	case 8:
 		render.scale.lineHandler = (*lineBlock)[0][render.scale.outMode];
@@ -640,37 +490,6 @@ void RENDER_SetSize(uint32_t width, uint32_t height, unsigned bpp, double fps,
 	RENDER_Reset();
 }
 
-extern void GFX_SetTitle(int32_t cycles, int frameskip, bool paused);
-static void IncreaseFrameSkip(bool pressed)
-{
-	if (!pressed)
-		return;
-	if (render.frameskip.max < 10)
-		render.frameskip.max++;
-	LOG_MSG("Frame Skip at %d", render.frameskip.max);
-	GFX_SetTitle(-1, render.frameskip.max, false);
-}
-
-static void DecreaseFrameSkip(bool pressed)
-{
-	if (!pressed)
-		return;
-	if (render.frameskip.max > 0)
-		render.frameskip.max--;
-	LOG_MSG("Frame Skip at %d", render.frameskip.max);
-	GFX_SetTitle(-1, render.frameskip.max, false);
-}
-/* Disabled as I don't want to waste a keybind for that. Might be used in the
-future (Qbix) static void ChangeScaler(bool pressed) { if (!pressed) return;
-        render.scale.op = (scalerOperation)((int)render.scale.op+1);
-        if((render.scale.op) >= scalerLast || render.scale.size == 1) {
-                render.scale.op = (scalerOperation)0;
-                if(++render.scale.size > 3)
-                        render.scale.size = 1;
-        }
-        RENDER_CallBack( GFX_CallBackReset );
-} */
-
 #if C_OPENGL
 
 // Reads the given shader path into the string
@@ -700,8 +519,10 @@ std::deque<std::string> RENDER_InventoryShaders()
 
 	const std::string dir_prefix  = "Path '";
 	const std::string file_prefix = "        ";
+
+	std::error_code ec = {};
 	for (auto &[dir, shaders] : GetFilesInResource("glshaders", ".glsl")) {
-		const auto dir_exists      = std_fs::is_directory(dir);
+		const auto dir_exists      = std_fs::is_directory(dir, ec);
 		auto shader                = shaders.begin();
 		const auto dir_has_shaders = shader != shaders.end();
 		const auto dir_postfix     = dir_exists
@@ -818,6 +639,43 @@ bool RENDER_UseSRGBFramebuffer()
 
 #endif
 
+#if C_OPENGL
+void log_warning_if_legacy_shader_name(const std::string &name)
+{
+	static const std::map<std::string, std::string> legacy_name_mappings = {
+	        {"advinterp2x", "scaler/advinterp2x"},
+	        {"advinterp3x", "scaler/advinterp3x"},
+	        {"advmame2x", "scaler/advmame2x"},
+	        {"advmame3x", "scaler/advmame3x"},
+	        {"crt-easymode-flat", "crt/easymode.tweaked"},
+	        {"crt-fakelottes-flat", "crt/fakelottes"},
+	        {"rgb2x", "scaler/rgb2x"},
+	        {"rgb3x", "scaler/rgb3x"},
+	        {"scan2x", "scaler/scan2x"},
+	        {"scan3x", "scaler/scan3x"},
+	        {"sharp", "interpolation/sharp"},
+	        {"tv2x", "scaler/tv2x"},
+	        {"tv3x", "scaler/tv3x"}};
+
+	std_fs::path shader_path = name;
+	std_fs::path ext  = shader_path.extension();
+
+	if (!(ext == "" || ext == ".glsl")) {
+		return;
+	}
+
+	shader_path.replace_extension("");
+
+	const auto it = legacy_name_mappings.find(shader_path.string());
+	if (it != legacy_name_mappings.end()) {
+		const auto new_name = it->second;
+		LOG_WARNING("RENDER: Built-in shader '%s' has been renamed; please use '%s' instead.",
+					name.c_str(),
+					new_name.c_str());
+	}
+}
+#endif
+
 void RENDER_InitShaderSource([[maybe_unused]] Section *sec)
 {
 #if C_OPENGL
@@ -835,10 +693,13 @@ void RENDER_InitShaderSource([[maybe_unused]] Section *sec)
 	auto filename = std::string(sh->GetValue());
 
 	constexpr auto fallback_shader = "none";
-	if (filename.empty())
+	if (filename.empty()) {
 		filename = fallback_shader;
-	else if (filename == "default")
-		filename = "sharp";
+	} else if (filename == "default") {
+		filename = "interpolation/sharp";
+	}
+
+	log_warning_if_legacy_shader_name(filename);
 
 	std::string source = {};
 	if (!RENDER_GetShader(sh->realpath, source) &&
@@ -908,98 +769,15 @@ void RENDER_Init(Section *sec)
 
 	auto prev_aspect       = render.aspect;
 	auto prev_scale_size   = render.scale.size;
-	auto prev_scale_forced = render.scale.forced;
-	auto prev_scale_op     = render.scale.op;
 
 	render.pal.first = 256;
 	render.pal.last  = 0;
 	render.aspect    = section->Get_bool("aspect");
 
-	render.frameskip.max   = section->Get_int("frameskip");
-	render.frameskip.count = 0;
-
 	VGA_SetMonoPalette(section->Get_string("monochrome_palette"));
 
-	// Check for commandline paramters and parse them through the
-	// configclass so they get checked against allowed values
-	std::string cmd_line;
-	if (control->cmdline->FindString("-scaler", cmd_line, true)) {
-		section->HandleInputline(std::string("scaler=") + cmd_line);
-
-	} else if (control->cmdline->FindString("-forcescaler", cmd_line, true)) {
-		section->HandleInputline(std::string("scaler=") + cmd_line + " forced");
-	}
-
-	auto *prop = section->GetMultiVal("scaler");
-
-	std::string force   = prop->GetSection()->Get_string("force");
-	render.scale.forced = force == "forced";
-
-	const bool in_pixel_perfect_mode = (GFX_GetBestMode(0) & GFX_UNITY_SCALE);
-
-	std::string scaler = prop->GetSection()->Get_string("type");
-
-	if (scaler == "none" || in_pixel_perfect_mode) {
-		render.scale.op   = scalerOpNormal;
-		render.scale.size = 1;
-	} else if (scaler == "normal2x") {
-		render.scale.op   = scalerOpNormal;
-		render.scale.size = 2;
-	} else if (scaler == "normal3x") {
-		render.scale.op   = scalerOpNormal;
-		render.scale.size = 3;
-	}
-#if RENDER_USE_ADVANCED_SCALERS > 2
-	else if (scaler == "advmame2x") {
-		render.scale.op   = scalerOpAdvMame;
-		render.scale.size = 2;
-	} else if (scaler == "advmame3x") {
-		render.scale.op   = scalerOpAdvMame;
-		render.scale.size = 3;
-	} else if (scaler == "advinterp2x") {
-		render.scale.op   = scalerOpAdvInterp;
-		render.scale.size = 2;
-	} else if (scaler == "advinterp3x") {
-		render.scale.op   = scalerOpAdvInterp;
-		render.scale.size = 3;
-	} else if (scaler == "hq2x") {
-		render.scale.op   = scalerOpHQ;
-		render.scale.size = 2;
-	} else if (scaler == "hq3x") {
-		render.scale.op   = scalerOpHQ;
-		render.scale.size = 3;
-	} else if (scaler == "2xsai") {
-		render.scale.op   = scalerOpSaI;
-		render.scale.size = 2;
-	} else if (scaler == "super2xsai") {
-		render.scale.op   = scalerOpSuperSaI;
-		render.scale.size = 2;
-	} else if (scaler == "supereagle") {
-		render.scale.op   = scalerOpSuperEagle;
-		render.scale.size = 2;
-	}
-#endif
-#if RENDER_USE_ADVANCED_SCALERS > 0
-	else if (scaler == "tv2x") {
-		render.scale.op   = scalerOpTV;
-		render.scale.size = 2;
-	} else if (scaler == "tv3x") {
-		render.scale.op   = scalerOpTV;
-		render.scale.size = 3;
-	} else if (scaler == "rgb2x") {
-		render.scale.op   = scalerOpRGB;
-		render.scale.size = 2;
-	} else if (scaler == "rgb3x") {
-		render.scale.op   = scalerOpRGB;
-		render.scale.size = 3;
-	} else if (scaler == "scan2x") {
-		render.scale.op   = scalerOpScan;
-		render.scale.size = 2;
-	} else if (scaler == "scan3x") {
-		render.scale.op   = scalerOpScan;
-		render.scale.size = 3;
-	}
-#endif
+	// Only use the default 1x rendering scaler
+	render.scale.size = 1;
 
 #if C_OPENGL
 	const auto previous_shader_filename = render.shader.filename;
@@ -1010,13 +788,11 @@ void RENDER_Init(Section *sec)
 	//  Only ReInit when there is a src.bpp (fixes crashes on startup and
 	//  directly changing the scaler without a screen specified yet)
 	if (running && render.src.bpp &&
-	    ((render.aspect != prev_aspect) || (render.scale.op != prev_scale_op) ||
-	     (render.scale.size != prev_scale_size) ||
-	     (render.scale.forced != prev_scale_forced) ||
+	    ((render.aspect != prev_aspect) || (render.scale.size != prev_scale_size)
 #if C_OPENGL
-	     (previous_shader_filename != render.shader.filename) ||
+	     || (previous_shader_filename != render.shader.filename)
 #endif
-	     render.scale.forced)) {
+	             )) {
 		RENDER_CallBack(GFX_CallBackReset);
 	}
 
@@ -1025,14 +801,5 @@ void RENDER_Init(Section *sec)
 
 	running = true;
 
-	MAPPER_AddHandler(DecreaseFrameSkip, SDL_SCANCODE_UNKNOWN, 0, "decfskip", "Dec Fskip");
-	MAPPER_AddHandler(IncreaseFrameSkip, SDL_SCANCODE_UNKNOWN, 0, "incfskip", "Inc Fskip");
-
-	MAPPER_AddHandler(ReloadShader,
-	                  SDL_SCANCODE_F2,
-	                  PRIMARY_MOD,
-	                  "reloadshader",
-	                  "Reload Shader");
-
-	GFX_SetTitle(-1, render.frameskip.max, false);
+	MAPPER_AddHandler(ReloadShader, SDL_SCANCODE_F2, PRIMARY_MOD, "reloadshader", "Reload Shader");
 }

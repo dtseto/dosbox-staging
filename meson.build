@@ -2,9 +2,9 @@ project(
     'dosbox-staging',
     'c',
     'cpp',
-    version: '0.79.1',
+    version: '0.80.0',
     license: 'GPL-3.0-or-later',
-    meson_version: '>= 0.56.0',
+    meson_version: '>= 0.57.0',
     default_options: [
         'cpp_std=c++17',
         'buildtype=release',
@@ -54,7 +54,12 @@ summary('Install prefix', get_option('prefix'), section: 'Build Summary')
 
 # extra build flags
 extra_flags = ['-Wno-unknown-pragmas']
-extra_link_flags = []
+# generate linker map file
+extra_link_flags = [
+    '-Wl,-map,dosbox.map',
+    '-Wl,-Map,dosbox.map',
+    '-Wl,--Map,dosbox.map',
+]
 
 # If the compiler provides std::filesystem, then we consider it modern enough
 # that we can trust it's extra helpful warnings to let us improve the code quality.
@@ -68,14 +73,17 @@ else
     )
 endif
 
-if get_option('buildtype') == 'release'
-    # For release builds, we're not anticipating needing
-    # to divide by zero and NaNs, and get FPU signals.
+if get_option('buildtype') in ['release', 'minsize']
+    # For release and small build types, we're not anticipating
+    # needing debuggable floating point signals.
     # These safety measures are still enabled in debug builds,
     # so if an issue is reported where these happen help, then
     # testing with debug builds will make use of them.
     #
     extra_flags += [
+        '-fstrict-aliasing',
+        '-Wstrict-aliasing',
+        '-fmerge-all-constants',
         '-fno-math-errno',
         '-fno-signed-zeros',
         '-fno-trapping-math',
@@ -86,6 +94,7 @@ if get_option('buildtype') == 'release'
         '-ffunction-sections',
         '-fdata-sections',
     ]
+    extra_link_flags += ['-Wl,--gc-sections']
 endif
 
 if get_option('asm')
@@ -102,7 +111,12 @@ if prefers_static_libs
         extra_link_flags += ['-no-pie']
     endif
 else
-    extra_flags += ['-shared-libstdc++', '-shared-libgcc', '-fPIC']
+    extra_flags += [
+        '-shared-libstdc++',
+        '-shared-libgcc',
+        '-lstdc++_s',
+        '-fPIC',
+    ]
 endif
 
 if get_option('narrowing_warnings')
@@ -166,6 +180,7 @@ conf_data.set10('C_NE2000', get_option('use_slirp'))
 conf_data.set10('C_FLUIDSYNTH', get_option('use_fluidsynth'))
 conf_data.set10('C_MT32EMU', get_option('use_mt32emu'))
 conf_data.set10('C_SSHOT', get_option('use_png'))
+conf_data.set10('C_SDL_IMAGE', get_option('use_sdl2_image'))
 conf_data.set10('C_TRACY', get_option('tracy'))
 conf_data.set10('C_FPU', true)
 conf_data.set10('C_FPU_X86', host_machine.cpu_family() in ['x86', 'x86_64'])
@@ -232,6 +247,11 @@ endif
 
 if cc.has_function('realpath', prefix: '#include <stdlib.h>')
     conf_data.set10('HAVE_REALPATH', true)
+endif
+
+# strnlen was originally a Linux-only function
+if cc.has_function('strnlen', prefix: '#include <string.h>')
+    conf_data.set10('HAVE_STRNLEN', true)
 endif
 
 if cc.has_member('struct dirent', 'd_type', prefix: '#include <dirent.h>')
@@ -304,17 +324,32 @@ if cxx.compiles(builtin_expect_code, name: 'test for __builtin_expect support')
 endif
 
 atomic_code = '''
-#include <atomic>
-#include <cstdint>
-int main() {
-  std::atomic<std::int16_t> x16 = 1;
+  #include <atomic>
+  #include <cstdint>
+ int main() {
   std::atomic<std::int32_t> x32 = 1;
-  return static_cast<int>(x32.load() - x16.load());
-}
-'''
-atomic_dep = dependency('', required: false)
-if not cxx.links(atomic_code, name: 'compiler has built-in atomics')
-    atomic_dep = cxx.find_library('atomic')
+  std::atomic<std::int64_t> x64 = 1;
+  return static_cast<int>(x64.load() - x32.load());
+ }
+ '''
+
+atomic_external_dep = dependency('atomic', required: false)
+atomic_internal_dep = declare_dependency(link_args: '-latomic')
+
+if cxx.links(
+    atomic_code,
+    dependencies: atomic_external_dep,
+    name: 'compiler supports atomic types using external library',
+)
+    atomic_dep = atomic_external_dep
+elif cxx.links(
+    atomic_code,
+    dependencies: atomic_internal_dep,
+    name: 'compiler supports atomic types using internal library',
+)
+    atomic_dep = atomic_internal_dep
+else
+    atomic_dep = dependency('atomic', true)
 endif
 
 # Gather external dependencies
@@ -373,27 +408,34 @@ zlib_dep = dependency(
 speexdsp_dep = dependency(
     'speexdsp',
     allow_fallback: false,
+    required: false,
     static: ('speexdsp' in static_libs_list or prefers_static_libs),
 )
 
-# The system has SpeexDSP, so test its floating-point handling
-if speexdsp_dep.found()
+# The library needs to be available and testable to be trusted
+can_trust_system_speexdsp = (
+    speexdsp_dep.found()
+    and meson.can_run_host_binaries()
+)
+
+# Test the library. Trust is dropped if the test fails.
+if can_trust_system_speexdsp
     system_speexdsp_test = cxx.run(
         files('contrib/check-speexdsp/test_speexdsp_float_api.cpp'),
         dependencies: speexdsp_dep,
         name: 'SpeexDSP system library has reliable floating-point API',
     )
-    is_system_speexdsp_reliable = (
+    can_trust_system_speexdsp = (
         system_speexdsp_test.compiled()
         and system_speexdsp_test.returncode() == 0
     )
-    if is_system_speexdsp_reliable
+    if can_trust_system_speexdsp
         speexdsp_summary_msg = 'system library'
     endif
 endif
 
-# The system doesn't have SpeexDSP or it's unreiable, so use the wrap
-if not speexdsp_dep.found() or not is_system_speexdsp_reliable
+# Use the wrap if the system doesn't have SpeexDSP, we couldn't test it, or testing failed
+if not can_trust_system_speexdsp
     speexdsp_dep = subproject(
         'speexdsp',
         default_options: default_wrap_options,
@@ -406,8 +448,18 @@ summary('SpeexDSP provider', speexdsp_summary_msg)
 optional_dep = dependency('', required: false)
 msg = 'You can disable this dependency with: -D@0@=false'
 
+# File-descriptor manipulation routines, such as FD_ZERO, are used
+# by Enet, slirp, and ManyMouse's X11 interface. Unfortunately these
+# routines aren't universally available, such as on Android.
+#
+have_fd_zero = (
+    cc.has_header_symbol('sys/select.h', 'FD_ZERO')
+    or cc.has_header_symbol('winsock2.h', 'FD_ZERO')
+)
+
 # SDL Networking
 sdl2_net_dep = optional_dep
+sdl2_net_summary_msg = 'Disabled'
 if get_option('use_sdl2_net')
     sdl2_net_dep = dependency(
         'SDL2_net',
@@ -415,7 +467,51 @@ if get_option('use_sdl2_net')
         static: ('sdl2_net' in static_libs_list),
         not_found_message: msg.format('use_sdl2_net'),
     )
+    sdl2_net_summary_msg = sdl2_net_dep.found()
+
+    if sdl2_net_dep.found() and not have_fd_zero
+        sdl2_net_dep = optional_dep
+        sdl2_net_summary_msg = 'Disabled due to host missing file-descriptor routines'
+    endif
+
 endif
+summary('SDL_net 2.0 support', sdl2_net_summary_msg)
+
+# slirp (depends on glib)
+libslirp_dep = optional_dep
+libslirp_summary_msg = 'Disabled'
+if get_option('use_slirp')
+    libslirp_dep = dependency(
+        'slirp',
+        version: '>= 4.6.1',
+        default_options: default_wrap_options,
+        allow_fallback: ('slirp' not in system_libs_list),
+        static: ('slirp' in static_libs_list or prefers_static_libs),
+        not_found_message: msg.format('use_slirp'),
+    )
+
+    libslirp_summary_msg = libslirp_dep.found()
+
+    if libslirp_dep.found() and not have_fd_zero
+        libslirp_summary_msg = 'Disabled due to host missing file-descriptor routines'
+        libslirp_dep = optional_dep
+    endif
+
+endif
+summary('slirp support', libslirp_summary_msg)
+
+
+# SDL Image
+sdl2_image_dep = optional_dep
+if get_option('use_sdl2_image')
+    sdl2_image_dep = dependency(
+        'SDL2_image',
+        version: '>= 2.0.0',
+        static: ('sdl2_image' in static_libs_list),
+        not_found_message: msg.format('use_sdl2_image'),
+    )
+endif
+summary('SDL_image 2.0 support', sdl2_image_dep.found())
 
 # OpenGL
 opengl_dep = optional_dep
@@ -426,7 +522,8 @@ endif
 if (opengl_dep.found()
     and host_machine.system() == 'linux'
     and get_option('use_opengl') == 'auto'
-    and get_option('enable_debugger') != 'none')
+    and get_option('enable_debugger') != 'none'
+)
 
     warning('''OpenGL is disabled because it's not compatible with the debugger.
             To use OpenGL with the debugger, force it with "-Duse_opengl=true"''')
@@ -461,20 +558,6 @@ if get_option('use_fluidsynth')
     )
 endif
 summary('FluidSynth support', fluid_dep.found())
-
-# slirp (depends on glib)
-libslirp_dep = optional_dep
-if get_option('use_slirp')
-    libslirp_dep = dependency(
-        'slirp',
-        version: '>= 4.6.1',
-        default_options: default_wrap_options,
-        allow_fallback: ('slirp' not in system_libs_list),
-        static: ('slirp' in static_libs_list or prefers_static_libs),
-        not_found_message: msg.format('use_slirp'),
-    )
-endif
-summary('slirp support', libslirp_dep.found())
 
 # mt32emu
 mt32emu_dep = optional_dep
@@ -520,6 +603,7 @@ endif
 coreaudio_dep = optional_dep
 coremidi_dep = optional_dep
 corefoundation_dep = optional_dep
+iokit_dep = optional_dep
 if host_machine.system() == 'darwin'
 
     # ObjectiveC parsing, if possible
@@ -560,6 +644,38 @@ if host_machine.system() == 'darwin'
         warning('''Core MIDI disabled because Apple Framework missing''')
     endif
     summary('CoreMIDI support', coremidi_dep.found())
+
+    # IOKit
+    iokit_dep = dependency(
+        'appleframeworks',
+        modules: ['IOKit'],
+        required: false,
+    )
+    if iokit_dep.found()
+        if cxx.check_header('IOKit/IOKitLib.h')
+            iokit_code = '''
+                #include <IOKit/hid/IOHIDLib.h>
+                int main() {
+                    dispatch_block_t test_var;
+                    return 0;
+                }
+            '''
+            is_iokit_compilable = cxx.links(
+                iokit_code,
+                name: 'compiler is capable of compiling IOKit',
+            )
+            if is_iokit_compilable
+                conf_data.set('C_IOKIT', 1)
+            else
+                warning('''IOKit disabled because compiler cannot handle it''')
+            endif
+        else
+            warning('''IOKit disabled because header is unusable''')
+        endif
+    else
+        warning('''IOKit disabled because Apple Framework missing''')
+    endif
+    summary('IOKit support', iokit_dep.found())
 
     # Locale discovery
     corefoundation_dep = dependency(
@@ -607,6 +723,25 @@ if host_machine.system() == 'darwin'
     endif
 endif
 
+# Determine if system is capable of using ManyMouse library
+conf_data.set10('C_MANYMOUSE', true)
+manymouse_summary_msg = 'Enabled'
+
+if host_machine.system() == 'darwin'
+    if not conf_data.has('C_IOKIT')
+        manymouse_summary_msg = 'Disabled due to host missing IOKit'
+        conf_data.set10('C_MANYMOUSE', false)
+    endif
+endif
+if os_family_name in ['LINUX', 'BSD']
+    if not have_fd_zero
+        manymouse_summary_msg = 'Disabled due to host missing file-descriptor routines'
+        conf_data.set10('C_MANYMOUSE', false)
+    endif
+endif
+summary('ManyMouse support', manymouse_summary_msg)
+
+
 # Linux-only dependencies
 alsa_dep = optional_dep
 using_linux = (host_machine.system() == 'linux')
@@ -628,6 +763,13 @@ if host_machine.system() in ['windows', 'cygwin']
     summary('Windows Multimedia support', winmm_dep.found())
 endif
 
+# X11 Input Extension dependency for ManyMouse library
+xi_dep = optional_dep
+using_x11 = os_family_name in ['LINUX', 'BSD']
+if using_x11 and (conf_data.get('C_MANYMOUSE') == true)
+    xi_dep = dependency('xi')
+endif
+
 # Setup include directories
 incdir = include_directories('include', '.')
 
@@ -646,6 +788,9 @@ subdir('src/libs/residfp')
 subdir('src/libs/sdlcd')
 subdir('src/libs/whereami')
 subdir('src/libs/YM7128B_emu')
+if conf_data.get('C_MANYMOUSE') == true
+    subdir('src/libs/manymouse')
+endif
 
 # ZMBV and TalChorus use some support functionality from misc
 subdir('src/misc')
@@ -659,6 +804,7 @@ third_party_deps = [
     atomic_dep,
     stdcppfs_dep,
     sdl2_dep,
+    sdl2_image_dep,
     threads_dep,
     ghc_dep,
     libiir_dep,
@@ -668,6 +814,10 @@ third_party_deps = [
     libwhereami_dep,
     libtalchorus_dep,
 ]
+
+if conf_data.get('C_MANYMOUSE') == true
+    third_party_deps += manymouse_dep
+endif
 
 # internal libs
 subdir('src/cpu')

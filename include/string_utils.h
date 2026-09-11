@@ -26,6 +26,7 @@
 #include <cassert>
 #include <cstdarg>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -154,6 +155,10 @@ inline bool is_empty(const char *str) noexcept
 	return str[0] == '\0';
 }
 
+// case-insensitive comparisons
+bool ciequals(const char a, const char b);
+bool iequals(const std::string &a, const std::string &b);
+
 char *strip_word(char *&cmd);
 
 std::string replace(const std::string &str, char old_char, char new_char) noexcept;
@@ -186,7 +191,86 @@ std::vector<std::string> split(const std::string &seq, const char delim);
 //   split(" ") returns {}
 std::vector<std::string> split(const std::string &seq);
 
+
 // Clear the language if it's set to the POSIX default
 void clear_language_if_default(std::string &language);
+
+
+// UTF-8 support
+
+// Get recommended DOS code page to render the UTF-8 strings to. This
+// might not be the code page set using KEYB command, for example due
+// to emulated hardware limitations, or duplicated code page numbers
+uint16_t UTF8_GetCodePage();
+
+// Convert the UTF-8 string (NFC normalized, otherwise some national
+// characters might remain unrecognized) to a format intended for
+// display inside emulated environment.
+// Code page '0' means a pure 7-bit ASCII.
+// Return value 'false' means there were problems with string
+// decoding/rendering, but the overall output should be still sane
+bool UTF8_RenderForDos(const std::string &str_in,
+                       std::string &str_out,
+                       const uint16_t code_page = 0);
+
+// Parse a value from the string, clamp the result within the given min and max
+// values, and return it as a float. This API should give us enough numerical
+// range and accuracy for any text-based inputs.
+//
+// For example:
+//  - parse_value("101", 0, 100) return 100.0f.
+//  - parse_value("x10", 0, 100) return empty.
+//  - parse_value("txt", 0, 100) return empty.
+//  - parse_value("", 0, 100) return empty.
+//
+// To use it, check if the result then access it:
+//   const auto val = parse_value(s, ...);
+//   if (val)
+//       do_something(*val)
+//   else
+//       log_warning("%s was invalid", s.c_str());
+//
+// Alternatively, scope the value inside the if/else
+//   if (const auto v = parse_value(s, ...); v)
+//       do_something(*v)
+//   else
+//       log_warning("%s was invalid", s.c_str());
+//
+std::optional<float> parse_value(const std::string &s, const float min_value,
+                                 const float max_value);
+
+// parse_value clamped between 0 and 100
+std::optional<float> parse_percentage(const std::string &s);
+
+// Parse a value from a character-prefixed string, clamp the result within the
+// given min and max values, and return it as a float. This API should give us
+// enough numerical range and accuracy for any text-based inputs.
+//
+// For example:
+//  - parse_prefixed_value('x', "x101", 0, 100) return 100.0f.
+//  - parse_prefixed_value('X', "x101", 0, 100) return 100.0f.
+//  - parse_prefixed_value('y', "x101", 0, 100) return empty.
+//  - parse_prefixed_value('y', "1000", 0, 100) return empty.
+//  - parse_prefixed_value('y', "text", 0, 100) return empty.
+//
+// To use it, check if the result then access it:
+//   const auto val = parse_prefixed_value(...);
+//   if (val)
+//       do_something(*val);
+//   else
+//       log_warning("%s was invalid", s.c_str());
+//
+// Alternatively, scope the value inside the if/else
+//   if (const auto v = parse_prefixed_value(...); v)
+//       do_something(*v)
+//   else
+//       log_warning("%s was invalid", s.c_str());
+//
+std::optional<float> parse_prefixed_value(const char prefix, const std::string &s,
+                                          const float min_value,
+                                          const float max_value);
+
+// parse_prefixed_value clamped between 0 and 100
+std::optional<float> parse_prefixed_percentage(const char prefix, const std::string &s);
 
 #endif

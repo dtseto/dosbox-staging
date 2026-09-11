@@ -275,6 +275,13 @@ const char * Property::GetHelp() const
 	return MSG_Get(result.c_str());
 }
 
+const char * Property::GetHelpUtf8() const
+{
+	std::string result = "CONFIG_" + propname;
+	upcase(result);
+	return MSG_GetRaw(result.c_str());
+}
+
 bool Prop_int::SetVal(const Value &in, bool forced, bool warn)
 {
 	if (forced) {
@@ -821,7 +828,7 @@ bool Config::PrintConfig(const std::string &filename) const
 	if (outfile == NULL) return false;
 
 	/* Print start of configfile and add a return to improve readibility. */
-	fprintf(outfile, MSG_Get("CONFIGFILE_INTRO"), VERSION);
+	fprintf(outfile, MSG_GetRaw("CONFIGFILE_INTRO"), VERSION);
 	fprintf(outfile, "\n");
 
 	for (auto tel = sectionlist.cbegin(); tel != sectionlist.cend(); ++tel) {
@@ -847,7 +854,7 @@ bool Config::PrintConfig(const std::string &filename) const
 				if (p->IsDeprecated())
 					continue;
 
-				std::string help = p->GetHelp();
+				std::string help = p->GetHelpUtf8();
 				std::string::size_type pos = std::string::npos;
 				while ((pos = help.find('\n', pos+1)) != std::string::npos) {
 					help.replace(pos, 1, prefix);
@@ -857,7 +864,7 @@ bool Config::PrintConfig(const std::string &filename) const
 
 				std::vector<Value> values = p->GetValues();
 				if (!values.empty()) {
-					fprintf(outfile, "%s%s:", prefix, MSG_Get("CONFIG_SUGGESTED_VALUES"));
+					fprintf(outfile, "%s%s:", prefix, MSG_GetRaw("CONFIG_SUGGESTED_VALUES"));
 					std::vector<Value>::const_iterator it = values.begin();
 					while (it != values.end()) {
 						if((*it).ToString() != "%u") { //Hack hack hack. else we need to modify GetValues, but that one is const...
@@ -873,7 +880,7 @@ bool Config::PrintConfig(const std::string &filename) const
 		} else {
 			upcase(temp);
 			strcat(temp,"_CONFIGFILE_HELP");
-			const char * helpstr = MSG_Get(temp);
+			const char * helpstr = MSG_GetRaw(temp);
 			const char * linestart = helpstr;
 			char * helpwrite = helpline;
 			while (*helpstr && static_cast<size_t>(helpstr - linestart) < sizeof(helpline)) {
@@ -1537,6 +1544,7 @@ const std::string &SETUP_GetLanguage()
 
 // Parse the user's configuration files starting with the primary, then custom
 // -conf's, and finally the local dosbox.conf
+void MSG_Init(Section_prop *);
 void SETUP_ParseConfigFiles(const std::string &config_path)
 {
 	std::string config_file;
@@ -1565,6 +1573,13 @@ void SETUP_ParseConfigFiles(const std::string &config_path)
 			}
 		}
 	}
+
+	// Once we've parsed all the potential conf files, we've down our best
+	// to discover the user's desired language. At this point, we can now
+	// initialize the messaging system which honors the language and loads
+	// those messages.
+	if (const auto sec = control->GetSection("dosbox"); sec)
+		MSG_Init(static_cast<Section_prop *>(sec));
 
 	// Create a new primary if permitted and no other conf was loaded
 	if (wants_primary_conf && !control->configfiles.size()) {

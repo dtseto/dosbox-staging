@@ -32,7 +32,9 @@
 #include "program_loadrom.h"
 #include "program_ls.h"
 #include "program_mem.h"
+#include "program_more.h"
 #include "program_mount.h"
+#include "program_mousectl.h"
 #include "program_placeholder.h"
 #include "program_rescan.h"
 #include "program_serial.h"
@@ -47,8 +49,11 @@ extern char autoexec_data[autoexec_maxsize];
 std::unique_ptr<Program> CONFIG_ProgramCreate();
 std::unique_ptr<Program> MIXER_ProgramCreate();
 std::unique_ptr<Program> SHELL_ProgramCreate();
-void z_drive_getpath(std::string &path, const std::string &dirname);
-void z_drive_register(const std::string &path, const std::string &dir);
+
+void REELMAGIC_MaybeCreateFmpdrvExecutable();
+
+void VFILE_GetPathZDrive(std::string& path, const std::string& dirname);
+void VFILE_RegisterZDrive(const std_fs::path &z_drive_path);
 
 void Add_VFiles(const bool add_autoexec)
 {
@@ -56,8 +61,8 @@ void Add_VFiles(const bool add_autoexec)
 	std::string path = ".";
 	path += CROSS_FILESPLIT;
 	path += dirname;
-	z_drive_getpath(path, dirname);
-	z_drive_register(path, "/");
+	VFILE_GetPathZDrive(path, dirname);
+	VFILE_RegisterZDrive(path);
 
 	PROGRAMS_MakeFile("ATTRIB.COM", ProgramCreate<ATTRIB>);
 	PROGRAMS_MakeFile("AUTOTYPE.COM", ProgramCreate<AUTOTYPE>);
@@ -66,6 +71,7 @@ void Add_VFiles(const bool add_autoexec)
 #endif
 	PROGRAMS_MakeFile("BOOT.COM", ProgramCreate<BOOT>);
 	PROGRAMS_MakeFile("CHOICE.COM", ProgramCreate<CHOICE>);
+	REELMAGIC_MaybeCreateFmpdrvExecutable();
 	PROGRAMS_MakeFile("HELP.COM", ProgramCreate<HELP>);
 	PROGRAMS_MakeFile("IMGMOUNT.COM", ProgramCreate<IMGMOUNT>);
 	// BOXER-HOOK: hide-intro-command - Boxer provides its own onboarding.
@@ -76,7 +82,9 @@ void Add_VFiles(const bool add_autoexec)
 	PROGRAMS_MakeFile("LOADROM.COM", ProgramCreate<LOADROM>);
 	PROGRAMS_MakeFile("LS.COM", ProgramCreate<LS>);
 	PROGRAMS_MakeFile("MEM.COM", ProgramCreate<MEM>);
+	PROGRAMS_MakeFile("MORE.COM", ProgramCreate<MORE>);
 	PROGRAMS_MakeFile("MOUNT.COM", ProgramCreate<MOUNT>);
+	PROGRAMS_MakeFile("MOUSECTL.COM", ProgramCreate<MOUSECTL>);
 	PROGRAMS_MakeFile("RESCAN.COM", ProgramCreate<RESCAN>);
 	PROGRAMS_MakeFile("MIXER.COM", MIXER_ProgramCreate);
 	PROGRAMS_MakeFile("CONFIG.COM", CONFIG_ProgramCreate);

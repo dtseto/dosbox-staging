@@ -1,9 +1,39 @@
+:TITLEBAR_CYCLES_MS
+cycli/ms
+.
+:TITLEBAR_HINT_PAUSED
+(PAUZE)
+.
+:TITLEBAR_HINT_NOMOUSE
+geen-muis-modus
+.
+:TITLEBAR_HINT_CAPTURED_HOTKEY
+muis gevangen, %s+F10 om los te laten
+.
+:TITLEBAR_HINT_CAPTURED_HOTKEY_MIDDLE
+muis gevangen, %s+F10 of middenklik om los te laten
+.
+:TITLEBAR_HINT_RELEASED_HOTKEY
+druk %s+F10 om de muis te vangen
+.
+:TITLEBAR_HINT_RELEASED_HOTKEY_MIDDLE
+om de muis te vangen, druk op %s+F10 of klik op de middelste muisknop
+.
+:TITLEBAR_HINT_RELEASED_HOTKEY_ANY_BUTTON
+om de muis te vangen, druk op %s+F10 of klik op een muisknop
+.
+:TITLEBAR_HINT_SEAMLESS_HOTKEY
+naadloze muis, %s+F10 om te vangen
+.
+:TITLEBAR_HINT_SEAMLESS_HOTKEY_MIDDLE
+naadloze muis, %s+F10 of middenklik om te langen
+.
 :CONFIG_FULLSCREEN
 DOSBox rechtstreeks op volledig scherm starten.
 Voer INTRO uit en zie Speciale toetsen voor sneltoetsen voor vensterbediening.
 .
 :CONFIG_DISPLAY
-Beeldschermnummer om te gebruiken; afhankelijk van OS en installingen.
+Te gebruiken beeldschermnummer; waarde is afhankelijk van OS en instellingen.
 .
 :CONFIG_FULLRESOLUTION
 Welke resolutie te gebruiken voor volledig scherm: 'original', 'desktop'
@@ -17,7 +47,7 @@ Stelt de venster grootte in om te gebruiken:
               Grootte van het venster ten opzichte van het bureaublad.
   <op-maat>:  Schaal het venster naar de opgegeven afmetingen in
               BxH-formaat. Bijvoorbeeld: 1024x768.
-              Er wordt niet geschaald voor output=surface.
+              Niet van toepassing voor output=surface.
 .
 :CONFIG_VIEWPORT_RESOLUTION
 Stel de viewport-grootte (tekengebied) in het venster/scherm in:
@@ -79,26 +109,13 @@ Kies een rendererstuurprogramma wanneer u een textuuruitvoermodus gebruikt.
 Gebruik texture_renderer=auto voor een automatische keuze.
 .
 :CONFIG_CAPTURE_MOUSE
-Kies een muisbesturingsmethode:
-   onclick:        Leg de muis vast wanneer u op een knop in het venster klikt.
-   onstart:        Leg de muis meteen vast bij het starten.
-   seamless:       Laat de muis naadloos bewegen; legt alleen vast met
-                   middelste klik of sneltoets.
-   nomouse:        Verberg de muis en stuur geen invoer naar het spel.
-Kies hoe middelkliks worden afgehandeld (tweede parameter):
-   middlegame:     Middelklikken worden naar het spel gestuurd.
-   middlerelease:  Middelklik laat de vastgelegde muis los en legt ook vast
-                   wanneer deze naadloos is.
-Standaardwaarden (indien niet aanwezig of onjuist): seamless middlerelease
+Verplaatst naar de [mouse] sectie.
 .
 :CONFIG_SENSITIVITY
-Muis gevoeligheid. De optionele tweede parameter specificeert de verticale
-gevoeligheid (bijv. 100,-50).
+Verplaatst naar de [mouse] sectie.
 .
 :CONFIG_RAW_MOUSE_INPUT
-Schakel deze instelling in om de instellingen voor muisversnelling en
-gevoeligheid van uw besturingssysteem te omzeilen. Dit werkt op volledig
-scherm of wanneer de muis wordt vastgelegd in de venstermodus.
+Verplaatst naar de [mouse] sectie.
 .
 :CONFIG_WAITONERROR
 Wacht voordat de console sluit als dosbox een fout heeft.
@@ -182,7 +199,7 @@ all:        Biedt alle modi voor een bepaalde grootte van het videogeheugen,
 :CONFIG_SPEED_MODS
 Wijzigingen toestaan waarvan bekend is dat ze de prestaties verbeteren.
 Momenteel zijn er geen spelen bekend die hier last van hebben. Dien een bug in
-bij het project als je een spel vindt dat niet werkt wanneer dit is ingesteld
+bij het project als u een spel vindt dat niet werkt wanneer dit is ingesteld
 op "true", zodanig dat we ze hier kunnen vermelden.
 .
 :CONFIG_AUTOEXEC_SECTION
@@ -213,7 +230,7 @@ auto             | 'low' als een uitvoerbaar bestand of map is opgegeven,
                     anders 'high'
 .
 :CONFIG_FRAMESKIP
-Hoeveel frames DOSBox overslaat voordat hij er een tekent.
+Overweeg om framesnelheden te beperken met de instelling '[sdl] host_rate'.
 .
 :CONFIG_ASPECT
 Schaalt de verticale resolutie om een beeldverhouding van 4:3 te produceren,
@@ -254,15 +271,18 @@ die CGA of betere graphics kunnen weergeven. Ingebouwde voorinstellingen:
 U kunt ook aangepaste kleuren instellen door 16 spaties of komma's gescheiden
 kleurwaarden op te geven, ofwel als 3- of 6-cijferige hexadecimale codes
 (bijv. #f00 of #ff0000 voor volledig rood), of decimale RGB-drietallen (bijv.
-(255, 0, 255) voor magenta).
+(255, 0, 255) voor magenta). De 16 kleuren zijn als volgt geordend: zwart,
+blauw, groen, cyaan, rood, magenta, bruin, lichtgrijs, donkergrijs,
+lichtblauw, lichtgroen, lichtcyaan, lichtrood, lichtmagenta, geel, en wit.
+Hun standaardwaarden, hier weergegeven in zescijferige hexadecimale code-
+indeling, zijn: #000000 #0000aa #00aa00 #00aaaa #aa0000 #aa00aa #aa5500
+#aaaaaa #555555 #5555ff #55ff55 #55ffff #ff5555 #ff55ff #ffff55 en #ffffff,
+respectievelijk.
 .
 :CONFIG_SCALER
-Scaler gebruikt om modi met lage resolutie te vergroten/verbeteren.
-Als 'forced' wordt toegevoegd, wordt de scaler gebruikt, zelfs als het
-resultaat misschien niet gewenst is.
-Merk op dat sommige scalers zwarte randen gebruiken om de afbeelding binnen
-uw geconfigureerde schermresolutie te laten passen. Als dit ongewenst is,
-probeer dan een andere scaler of gebruik weergave op volledige resolutie.
+Software scalers zijn verouderd ten gunste van hardware-versnelde opties:
+ - Als u de normale 2x/3x scalers hebt gebruikt, stel dan een gewenste 'windowresolution' in.
+ - Als u een geavanceerde scaler hebt gebruikt, overweeg de 'glshader'-opties.
 .
 :CONFIG_GLSHADER
 Ofwel 'none' of een GLSL-shadernaam. Werkt alleen met OpenGL-uitvoer.
@@ -277,7 +297,7 @@ Schakel de composietmodus in bij het starten. 'auto' laat het programma
 beslissen.
 Opmerking: verfijn de onderstaande instellingen (dwz: tint) met behulp van de
            samengestelde sneltoetsen.
-           Lees dan de nieuwe instellingen van je console en voer ze hier in.
+           Lees dan de nieuwe instellingen van u console en voer ze hier in.
 .
 :CONFIG_ERA
 Tijdperk van composiettechnologie.
@@ -311,7 +331,7 @@ Als u deze waarde te hoog instelt, leidt dit tot geluidsuitval en vertragingen.
 Cycli kunnen op 3 manieren worden ingesteld:
   'auto'          Probeert te raden wat een spel nodig heeft.
                   Het werkt meestal, maar kan voor bepaalde spelen mislukken.
-  'fixed #nummer' Zal een vast aantal cycli instellen. Dit is wat je meestal
+  'fixed #nummer' Zal een vast aantal cycli instellen. Dit is wat u meestal
                   nodig hebt als 'auto' faalt (voorbeeld: fixed 4000).
   'max'           Zal zoveel cycli toewijzen als uw computer aankan.
 .
@@ -321,6 +341,70 @@ Voer INTRO uit en zie Speciale toetsen voor een lijst met sneltoetsen.
 .
 :CONFIG_CYCLEDOWN
 Als u deze lager instelt dan 100, is dit een percentage.
+.
+:CONFIG_MOUSE_CAPTURE
+Kies een muisbesturingsmethode:
+  onclick:   Leg de muis vast wanneer u op een knop in het venster klikt.
+  onstart:   Leg de muis meteen vast bij het starten.
+  seamless:  Laat de muis naadloos bewegen; legt alleen vast met
+             middelste klik of sneltoets.
+  nomouse:   Verberg de muis en stuur geen invoer naar het spel.
+.
+:CONFIG_MOUSE_MIDDLE_RELEASE
+Indien 'true', middelklik laat de vastgelegde muis los en legt ook vast
+wanneer deze naadloos is.
+.
+:CONFIG_MOUSE_SENSITIVITY
+Standaard muisgevoeligheid. 100 is een basiswaarde, 150 is 150% gevoeligheid.
+Negatieve waarden keren de richting van de muis om, 0 schakelt de beweging
+volledig uit. De optionele tweede parameter specificeert de verticale
+gevoeligheid (bijv. 100.200). Instelling kan tijdens runtime worden aangepast
+(ook per muisinterface) met behulp van de interne MOUSECTL.COM-tool,
+beschikbaar op drive Z:.
+.
+:CONFIG_MOUSE_RAW_INPUT
+Schakel dit in om de instellingen voor muisversnelling en gevoeligheid van uw
+besturingssysteem te omzeilen. Werkt in volledig scherm of wanneer de muis
+wordt vastgelegd in venstermodus.
+.
+:CONFIG_DOS_MOUSE_DRIVER
+Schakel het ingebouwde DOS-muisstuurprogramma in.
+Opmerkingen:
+   - Schakel deze optie uit als u van plan bent het originele MOUSE.COM
+     stuurprogramma te gebruiken in geëmuleerde DOS.
+   - Wanneer het gast-besturingssysteem wordt opgestart, wordt het
+     ingebouwde stuurprogramma automatisch uitgeschakeld.
+.
+:CONFIG_DOS_MOUSE_IMMEDIATE
+Werkt muisbewegingstellers onmiddellijk bij, zonder te wachten op onderbreking.
+Kan de gameplay verbeteren, vooral in snelle games (arcade, FPS, enz.) - zoals
+voor sommige games verhoogt het effectief de bemonsteringssnelheid van de muis
+tot 1000 Hz, zonder de interrupt-overhead te verhogen.
+Kan compatibiliteitsproblemen veroorzaken. Lijst met bekende incompatibele games:
+Kan compatibiliteitsproblemen veroorzaken. Bekende incompatibele spelen lijst:
+   - Ultima Underworld: The Stygian Abyss
+   - Ultima Underworld II: Labyrinth of Worlds
+Dien een bug in bij het project als je een ander spel vindt dat niet werkt
+wanneer dit is ingeschakeld, we zullen deze lijst bijwerken.
+.
+:CONFIG_PS2_MOUSE_MODEL
+PS/2 AUX-poort muismodel:
+   standard:       3 knoppen, standaard PS/2-muis.
+   intellimouse:   3 knoppen + wiel, Microsoft IntelliMouse.
+Standaard: intellimouse
+.
+:CONFIG_COM_MOUSE_MODEL
+COM (seriële) poort standaard muismodel:
+   2button:        2 knoppen, Microsoft muis.
+   3button:        3 knoppen, Logitech-muis, grotendeels MS-muis compatibel.
+   wheel:          3 knoppen + wiel, meestal compatibel met Microsoft-muis.
+   msm:            3 knoppen, Mouse Systems-muis, NIET COMPATIBEL met MS-muis.
+   2button+msm:    Automatische keuze tussen 2button en msm.
+   3button+msm:    Automatische keuze tussen 3button en msm.
+   wheel+msm:      Automatische keuze tussen wiel en msm.
+Standaard: wiel+msm
+Opmerkingen:
+    Ga naar de sectie [serial] om COM-poortmuizen in of uit te schakelen.
 .
 :CONFIG_NOSOUND
 Schakel de stille modus in, het geluid wordt echter nog steeds geëmuleerd.
@@ -373,8 +457,7 @@ Schakel reverb globaal in om een gevoel van ruimte toe te voegen:
            afzonderlijke kanalen gebruiken voor muziek en digitale audio.
   huge:    Een sterkere variant van de grote zaal preset; werkt heel goed in
            sommige games met meer sfeervolle soundtracks.
-Opmerking: u kunt de reverbniveaus per kanaal nauwkeurig afstemmen via
-           mixercommando's.
+Opmerking: u kunt de reverbniveaus per kanaal afstemmen via mixercommando's.
 .
 :CONFIG_CHORUS
 Schakel chorus globaal in om een gevoel van stereobeweging aan het geluid toe
@@ -404,10 +487,10 @@ Dit is meestal de id of naam van de MIDI-synthesizer die u wilt gebruiken
 (zoek de id/naam op met het DOS-commando 'mixer /listmidi').
 - Deze optie heeft geen effect bij gebruik van de ingebouwde synthesizers
   (mididevice = fluidsynth of mt32).
-- Als je ALSA gebruikt, gebruik dan het Linux-commando 'aconnect -l' om de
+- Als u ALSA gebruikt, gebruik dan het Linux-commando 'aconnect -l' om de
   open MIDI-poorten weer te geven en selecteer er een (bijvoorbeeld
   'midiconfig=14:0' voor sequencerclient 14, poort 0).
-- Als je een fysieke Roland MT-32 met revisie 0 PCB gebruikt, kan de
+- Als u een fysieke Roland MT-32 met revisie 0 PCB gebruikt, kan de
   hardware een vertraging nodig hebben om te voorkomen dat de buffer overloopt.
   Voeg in dat geval 'delaysysex' toe, bijvoorbeeld: 'midiconfig=2 delaysysex'.
 Zie de README/handleiding voor meer details.
@@ -647,13 +730,13 @@ aanwezig als de machine is ingesteld op 'tandy'.
 Filter voor de Tandy synth-uitgang:
   on:        Filter de uitvoer (standaard).
   off:       Filter de uitvoer niet.
-  <custom>:  Aangepaste filterdefinitie; zie 'sb_filter' voor details.
+  <op-maat>: Aangepaste filterdefinitie; zie 'sb_filter' voor details.
 .
 :CONFIG_TANDY_DAC_FILTER
 Filter voor de Tandy DAC-uitgang:
   on:        Filter de uitvoer (standaard).
   off:       Filter de uitvoer niet.
-  <custom>:  Aangepaste filterdefinitie; zie 'sb_filter' voor details.
+  <op-maat>:  Aangepaste filterdefinitie; zie 'sb_filter' voor details.
 .
 :CONFIG_LPT_DAC
 Type DAC aangesloten op de parallelle poort:
@@ -666,7 +749,7 @@ Type DAC aangesloten op de parallelle poort:
 Filter voor de LPT DAC-audioapparaat(en):
   on:        Filter de uitvoer (standaard).
   off:       Filter de uitvoer niet.
-  <custom>:  Aangepaste filterdefinitie; zie 'sb_filter' voor details.
+  <op-maat>: Aangepaste filterdefinitie; zie 'sb_filter' voor details.
 .
 :CONFIG_DISNEY
 Gebruik 'lpt_dac=disney' om de Disney Sound Source in te schakelen.
@@ -678,22 +761,42 @@ Schakel IBM PS/1 Audio-emulatie in.
 Filter voor de PS/1 Audio synth-uitgang:
   on:        Filter de uitvoer (standaard).
   off:       Filter de uitvoer niet.
-  <custom>:  Aangepaste filterdefinitie; zie 'sb_filter' voor details.
+  <op-maat>: Aangepaste filterdefinitie; zie 'sb_filter' voor details.
 .
 :CONFIG_PS1AUDIO_DAC_FILTER
 Filter voor de PS/1 Audio DAC-uitgang:
   on:        Filter de uitvoer (standaard).
   off:       Filter de uitvoer niet.
-  <custom>:  Aangepaste filterdefinitie; zie 'sb_filter' voor details.
+  <op-maat>: Aangepaste filterdefinitie; zie 'sb_filter' voor details.
+.
+:CONFIG_REELMAGIC
+ReelMagic (ook bekend als REALmagic) MPEG-afspeelondersteuning.
+  off:      Ondersteuning uitschakelen (standaard).
+  cardonly: Emuleer de kaart zonder het FMPDRV.EXE-stuurprogramma te laden.
+  on:       Emuleer de kaart en laad de FMPDRV.EXE bij het opstarten.
+.
+:CONFIG_REELMAGIC_KEY
+Stel de 32-bits magische sleutel in die wordt gebruikt om de video's van
+het spel te decoderen.
+  auto     : Probeer de sleutel automatisch te bepalen (standaard).
+  common   : Gebruik de meest voorkomende sleutel, namelijk 0x40044041.
+  thehorde : Gebruik de sleutel van 'The Horde', namelijk 0xC39D7088.
+  <op-maat>: stel een aangepaste sleutel in hex-indeling in (bijv. 0x12345678).
+.
+:CONFIG_REELMAGIC_FCODE
+Negeer de framesnelheidscode die wordt gebruikt tijdens het afspelen van video.
+  0: Geen override: poging tot automatische snelheidsdetectie (standaard).
+  1 t/m 7: Gebruik een van de volgende framesnelheden (gebruik 1 t/m 7):
+            1=23.976, 2=24, 3=25, 4=29.97, 5=30, 6=50, or 7=59.94 FPS.
 .
 :CONFIG_JOYSTICKTYPE
 Type joystick om te emuleren: auto (standaard),
 auto     : Detecteer en gebruik eventuele joystick(s), indien mogelijk.,
-2axis    : Ondersteuning voor maximaal twee joysticks.
-4axis    : Ondersteun alleen de eerste joystick.
-4axis_2  : Ondersteun alleen de tweede joystick.
-fcs      : Ondersteunt een joystick van het Thrustmaster-type.
-ch       : Ondersteunt een joystick van het CH Flightstick-type.
+2axis    : Ondersteuning voor maximaal twee joysticks, elk met 2 assen.
+4axis    : Ondersteun alleen de eerste joystick, als 4-assig type.
+4axis_2  : Ondersteun alleen de tweede joystick, als 4-assig type.
+fcs      : Joystick emuleren als een originele Thrustmaster FCS.
+ch       : Joystick emuleren als een originele CH Flightstick.
 hidden   : Voorkom dat DOS de joystick(s) ziet, maar sta mapping toe.
 disabled : Joysticks volledig uitschakelen.
 (Vergeet niet om het mapperbestand van DOSBox te resetten als u het eerder
@@ -701,7 +804,7 @@ hebt opgeslagen)
 .
 :CONFIG_TIMED
 Schakel getimede intervallen in voor de as. Experimenteer met deze optie als
-je joystick (weg) afdrijft.
+de joystick afdrijft.
 .
 :CONFIG_AUTOFIRE
 Vuurt continue, zolang de knop ingedrukt wordt.
@@ -714,11 +817,10 @@ Schakel knopomloop in bij het aantal geëmuleerde knoppen.
 .
 :CONFIG_CIRCULARINPUT
 Maak vertaling van circulaire input naar vierkante output mogelijk. Probeer dit
-in te schakelen als je linker analoge stick alleen in een cirkel kan bewegen.
+in te schakelen als u linker analoge stick alleen in een cirkel kan bewegen.
 .
 :CONFIG_DEADZONE
-Het percentage beweging dat moet worden genegeerd.
-100 verandert de stick in een digitale.
+Percentage beweging om te negeren. 100 verandert de stick in een digitale.
 .
 :CONFIG_USE_JOY_CALIBRATION_HOTKEYS
 Activeert sneltoetsen om realtime kalibratie van de x- en y-as van de joystick
@@ -732,7 +834,7 @@ andere instellingen zijn geprobeerd.
    - omlaag en omhoog verschuift de offset van de y-as in de gegeven richting.
  - Reset de X- en Y-kalibratie met respectievelijk Ctrl+Delete en Ctrl+Home.
 Elke toetsdruk geeft de X- of Y-kalibratiewaarden weer die u hieronder kunt
-instellen. Als je parameters vindt die werken, stop dan het spel, zet deze
+instellen. Als u parameters vindt die werken, stop dan het spel, zet deze
 instelling terug op false en vul de gerapporteerde kalibratieparameters in.
 .
 :CONFIG_JOY_X_CALIBRATION
@@ -745,18 +847,11 @@ Standaard is 'auto'.
 .
 :CONFIG_SERIAL1
 Stel het type apparaat in dat is aangesloten op de com-poort.
-Opties: disabled, dummy, muis, modem, nullmodem, direct.
+Opties: disabled, dummy, mouse, modem, nullmodem, direct.
 Aanvullende parameters moeten op dezelfde regel staan in de vorm van
 parameter:waarde. Parameter voor alle typen is irq (optioneel).
 voor muis:
-   "type", kan een van de volgende zijn:
-      2btn:  2 knoppen, Microsoft seriële muis
-      3btn:  3 knoppen, Logitech seriële muis
-      wheel: 3 knoppen + wiel seriële muis
-      msm:   3 knoppen, Mouse Systems Mouse
-      2btn+msm, 3btn+msm, wheel+msm : autoselectie
-   "rate", kan "normal" of "smooth" zijn (vaker updates dan op echte pc)
-   Standaard is type:wheel+msm rate:smooth
+   "type", heeft voorrang op instellingen van [mouse]-sectie
 voor direct: realport (vereist), rxdelay (optioneel).
    (realport:COM1 realport:ttyS0).
 voor modem: listenport, sock, baudrate (allemaal optioneel).
@@ -818,11 +913,10 @@ netwerk (met libslirp) met de volgende eigenschappen:
  - 10.0.2.2      : IP of the gateway en DHCP-service.
  - 10.0.2.3      : IP van de virtuele DNS-server.
  - 10.0.2.15     : Eerste IP geleverd door DHCP, uw IP!
-Opmerking: Binnen DOS vereist het instellen hiervan een
-           NE2000-pakketstuurprogramma, een DHCP-client en een TCP/IP-stack.
-           Mogelijk hebt u port-forwarding nodig van de host naar de DOS-gast
-           en van uw router naar uw host wanneer u fungeert als server voor
-           multiplayer-spelen.
+Opmerking: Instellen binnen DOS vereist een NE2000-pakketstuurprogramma, een
+           DHCP-client en een TCP/IP-stack. Mogelijk hebt u port-forwarding
+           nodig van de host naar de DOS-gast en van uw router naar uw host
+           wanneer u fungeert als server voor multiplayer-spelen.
 .
 :CONFIG_NICBASE
 Het IO-basisadres van de NE2000-kaart.
@@ -929,7 +1023,7 @@ Gebruik -writelang of -wl bestandsnaam om de huidige taalstrings te schrijven.
 -l geeft configuratieparameters weer.
 -h, -help, -? secties / sectienaam / eigenschapnaam
  Dit helpscherm. Voeg "secties" toe voor een lijst met secties. Voor info over
- een specifieke sectie of eigenschap voeg je de naam erachter toe.
+ een specifieke sectie of eigenschap voegt u de naam erachter toe.
 -axclear wist de autoexec-sectie.
 -axadd [regel] voegt een regel toe aan de autoexec-sectie.
 -axtype drukt de inhoud van de autoexec-sectie af.
@@ -1041,7 +1135,7 @@ https://github.com/dosbox-staging/dosbox-staging/wiki/Add-Utilities
 :WIKI_URL
 https://github.com/dosbox-staging/dosbox-staging/wiki
 .
-:SHELL_CMD_AUTOTYPE_HELP_LONG
+:PROGRAM_AUTOTYPE_HELP_LONG
 Voert gescripte toetsenbordinvoer uit in een draaiend DOS-spel.
 
 Gebruik:
@@ -1067,7 +1161,7 @@ Voorbeelden:
   [color=green]autotype[reset] -w [color=white]1.3[reset] [color=cyan]esc enter , p l a y e r enter
 [reset]
 .
-:SHELL_CMD_BOOT_HELP_LONG
+:PROGRAM_BOOT_HELP_LONG
 Start DOSBox Staging op vanaf een DOS-schijf of schijfimage.
 
 Usage:
@@ -1142,27 +1236,49 @@ Beschikbare opdrachten voor PCjr-cartridges: %s
 :PROGRAM_BOOT_CART_NO_CMDS
 Geen PCjr-cartridge opdrachten gevonden
 .
+:PROGRAM_FMPDRV_HELP_LONG
+Laad of ontlaad de ingebouwde ReelMagic Full Motion Player-driver.
+
+Gebruik:
+  [color=green]fmpdrv[reset]    (laad de driver)
+  [color=green]fmpdrv[reset] /u (ontlaad de driver)
+
+Opmerkingen:
+  De configuratie-instelling "reelmagic = on" laadt de driver bij het
+  opstarten en voorkomt dat deze wordt ontladen.
+
+.
+:PROGRAM_FMPDRV_TITLE
+ReelMagic Full Motion Player-stuurprogramma (ingebouwd) %hhu.%hhu
+
+.
+:PROGRAM_FMPDRV_LOADED
+[reset][color=light-yellow]Geladen op interrupt %xh[reset]
+
+.
+:PROGRAM_FMPDRV_LOAD_FAILED_ALREADY_LOADED
+[reset][color=light-yellow]Reeds geladen op interrupt %xh[reset]
+
+.
+:PROGRAM_FMPDRV_LOAD_FAILED_INT_CONFLICT
+[reset][color=red]Niet geladen: Geen vrije interrupten![reset]
+
+.
+:PROGRAM_FMPDRV_UNLOADED
+[reset][color=light-yellow]Stuurprogramma ontladen[reset]
+
+.
+:PROGRAM_FMPDRV_UNLOAD_FAILED_NOT_LOADED
+[reset][color=light-yellow]Stuurprogramma was niet geladen[reset]
+
+.
+:PROGRAM_FMPDRV_UNLOAD_FAILED_BLOCKED
+[reset][color=light-yellow]Stuurprogramma niet geladen: ingesteld om resident te blijven[reset]
+
+.
 :MSCDEX_SUCCESS
 MSCDEX geïnstalleerd.
 
-.
-:MOUNT_TYPE_LOCAL_DIRECTORY
-local directory
-.
-:MOUNT_TYPE_CDROM
-CD-ROM drive
-.
-:MOUNT_TYPE_FAT
-FAT drive
-.
-:MOUNT_TYPE_ISO
-ISO drive
-.
-:MOUNT_TYPE_VIRTUAL
-internal virtual drive
-.
-:MOUNT_TYPE_UNKNOWN
-unknown drive
 .
 :MSCDEX_ERROR_MULTIPLE_CDROMS
 MSCDEX: Fout: Schijfletters van meerdere cd-rom-stations moeten doorlopend zijn.
@@ -1223,7 +1339,7 @@ Schijf %c is gekoppeld als %s
 De momenteel gekoppelde schijven zijn:
 
 .
-:SHELL_CMD_IMGMOUNT_HELP_LONG
+:PROGRAM_IMGMOUNT_HELP_LONG
 Koppel een cd-rom, diskette of schijfkopie aan een stationsletter.
 
 Gebruik:
@@ -1248,10 +1364,6 @@ Voorbeelden:
   [color=green]imgmount[reset] [color=white]D[reset] [color=cyan]cd/quake1.cue[reset] -t cdrom
   [color=green]imgmount[reset] [color=white]A[reset] [color=cyan]floppy1.img floppy2.img floppy3.img[reset] -t floppy -ro
   [color=green]imgmount[reset] [color=white]C[reset] [color=cyan]bootable.img[reset] -t hdd -fs none -size 512,63,32,1023
-
-.
-:PROGRAM_IMGMOUNT_STATUS_1
-De momenteel aangekoppelde schijf- en cd-imagestations zijn:
 
 .
 :PROGRAM_IMGMOUNT_SPECIFY_DRIVE
@@ -1328,9 +1440,31 @@ De image moet op een host- of lokale schijf staan.
 Meerdere bestanden wordt alleen ondersteund voor cue/iso-images.
 
 .
+:PROGRAM_INTRO_HELP
+Geeft een inleiding op het volledige scherm van DOSBox Staging weer.
+
+.
+:PROGRAM_INTRO_HELP_LONG
+Gebruik:
+  [color=green]intro[reset]
+  [color=green]intro[reset] [color=white]PAGINA[reset]
+
+Waar:
+  [color=white]PAGINA[reset] is de paginanaam om weer te geven, inclusief [color=white]cdrom[reset], [color=white]mount[reset] en [color=white]special[reset].
+
+Opmerkingen:
+  [color=green]intro[reset] zonder argument toont alle informatiepaginas opvolgend; druk op een
+  willekeurige toets om naar de volgende pagina te gaan. Als er een paginanaam
+  is opgegeven, wordt de opgegeven pagina direct weergegeven.
+
+Voorbeelden:
+  [color=green]intro[reset]
+  [color=green]intro[reset] [color=white]cdrom[reset]
+
+.
 :PROGRAM_INTRO
-[2J[color=green]Welkom bij DOSBox Staging[reset], een x86 emulator met geluid en graphics.
-DOSBox maakt een shell voor je die eruitziet als een oude gewone DOS.
+[erases=entire][color=green]Welkom bij DOSBox Staging[reset], een x86 emulator met geluid en graphics.
+DOSBox maakt een shell voor u die eruitziet als een oude gewone DOS.
 
 Voor informatie over basis koppelen typ [color=blue]intro mount[reset]
 Voor informatie over CD-ROM ondersteuning typ [color=blue]1mintro cdrom[reset]
@@ -1342,7 +1476,7 @@ Voor meer informatie, bezoek de DOSBox Staging wiki:
 
 .
 :PROGRAM_INTRO_MOUNT_START
-[2J[color=green]Hier zijn enkele commando's om u op weg te helpen:[reset]
+[erases=entire][color=green]Hier zijn enkele commando's om u op weg te helpen:[reset]
 Voordat u de bestanden op uw eigen bestandssysteem kunt gebruiken, moet u de
 map met de bestanden aankoppelen.
 
@@ -1372,7 +1506,7 @@ Programmas/bestanden met extensie [color=light-red].exe .bat[reset] and [color=l
 
 .
 :PROGRAM_INTRO_CDROM_WINDOWS
-[2J[color=green]Hoe een echte/virtuele CD-ROM Drive in DOSBox te koppelen:[reset]
+[erases=entire][color=green]Hoe een echte/virtuele CD-ROM Drive in DOSBox te koppelen:[reset]
 DOSBox biedt cd-rom-emulatie op twee niveaus.
 
 Het [color=light-yellow]basis[reset] niveau werkt op alle normale mappen, dit zal MSCDEX installeren en
@@ -1394,7 +1528,7 @@ Bovendien kunt u imgmount gebruiken om iso- of cue/bin-images te koppelen:
 
 .
 :PROGRAM_INTRO_CDROM_OTHER
-[2J[color=green]Hoe een echte/virtuele CD-ROM Drive in DOSBox te koppelen:[reset]
+[erases=entire][color=green]Hoe een echte/virtuele CD-ROM Drive in DOSBox te koppelen:[reset]
 DOSBox biedt cd-rom-emulatie op twee niveaus.
 
 Het [color=light-yellow]basis[reset] niveau werkt op alle normale mappen, dit zal MSCDEX installeren en
@@ -1417,7 +1551,7 @@ Bovendien kunt u imgmount gebruiken om iso- of cue/bin-images te koppelen:
 
 .
 :PROGRAM_INTRO_SPECIAL
-[2J[color=green]Speciale toetsen:[reset]
+[erases=entire][color=green]Speciale toetsen:[reset]
 Dit zijn de standaard sneltoetsen.
 Ze kunnen worden gewijzigd in de [color=light-yellow]toetsenmapper[reset].
 
@@ -1444,7 +1578,7 @@ Codetabel %i is geladen
 Codetabel %i is geladen voor lay-out %s
 
 .
-:SHELL_CMD_KEYB_HELP_LONG
+:PROGRAM_KEYB_HELP_LONG
 Configureert een toetsenbord voor een specifieke taal.
 
 Gebruik:
@@ -1478,7 +1612,6 @@ Toetsenbordindeling %s geladen voor codetabel %i
 :PROGRAM_KEYB_FILENOTFOUND
 Toetsenbordbestand %s niet gevonden
 
-
 .
 :PROGRAM_KEYB_INVALIDFILE
 Toetsenbordbestand %s ongeldig
@@ -1491,14 +1624,13 @@ Geen lay-out in %s voor codetabel %i
 :PROGRAM_KEYB_INVCPFILE
 Geen of ongeldig codetabelbestand voor lay-out %s
 
-
 .
-:SHELL_CMD_LOADFIX_HELP_LONG
-Laadt een programma in een specifieke geheugengebied.
+:PROGRAM_LOADFIX_HELP_LONG
+Laadt een programma in een specifiek geheugengebied en voert het uit.
 
 Gebruik:
   [color=green]loadfix[reset] [color=cyan]SPEL[reset] [color=white][PARAMETERS][reset]
-  [color=green]loadfix[reset] [/d] (or [/f])[reset]
+  [color=green]loadfix[reset] [/d] (of [/f])[reset]
 
 Waar:
   [color=cyan]SPEL[reset] is een spel of programma om te laden, optioneel met parameters.
@@ -1512,7 +1644,7 @@ Opmerkingen:
   kan worden uitgevoerd; het geheugen vrijmaken kan met de optie /d of /f.
 
 Voorbeelden:
-  [color=green]loadfix[reset] [color=cyan]mygame[reset] [color=white]args[reset]
+  [color=green]loadfix[reset] [color=cyan]mygame[reset] [color=white]argumenten[reset]
   [color=green]loadfix[reset] /d
 
 .
@@ -1532,7 +1664,7 @@ Gebruikt geheugen vrijgemaakt.
 Geheugentoewijzingsfout.
 
 .
-:SHELL_CMD_LOADROM_HELP_LONG
+:PROGRAM_LOADROM_HELP_LONG
 Laadt een video-BIOS of IBM BASIC ROM-image.
 
 Gebruik:
@@ -1573,7 +1705,7 @@ ROM-bestand niet herkend.
 BASIC-ROM geladen.
 
 .
-:SHELL_CMD_MEM_HELP_LONG
+:PROGRAM_MEM_HELP_LONG
 Geeft de DOS-geheugeninformatie weer.
 
 Gebruik:
@@ -1607,11 +1739,62 @@ Voorbeelden:
 %10d kB vrij bovenste geheugen %d blok(ken) (grootste UMB %d kB)
 
 .
-:SHELL_CMD_MOUNT_HELP
+:PROGRAM_MORE_HELP_LONG
+Geef opdrachtuitvoer of tekstbestand één scherm tegelijk weer.
+
+Gebruik:
+  [color=cyan]COMMANDO[reset] | [color=green]more[reset] [/t[color=white]n[reset]]
+  [color=green]more[reset] [/t[color=white]n[reset]] < [color=cyan]BESTAND[reset]
+  [color=green]more[reset] [/t[color=white]n[reset]] [color=cyan]PATROON[reset] [[color=cyan]PATROON[reset] ...]
+
+Waar:
+  [color=cyan]COMMANDO[reset] is de opdracht om de uitvoer van weer te geven.
+  [color=cyan]BESTAND[reset]  exacte naam van het bestand om weer te geven, eventueel met een pad.
+  [color=cyan]PATROON[reset]  is ofwel een pad naar een enkel bestand of een pad met
+           jokertekens, dit zijn de asterisk (*) en het vraagteken (?).
+  [color=white]n[reset]        is de tabgrootte, 1-9, standaard is 8.
+
+Opmerkingen:
+  Deze opdracht is alleen voor het bekijken van tekstbestanden, niet voor
+  binaire bestanden.
+
+Voorbeelden:
+  [color=cyan]dir /on[reset] | [color=green]more[reset]            ; geeft de gesorteerde map één scherm tegelijk weer
+  [color=green]more[reset] /t[color=white]4[reset] < [color=cyan]A:\MANUAL.TXT[reset]  ; toont de inhoud van het bestand met tabgrootte 4
+
+.
+:PROGRAM_MORE_NO_FILE
+Geen invoerbestand gevonden.
+.
+:PROGRAM_MORE_END
+[reset][color=light-yellow]--- einde van invoer ---[reset]
+.
+:PROGRAM_MORE_NEW_FILE
+[reset][color=light-yellow]--- bestand %s ---[reset]
+.
+:PROGRAM_MORE_NEW_DEVICE
+[reset][color=light-yellow]--- apparaat %s ---[reset]
+.
+:PROGRAM_MORE_PROMPT_SINGLE
+[reset][color=light-yellow]--- druk op SPATIEBALK voor meer ---[reset]
+.
+:PROGRAM_MORE_PROMPT_MULTI
+[reset][color=light-yellow]--- druk op SPATIEBALK voor meer, N for volgend bestand ---[reset]
+.
+:PROGRAM_MORE_OPEN_ERROR
+[reset][color=red]--- kon %s niet openen ---[reset]
+.
+:PROGRAM_MORE_TERMINATE
+[reset][color=light-yellow](beëindigd)[reset]
+.
+:PROGRAM_MORE_NEXT_FILE
+[reset][color=light-yellow](volgend bestand)[reset]
+.
+:PROGRAM_MOUNT_HELP
 Wijst fysieke mappen of stations toe aan een virtuele stationsletter
 
 .
-:SHELL_CMD_MOUNT_HELP_LONG
+:PROGRAM_MOUNT_HELP_LONG
 Koppel een map van het host-besturingssysteem aan een stationsletter.
 
 Gebruik:
@@ -1713,7 +1896,109 @@ Overlay %s op schijf %c gekoppeld.
 Kan station Z niet verplaatsen. Station %c is al aangekoppeld.
 
 .
-:SHELL_CMD_RESCAN_HELP_LONG
+:PROGRAM_MOUSECTL_HELP_LONG
+Beheert fysieke en logische muizen.
+
+Gebruik:
+  [color=green]mousectl[reset] [-all]
+  [color=green]mousectl[reset] [color=white]INTERFACE[reset] -map [color=cyan]NAAM[reset]
+  [color=green]mousectl[reset] [color=white]INTERFACE[reset] [[color=white]INTERFACE[reset] ...] -map
+  [color=green]mousectl[reset] [[color=white]INTERFACE[reset] ...] -unmap | -on | -off | -reset
+  [color=green]mousectl[reset] [[color=white]INTERFACE[reset] ...] -s | -sx | -sy [gevoeligheid]
+  [color=green]mousectl[reset] [[color=white]INTERFACE[reset] ...] -s x_gevoeligheid y_gevoeligheid
+  [color=green]mousectl[reset] [[color=white]INTERFACE[reset] ...] -r [min_snelheid]
+
+Waar:
+  [color=white]INTERFACE[reset]      een van [color=white]DOS[reset], [color=white]PS/2[reset], [color=white]COM1[reset], [color=white]COM2[reset], [color=white]COM3[reset], [color=white]COM4[reset]
+  -map -unmap    koppel/ontkoppel fysieke muis, eert DOS-jokertekens in [color=cyan]NAAM[reset]
+  -s -sx -sy     stelt gevoeligheid in / x-as / y-as, van -999 tot +999
+  -r             stelt minimum muis frequentie in
+  -on -off       schakelt de muis in of uit op de gegeven interface
+  -reset         herstelt alle muisinstellingen uit het configuratiebestand
+
+Opmerkingen:
+  - standaardwaarde wordt gebruikt, als gevoeligheid of snelheid is weggelaten
+
+Voorbeelden:
+  [color=green]mousectl[reset] [color=white]DOS[reset] [color=white]COM1[reset] -map    ; selecteer muizen voor een twee speler spel
+.
+:PROGRAM_MOUSECTL_SYNTAX
+Verkeerde opdrachtsyntaxis.
+.
+:PROGRAM_MOUSECTL_SYNTAX_PATTERN
+Verkeerde syntaxis, alleen ASCII-tekens toegestaan in patroon.
+.
+:PROGRAM_MOUSECTL_SYNTAX_SENSITIVITY
+Verkeerde syntaxis, gevoeligheid moet tussen -999 en +999 liggen.
+.
+:PROGRAM_MOUSECTL_SYNTAX_DUPLICATED
+Verkeerde syntaxis, gedupliceerde muisinterfaces.
+.
+:PROGRAM_MOUSECTL_SYNTAX_MIN_RATE
+Verkeerde syntaxis, bemonsteringsfrequentie moet een van zijn:
+%s
+.
+:PROGRAM_MOUSECTL_MAPPING_NO_MOUSE
+Mapping niet beschikbaar in NoMouse-modus.
+.
+:PROGRAM_MOUSECTL_NO_INTERFACES
+Geen muisinterfaces beschikbaar.
+.
+:PROGRAM_MOUSECTL_MISSING_INTERFACES
+Muisinterface niet beschikbaar.
+.
+:PROGRAM_MOUSECTL_NO_PHYSICAL_MICE
+Geen fysieke muizen gedetecteerd.
+.
+:PROGRAM_MOUSECTL_NO_MATCH
+Geen beschikbare muis die overeenkomt met het patroon gevonden.
+.
+:PROGRAM_MOUSECTL_TABLE_HEADER1
+[color=white]Interface      Gevoeligheid     Rate (Hz)     Status[reset]
+.
+:PROGRAM_MOUSECTL_TABLE_LAYOUT1
+[color=cyan]%-4s[reset]          X:%+.3d Y:%+.3d       %1s %3s       %s
+.
+:PROGRAM_MOUSECTL_TABLE_HEADER2
+[color=white]Interface     Muis Naam[reset]
+.
+:PROGRAM_MOUSECTL_TABLE_LAYOUT2
+[color=cyan]%-4s[reset]          %s
+.
+:PROGRAM_MOUSECTL_TABLE_LAYOUT2_UNMAPPED
+niet gekoppeld    %s
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_HOST
+gebruikt systeemaanwijzer
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_MAPPED
+gekoppelde fysieke muis
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_DISCONNECTED
+[color=red]gekoppelde muis losgekoppeld[reset]
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_DISABLED
+uitgeschakeld
+.
+:PROGRAM_MOUSECTL_TABLE_HINT_RATE_COM
+Bemonsteringsfrequenties voor muizen op [color=cyan]COM[reset]-interfaces zijn enkel schattingen.
+.
+:PROGRAM_MOUSECTL_TABLE_HINT_RATE_MIN
+Bemonsteringsfrequenties gemarkeerd met '*' zijn minimumwaardes.
+.
+:PROGRAM_MOUSECTL_MAP_ADVICE
+Klik op de [color=white]linkermuisknop[reset] om de fysieke muis toe te wijzen aan de interface.
+Als u op een andere knop klikt, wordt de toewijzing geannuleerd en wordt
+de systeemaanwijzer toegewezen aan alle muisinterfaces.
+.
+:PROGRAM_MOUSECTL_MAP_CANCEL
+(toewijzing geannuleerd)
+.
+:PROGRAM_MOUSECTL_MAP_HINT
+Muis gevangen. Naadloze muisintegratie is uitgeschakeld terwijl mapping actief
+is en toegewezen muizen ontvangen altijd onbewerkte invoergebeurtenissen.
+.
+:PROGRAM_RESCAN_HELP_LONG
 Scant op wijzigingen op gekoppelde DOS-schijven.
 
 Gebruik:
@@ -1777,10 +2062,13 @@ uit
 :SHELL_CMD_MIXER_CHANNEL_STEREO
 Stereo
 .
+:SHELL_CMD_MIXER_CHANNEL_REVERSE
+Omgekeerd
+.
 :SHELL_CMD_MIXER_CHANNEL_MONO
 Mono
 .
-:SHELL_CMD_SERIAL_HELP_LONG
+:PROGRAM_SERIAL_HELP_LONG
 Beheert de seriële poorten.
 
 Gebruik:
@@ -2275,33 +2563,11 @@ Waar:
 Opmerkingen:
   - [color=green]help[reset] zonder argument toont een DOS commando lijst.
   - Een volledige lijst van interne commando's is beschikbaar via /a of /all
-  - ipv [color=green]help[reset] [color=cyan]COMMANDO[reset], kan je ook [color=cyan]COMMANDO[reset] /? gebruiken.
+  - ipv [color=green]help[reset] [color=cyan]COMMANDO[reset], kunt u ook [color=cyan]COMMANDO[reset] /? gebruiken.
 
 Voorbeelden:
   [color=green]help[reset] [color=cyan]dir[reset]
   [color=green]help[reset] /all
-
-.
-:SHELL_CMD_INTRO_HELP
-Geeft een inleiding op het volledige scherm van DOSBox Staging weer.
-
-.
-:SHELL_CMD_INTRO_HELP_LONG
-Gebruik:
-  [color=green]intro[reset]
-  [color=green]intro[reset] [color=white]PAGINA[reset]
-
-Waar:
-  [color=white]PAGINA[reset] is de paginanaam om weer te geven, inclusief [color=white]cdrom[reset], [color=white]mount[reset] en [color=white]special[reset].
-
-Opmerkingen:
-  [color=green]intro[reset] zonder argument toont alle informatiepaginas opvolgend; druk op een
-  willekeurige toets om naar de volgende pagina te gaan. Als er een paginanaam
-  is opgegeven, wordt de opgegeven pagina direct weergegeven.
-
-Voorbeelden:
-  [color=green]intro[reset]
-  [color=green]intro[reset] [color=white]cdrom[reset]
 
 .
 :SHELL_CMD_MKDIR_HELP
@@ -2467,7 +2733,7 @@ Waar:
 
 Opmerkingen:
   Door opmerkingen aan een batchprogramma toe te voegen, kan het gemakkelijker
-  te begrijpen zijn. Je kunt met dit commando ook tijdelijk een aantal
+  te begrijpen zijn. U kunt met dit commando ook tijdelijk een aantal
   commando's uitcommentariëren.
 
 Voorbeelden:
@@ -2654,10 +2920,10 @@ Toont of wijzigt bestandskenmerken.
 .
 :SHELL_CMD_ATTRIB_HELP_LONG
 Gebruik:
-  [color=green]attrib[reset] [color=cyan][ATTRIBUTEN][reset] [color=cyan]PATROON[reset] [/S]
+  [color=green]attrib[reset] [color=white][ATTRIBUTEN][reset] [color=cyan]PATROON[reset] [/S]
 
 Waar:
-  [color=cyan][ATTRIBUTEN][reset] zijn attributen om toe te passen, waaronder een of meer van de
+  [color=white][ATTRIBUTEN][reset] zijn attributen om toe te passen, waaronder een of meer van de
                volgende: [color=white]+R[reset], [color=white]-R[reset], [color=white]+A[reset], [color=white]-A[reset], [color=white]+S[reset], [color=white]-S[reset], [color=white]+H[reset], [color=white]-H[reset]
                Waar: R = Alleen-lezen, A = Archief, S = Systeem, H = Verborgen
   [color=cyan]PATROON[reset]      kan een exacte bestandsnaam zijn of een onnauwkeurige

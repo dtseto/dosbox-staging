@@ -127,14 +127,52 @@ constexpr T1 left_shift_signed(T1 value, T2 amount)
 	return static_cast<T1>(shifted);
 }
 
-inline double decibel_to_gain(const double decibel)
+template <typename T>
+int8_t clamp_to_int8(const T val)
 {
-	return pow(10.0, decibel / 20.0);
+	constexpr auto min_val = static_cast<T>(std::is_signed<T>{} ? INT8_MIN : 0);
+	constexpr auto max_val = static_cast<T>(INT8_MAX);
+	return static_cast<int8_t>(std::clamp(val, min_val, max_val));
 }
 
-inline double gain_to_decibel(const double gain)
+template <typename T>
+int16_t clamp_to_int16(const T val)
 {
-	return 20.0 * log(gain) / log(10.0);
+	constexpr auto min_val = static_cast<T>(std::is_signed<T>{} ? INT16_MIN : 0);
+	constexpr auto max_val = static_cast<T>(INT16_MAX);
+	return static_cast<int16_t>(std::clamp(val, min_val, max_val));
+}
+
+template <typename T>
+int32_t clamp_to_int32(const T val)
+{
+	constexpr auto min_val = static_cast<T>(std::is_signed<T>{} ? INT32_MIN : 0);
+	constexpr auto max_val = static_cast<T>(INT32_MAX);
+	return static_cast<int32_t>(std::clamp(val, min_val, max_val));
+}
+
+inline float decibel_to_gain(const float decibel)
+{
+	return powf(10.0f, decibel / 20.0f);
+}
+
+inline float gain_to_decibel(const float gain)
+{
+	return 20.0f * logf(gain) / logf(10.0f);
+}
+
+// A wrapper to convert a scalar gain to a percentage.
+// This avoids having a bunch of magic *100.0 throughout the code.
+constexpr float gain_to_percentage(const float gain)
+{
+	return gain * 100.0f;
+}
+
+// A wrapper to convert a percentage into a scalar gain.
+// This avoids having a bunch of magic /100.0 throughout the code.
+constexpr float percentage_to_gain(const float percentage)
+{
+	return percentage / 100.0f;
 }
 
 template <typename T>
@@ -171,5 +209,5 @@ template float remap<float>(const float in_min, const float in_max,
 template double remap<double>(const double in_min, const double in_max,
                               const double out_min, const double out_max,
                               const double v);
-
+							
 #endif

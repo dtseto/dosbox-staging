@@ -22,6 +22,7 @@
 #include "dosbox.h"
 
 #include <stdio.h>
+#include <string>
 
 class Section;
 
@@ -37,15 +38,17 @@ extern Bitu CaptureState;
 
 void OPL_Init(Section *sec, OplMode mode);
 void CMS_Init(Section *sec);
-void OPL_ShutDown();
-void CMS_ShutDown();
+void OPL_ShutDown(Section* sec = nullptr);
+void CMS_ShutDown(Section* sec = nullptr);
 
 bool PS1AUDIO_IsEnabled();
 bool SB_Get_Address(uint16_t &sbaddr, uint8_t &sbirq, uint8_t &sbdma);
 bool TS_Get_Address(Bitu& tsaddr, Bitu& tsirq, Bitu& tsdma);
 
 extern uint8_t adlib_commandreg;
-FILE * OpenCaptureFile(const char * type,const char * ext);
+
+std::string CAPTURE_GetScreenshotFilename(const char *type, const char *ext);
+FILE *CAPTURE_OpenFile(const char *type, const char *ext);
 
 void CAPTURE_AddWave(uint32_t freq, uint32_t len, int16_t * data);
 

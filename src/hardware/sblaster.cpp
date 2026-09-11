@@ -64,6 +64,7 @@ constexpr uint8_t MIN_ADAPTIVE_STEP_SIZE = 0; // max is 32767
 constexpr uint8_t DSP_INITIAL_RESET_LIMIT = 4;
 
 constexpr auto native_dac_rate_hz = 45454;
+constexpr uint16_t default_playback_rate_hz = 22050;
 
 enum {DSP_S_RESET,DSP_S_RESET_WAIT,DSP_S_NORMAL,DSP_S_HIGHSPEED};
 
@@ -500,6 +501,7 @@ static void configure_opl_filter(mixer_channel_t channel,
                                  const std::string &filter_prefs,
                                  const SB_TYPES sb_type)
 {
+	assert(channel);
 	if (channel->TryParseAndSetCustomFilter(filter_prefs))
 		return;
 
@@ -871,31 +873,30 @@ static void PlayDMATransfer(uint32_t bytes_requested)
 	case DSP_DMA_16:
 		if (sb.dma.stereo) {
 			bytes_read = ReadDMA16(bytes_to_read, sb.dma.remain_size);
-			samples = bytes_read / dma16_to_sample_divisor + sb.dma.remain_size;
+			samples = (bytes_read + sb.dma.remain_size) / dma16_to_sample_divisor;
 			frames = check_cast<uint16_t>(samples / channels);
 
 			// Only add whole frames when in stereo DMA mode
 			if (frames) {
-				const auto dma16_buf = &sb.dma.buf.b16[sb.dma.remain_size];
 #if defined(WORDS_BIGENDIAN)
 				if (sb.dma.sign) {
 					sb.chan->AddSamples_s16_nonnative(frames,
-					            maybe_silence(samples, dma16_buf));
+					            maybe_silence(samples, sb.dma.buf.b16));
 				} else {
 					sb.chan->AddSamples_s16u_nonnative(frames,
-					            maybe_silence(samples, reinterpret_cast<uint16_t *>(dma16_buf)));
+					            maybe_silence(samples, reinterpret_cast<uint16_t *>(sb.dma.buf.b16)));
 				}
 #else
 				if (sb.dma.sign) {
 					sb.chan->AddSamples_s16(frames,
-					            maybe_silence(samples, dma16_buf));
+					            maybe_silence(samples, sb.dma.buf.b16));
 				} else {
 					sb.chan->AddSamples_s16u(frames,
-					            maybe_silence(samples, reinterpret_cast<uint16_t *>(dma16_buf)));
+					            maybe_silence(samples, reinterpret_cast<uint16_t *>(sb.dma.buf.b16)));
 				}
 #endif
 			}
-			else if (samples & 1) {
+			if (samples & 1) {
 				// Carry over the dangling sample into the next round, or
 				sb.dma.remain_size = 1;
 				sb.dma.buf.b16[0] = sb.dma.buf.b16[samples - 1];
@@ -1019,10 +1020,33 @@ static void FlushRemainingDMATransfer()
 	}
 }
 
-static void DSP_ChangeMode(DSP_MODES mode) {
-	if (sb.mode==mode) return;
-	else sb.chan->FillUp();
-	sb.mode=mode;
+static void set_channel_rate_hz(const uint32_t requested_rate_hz)
+{
+	// Valid output rates range from 5000 to 45 000 Hz, inclusive.
+	// Ref:
+	//   Sound Blaster Series Hardware Programming Guide,
+	//   41h Set digitized sound output sampling rate, DSP Commands 6-15
+	//   https://pdos.csail.mit.edu/6.828/2018/readings/hardware/SoundBlaster.pdf
+	//
+	constexpr int min_rate_hz = 5000;
+	constexpr int max_rate_hz = 45000;
+
+	const auto rate_hz = std::clamp(static_cast<int>(requested_rate_hz),
+	                                min_rate_hz,
+	                                max_rate_hz);
+
+	assert(sb.chan);
+	if (sb.chan->GetSampleRate() != rate_hz) {
+		sb.chan->SetSampleRate(rate_hz);
+	}
+}
+
+static void DSP_ChangeMode(const DSP_MODES mode)
+{
+	if (sb.mode != mode) {
+		sb.chan->FillUp();
+		sb.mode = mode;
+	}
 }
 
 static void DSP_RaiseIRQEvent(uint32_t /*val*/)
@@ -1076,13 +1100,11 @@ static void DSP_DoDMATransfer(const DMA_MODES mode, uint32_t freq, bool autoinit
 	else if (!autoinit) {
 		sb.dma.left = sb.dma.singlesize;
 		sb.dma.singlesize = 0;
-		sb.dma.remain_size = 0;
 	}
 	// Going into an autoinit transfer
 	else {
 		//Transfer full cycle again
 		sb.dma.left = sb.dma.autosize;
-		sb.dma.remain_size = 0;
 	}
 	sb.dma.autoinit = autoinit;
 	sb.dma.mode = mode;
@@ -1092,7 +1114,7 @@ static void DSP_DoDMATransfer(const DMA_MODES mode, uint32_t freq, bool autoinit
 		sb.dma.mul*=2;
 	sb.dma.rate=(sb.freq*sb.dma.mul) >> SB_SH;
 	sb.dma.min=(sb.dma.rate*3)/1000;
-	sb.chan->SetSampleRate(freq);
+	set_channel_rate_hz(freq);
 
 	PIC_RemoveEvents(ProcessDMATransfer);
 	//Set to be masked, the dma call can change this again.
@@ -1188,7 +1210,7 @@ static void DSP_Reset() {
 	sb.dma.remain_size=0;
 	if (sb.dma.chan) sb.dma.chan->Clear_Request();
 
-	sb.freq=22050;
+	sb.freq = default_playback_rate_hz;
 	sb.time_constant=45;
 	sb.dac.used=0;
 	sb.dac.last=0;
@@ -1196,7 +1218,7 @@ static void DSP_Reset() {
 	sb.e2.count=0;
 	sb.irq.pending_8bit=false;
 	sb.irq.pending_16bit=false;
-	sb.chan->SetSampleRate(22050);
+	set_channel_rate_hz(default_playback_rate_hz);
 	InitializeSpeakerState();
 	PIC_RemoveEvents(ProcessDMATransfer);
 }
@@ -1242,7 +1264,7 @@ static void DSP_ChangeRate(uint32_t freq)
 {
 	if (sb.freq != freq && sb.dma.mode != DSP_DMA_NONE) {
 		sb.chan->FillUp();
-		sb.chan->SetSampleRate(freq / (sb.mixer.stereo ? 2 : 1));
+		set_channel_rate_hz(freq / (sb.mixer.stereo ? 2 : 1));
 		sb.dma.rate=(freq*sb.dma.mul) >> SB_SH;
 		sb.dma.min=(sb.dma.rate*3)/1000;
 	}
@@ -1309,8 +1331,9 @@ static void DSP_DoCommand() {
 	case 0x10:	/* Direct DAC */
 		DSP_ChangeMode(MODE_DAC);
 		if (sb.dac.used<DSP_DACSIZE) {
-			sb.dac.data[sb.dac.used++]=(int8_t(sb.dsp.in.data[0] ^ 0x80)) << 8;
-			sb.dac.data[sb.dac.used++]=(int8_t(sb.dsp.in.data[0] ^ 0x80)) << 8;
+			const auto mono_sample = lut_u8to16[sb.dsp.in.data[0]];
+			sb.dac.data[sb.dac.used++] = mono_sample;
+			sb.dac.data[sb.dac.used++] = mono_sample;
 		}
 		break;
 	case 0x24:	/* Singe Cycle 8-Bit DMA ADC */
@@ -1614,11 +1637,20 @@ static void CTMIXER_UpdateVolumes() {
 	float m0 = calc_vol(sb.mixer.master[0]);
 	float m1 = calc_vol(sb.mixer.master[1]);
 	auto chan = MIXER_FindChannel("SB");
-	if (chan) chan->SetVolume(m0 * calc_vol(sb.mixer.dac[0]), m1 * calc_vol(sb.mixer.dac[1]));
+	if (chan) {
+		chan->SetAppVolume(m0 * calc_vol(sb.mixer.dac[0]),
+		                   m1 * calc_vol(sb.mixer.dac[1]));
+	}
 	chan = MIXER_FindChannel("OPL");
-	if (chan) chan->SetVolume(m0 * calc_vol(sb.mixer.fm[0]) , m1 * calc_vol(sb.mixer.fm[1]) );
+	if (chan) {
+		chan->SetAppVolume(m0 * calc_vol(sb.mixer.fm[0]),
+		                   m1 * calc_vol(sb.mixer.fm[1]));
+	}
 	chan = MIXER_FindChannel("CDAUDIO");
-	if (chan) chan->SetVolume(m0 * calc_vol(sb.mixer.cda[0]), m1 * calc_vol(sb.mixer.cda[1]));
+	if (chan) {
+		chan->SetAppVolume(m0 * calc_vol(sb.mixer.cda[0]),
+		                   m1 * calc_vol(sb.mixer.cda[1]));
+	}
 }
 
 static void CTMIXER_Reset() {
@@ -1643,12 +1675,12 @@ static void CTMIXER_Reset() {
 
 static void DSP_ChangeStereo(bool stereo) {
 	if (!sb.dma.stereo && stereo) {
-		sb.chan->SetSampleRate(sb.freq/2);
+		set_channel_rate_hz(sb.freq / 2);
 		sb.dma.mul*=2;
 		sb.dma.rate=(sb.freq*sb.dma.mul) >> SB_SH;
 		sb.dma.min=(sb.dma.rate*3)/1000;
 	} else if (sb.dma.stereo && !stereo) {
-		sb.chan->SetSampleRate(sb.freq);
+		set_channel_rate_hz(sb.freq);
 		sb.dma.mul/=2;
 		sb.dma.rate=(sb.freq*sb.dma.mul) >> SB_SH;
 		sb.dma.min=(sb.dma.rate*3)/1000;
@@ -2079,15 +2111,66 @@ OplMode find_oplmode()
 class SBLASTER final {
 private:
 	/* Data */
-	IO_ReadHandleObject ReadHandler[0x10];
-	IO_WriteHandleObject WriteHandler[0x10];
-	AutoexecObject autoexecline;
-	OplMode oplmode;
+	IO_ReadHandleObject read_handlers[0x10]   = {};
+	IO_WriteHandleObject write_handlers[0x10] = {};
+
+	static constexpr auto blaster_env_name = "BLASTER";
+
+	std::unique_ptr<AutoexecObject> autoexec_line = {};
+
+	OplMode oplmode = OplMode::None;
+
+	void SetupEnvironment()
+	{
+		// Ensure our port and addresses will fit in our format widths.
+		// The config selection controls their actual values, so this is
+		// a maximum-limit.
+		assert(sb.hw.base < 0xfff);
+		assert(sb.hw.irq <= 12);
+		assert(sb.hw.dma8 < 10);
+
+		const std::string at_set = "@SET";
+
+		char blaster_env_val[] = "AHHH II DD HH TT";
+
+		if (sb.type == SBT_16) {
+			assert(sb.hw.dma16 < 10);
+			safe_sprintf(blaster_env_val,
+			             "A%x I%u D%u H%u T%d",
+			             sb.hw.base,
+			             sb.hw.irq,
+			             sb.hw.dma8,
+			             sb.hw.dma16,
+			             static_cast<int>(sb.type));
+		} else {
+			safe_sprintf(blaster_env_val,
+			             "A%x I%u D%u T%d",
+			             sb.hw.base,
+			             sb.hw.irq,
+			             sb.hw.dma8,
+			             static_cast<int>(sb.type));
+		}
+
+		LOG_MSG("%s: %s=%s", CardType(), blaster_env_name, blaster_env_val);
+		autoexec_line = std::make_unique<AutoexecObject>(
+		        at_set + " " + blaster_env_name + "=" + blaster_env_val);
+
+		if (first_shell) {
+			first_shell->SetEnv(blaster_env_name, blaster_env_val);
+		}
+	}
+
+	void ClearEnvironment()
+	{
+		autoexec_line = {};
+
+		if (first_shell) {
+			first_shell->SetEnv(blaster_env_name, "");
+		}
+	}
 
 public:
-	SBLASTER(Section *configuration)
-	        : autoexecline{},
-	          oplmode(OplMode::None)
+	SBLASTER(Section* configuration)
 	{
 		Section_prop * section=static_cast<Section_prop *>(configuration);
 
@@ -2107,15 +2190,15 @@ public:
 
 		switch (oplmode) {
 		case OplMode::None:
-			WriteHandler[0].Install(0x388,
-			                        adlib_gusforward,
-			                        io_width_t::byte);
+			write_handlers[0].Install(0x388,
+			                          adlib_gusforward,
+			                          io_width_t::byte);
 			break;
 
 		case OplMode::Cms:
-			WriteHandler[0].Install(0x388,
-			                        adlib_gusforward,
-			                        io_width_t::byte);
+			write_handlers[0].Install(0x388,
+			                          adlib_gusforward,
+			                          io_width_t::byte);
 			CMS_Init(section);
 			break;
 
@@ -2127,8 +2210,9 @@ public:
 		case OplMode::Opl3:
 		case OplMode::Opl3Gold: {
 			OPL_Init(section, oplmode);
-
 			auto opl_channel = MIXER_FindChannel("OPL");
+			assert(opl_channel);
+
 			const std::string opl_filter_prefs = section->Get_string(
 			        "opl_filter");
 			configure_opl_filter(opl_channel, opl_filter_prefs, sb.type);
@@ -2145,7 +2229,10 @@ public:
 		if (sb.type == SBT_PRO1 || sb.type == SBT_PRO2 || sb.type == SBT_16)
 			channel_features.insert(ChannelFeature::Stereo);
 
-		sb.chan = MIXER_AddChannel(&SBLASTER_CallBack, 22050, "SB", channel_features);
+		sb.chan = MIXER_AddChannel(&SBLASTER_CallBack,
+		                           default_playback_rate_hz,
+		                           "SB",
+		                           channel_features);
 
 		const std::string sb_filter_prefs = section->Get_string("sb_filter");
 
@@ -2166,8 +2253,12 @@ public:
 			// Disable mixer ports for lower soundblaster
 			if ((sb.type == SBT_1 || sb.type == SBT_2) && (i == 4 || i == 5))
 				continue;
-			ReadHandler[i].Install(sb.hw.base + i, read_sb, io_width_t::byte);
-			WriteHandler[i].Install(sb.hw.base + i, write_sb, io_width_t::byte);
+			read_handlers[i].Install(sb.hw.base + i,
+			                         read_sb,
+			                         io_width_t::byte);
+			write_handlers[i].Install(sb.hw.base + i,
+			                          write_sb,
+			                          io_width_t::byte);
 		}
 		for (uint16_t i = 0; i < 256; ++i)
 			ASP_regs[i] = 0;
@@ -2180,71 +2271,71 @@ public:
 
 		ProcessDMATransfer = &PlayDMATransfer;
 
-		// Ensure our port and addresses will fit in our format widths.
-		// The config selection controls their actual values, so this is
-		// a maximum-limit.
-		assert(sb.hw.base < 0xfff);
-		assert(sb.hw.irq <= 12);
-		assert(sb.hw.dma8 < 10);
+		SetupEnvironment();
 
-		char set_blaster[] = "@SET BLASTER=AHHH II DD HH TT";
-		if (sb.type == SBT_16) {
-			assert(sb.hw.dma16 < 10);
-			safe_sprintf(set_blaster, "@SET BLASTER=A%x I%u D%u H%u T%d",
-			             sb.hw.base, sb.hw.irq, sb.hw.dma8, sb.hw.dma16,
-			             static_cast<int>(sb.type));
+		// Soundblaster midi interface
+		if (!MIDI_Available()) {
+			sb.midi = false;
 		} else {
-			safe_sprintf(set_blaster, "@SET BLASTER=A%x I%u D%u T%d",
-			             sb.hw.base, sb.hw.irq, sb.hw.dma8,
-			             static_cast<int>(sb.type));
+			sb.midi = true;
 		}
 
-		LOG_MSG("%s: Running on port %xh, irq=%d, dma8=%d, dma16=%d",
+		LOG_MSG("%s: Running on port %xh, IRQ %d, DMA %d, and high DMA %d",
 		        CardType(),
 		        sb.hw.base,
 		        sb.hw.irq,
 		        sb.hw.dma8,
 		        sb.hw.dma16);
-
-		LOG_MSG("%s: %s", CardType(), set_blaster);
-		autoexecline.Install(set_blaster);
-
-		/* Soundblaster midi interface */
-		if (!MIDI_Available()) sb.midi = false;
-		else sb.midi = true;
 	}
 
 	~SBLASTER()
 	{
+		// Prevent discovery of the Sound Blaster via the environment
+		ClearEnvironment();
+
+		// Shutdown any FM Synth devices
 		switch (oplmode) {
-		case OplMode::None:
-			break;
-		case OplMode::Cms:
-			CMS_ShutDown();
-			break;
-		case OplMode::Opl2:
-			CMS_ShutDown();
-			[[fallthrough]];
+		case OplMode::None: break;
+		case OplMode::Cms: CMS_ShutDown(); break;
+		case OplMode::Opl2: CMS_ShutDown(); [[fallthrough]];
 		case OplMode::DualOpl2:
 		case OplMode::Opl3:
-		case OplMode::Opl3Gold:
-			OPL_ShutDown();
-			break;
+		case OplMode::Opl3Gold: OPL_ShutDown(); break;
 		}
-		if (sb.type == SBT_NONE || sb.type == SBT_GB)
+		if (sb.type == SBT_NONE || sb.type == SBT_GB) {
 			return;
+		}
+
+		LOG_MSG("%s: Shutting down", CardType());
+
+		// Stop playback
+		if (sb.chan) {
+			sb.chan->Enable(false);
+		}
+		// Stop the game from accessing the IO ports
+		for (auto& rh : read_handlers) {
+			rh.Uninstall();
+		}
+		for (auto& wh : write_handlers) {
+			wh.Uninstall();
+		}
 		DSP_Reset(); // Stop everything
 		sb.dsp.reset_tally = 0;
+
+		// Deregister the mixer channel and remove it
+		assert(sb.chan);
+		MIXER_DeregisterChannel(sb.chan);
+		sb.chan.reset();
 	}
 }; //End of SBLASTER class
 
+static std::unique_ptr<SBLASTER> sblaster = {};
 
-static SBLASTER* test;
 void SBLASTER_ShutDown(Section* /*sec*/) {
-	delete test;
+	sblaster = {};
 }
 
 void SBLASTER_Init(Section* sec) {
-	test = new SBLASTER(sec);
+	sblaster = std::make_unique<SBLASTER>(sec);
 	sec->AddDestroyFunction(&SBLASTER_ShutDown,true);
 }

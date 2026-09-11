@@ -283,7 +283,6 @@ bool localDrive::FileUnlink(char * name) {
 		// and try removing it again.
 		if (remove(fullname) == 0) {
 			dirCache.DeleteEntry(newname);
-			
 			// BOXER-HOOK: local-open-file-removed - Boxer tracks deletion that
 			// succeeds after DOSBox closes an open host file handle.
 			boxer_didRemoveLocalFile(fullname, this);
@@ -763,15 +762,8 @@ bool localFile::Seek(uint32_t *pos_addr, uint32_t type)
 	//TODO Give some doserrorcode;
 		return false;//ERROR
 	}
-	
-	//--Added 2011-11-03 by Alun Bestor to avoid errors on files
-	//whose backing media has disappeared
-	if (!fhandle)
-	{
+	if (!fhandle) {
 		*pos_addr = 0;
-		//IMPLEMENTATION NOTE: you might think we ought to return false here,
-		//but no! We return true to be consistent with DOSBox's behaviour,
-		//which appears to be the behaviour expected by DOS.
 		return true;
 	}
 	// BOXER-HOOK: unavailable-file-seek - Boxer can invalidate host handles
@@ -870,10 +862,11 @@ bool localFile::UpdateDateTimeFromHost()
 {
 	if (!open)
 		return false;
-
 	// BOXER-HOOK: unavailable-file-timestamp - Boxer skips timestamp refresh
 	// after it has closed an unavailable host handle.
-	if (!fhandle) return false;
+	if (!fhandle)
+		return false;
+
 	// Legal defaults if we're unable to populate them
 	time = 1;
 	date = 1;

@@ -9,7 +9,6 @@ concurrency:
 env:
   VCPKG_ROOT: C:\vcpkg
   VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
-  GH_NUGET_REGISTRY: https://nuget.pkg.github.com/dosbox-staging/index.json
 
 jobs:
   build_windows_vs:
@@ -24,33 +23,33 @@ jobs:
             max_warnings: 20
           - name: MSVC 64-bit
             arch: x64
-            max_warnings: 915
+            max_warnings: 910
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           submodules: false
 
-      - name:  Prepare VCPKG
-        id: prep-vcpkg
-        shell: pwsh
+      - name:  Setup vcpkg and NuGet
+        shell: bash
         run: |
-          ${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat
-          echo "::set-output name=nuget_bin::$(${{ env.VCPKG_ROOT }}\vcpkg.exe fetch nuget)"
-
-      - name: 'Setup NuGet Credentials'
-        shell: pwsh
-        run: >-
-          ${{ steps.prep-vcpkg.outputs.nuget_bin }}
-          sources add
-          -source "${{ env.GH_NUGET_REGISTRY }}"
-          -storepasswordincleartext
-          -name "GitHub"
-          -username "dosbox-staging"
-          -password "${{ secrets.GITHUB_TOKEN }}"
+          set -euo pipefail
+          cd "${{ env.VCPKG_ROOT }}"
+          ./bootstrap-vcpkg.sh -disableMetrics
+          nuget=$(./vcpkg.exe fetch nuget | tail -n 1)
+          owner="${GITHUB_REPOSITORY%/*}"
+          source_url="https://nuget.pkg.github.com/$owner/index.json"
+          "$nuget" sources add \
+            -source "$source_url" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$owner" \
+            -password "${{ secrets.GITHUB_TOKEN }}"
+          "$nuget" setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -source "$source_url"
 
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1.1
+        uses: microsoft/setup-msbuild@v1.3
         with:
             vs-prerelease: true
             msbuild-architecture: ${{ matrix.conf.arch }}
@@ -113,28 +112,27 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: false
-          fetch-depth: 0
 
-      - name:  Prepare VCPKG
-        id: prep-vcpkg
-        shell: pwsh
+      - name:  Setup vcpkg and NuGet
+        shell: bash
         run: |
-          ${{ env.VCPKG_ROOT }}\bootstrap-vcpkg.bat
-          echo "::set-output name=nuget_bin::$(${{ env.VCPKG_ROOT }}\vcpkg.exe fetch nuget)"
-
-      - name: 'Setup NuGet Credentials'
-        shell: pwsh
-        run: >-
-          ${{ steps.prep-vcpkg.outputs.nuget_bin }}
-          sources add
-          -source "${{ env.GH_NUGET_REGISTRY }}"
-          -storepasswordincleartext
-          -name "GitHub"
-          -username "dosbox-staging"
-          -password "${{ secrets.GITHUB_TOKEN }}"
+          set -euo pipefail
+          cd "${{ env.VCPKG_ROOT }}"
+          ./bootstrap-vcpkg.sh -disableMetrics
+          nuget=$(./vcpkg.exe fetch nuget | tail -n 1)
+          owner="${GITHUB_REPOSITORY%/*}"
+          source_url="https://nuget.pkg.github.com/$owner/index.json"
+          "$nuget" sources add \
+            -source "$source_url" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$owner" \
+            -password "${{ secrets.GITHUB_TOKEN }}"
+          "$nuget" setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -source "$source_url"
 
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1.1
+        uses: microsoft/setup-msbuild@v1.3
         with:
             vs-prerelease: true
             msbuild-architecture: ${{ matrix.conf.arch }}
@@ -154,13 +152,13 @@ jobs:
         shell: bash
         run: |
           set -x
-          git fetch --prune --unshallow || true
+          git fetch --prune --unshallow
           git fetch --all --tags --force
           export VERSION=$(git describe --abbrev=0)
           # inject version based on vcs
           sed -i "s|DOSBOX_DETAILED_VERSION \"git\"|DOSBOX_DETAILED_VERSION \"$VERSION\"|" src/platform/visualc/config.h
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "::set-output name=dosbox_vers::${VERSION}"
+          echo "dosbox_vers=${VERSION}" >> $GITHUB_OUTPUT
 
       - name:  Enable the debugger in config.h
         if: ${{ matrix.conf.debugger }}
@@ -180,7 +178,7 @@ jobs:
         id:    set_pkg_dir
         shell: bash
         run: |
-          echo "::set-output name=pkg_dir::dosbox-staging-windows-${{ matrix.conf.arch }}-${{ env.VERSION }}"
+          echo "pkg_dir=dosbox-staging-windows-${{ matrix.conf.arch }}-${{ env.VERSION }}" >> $GITHUB_OUTPUT
 
       - name: Package standard build
         if: ${{ !matrix.conf.debugger }}
@@ -188,7 +186,7 @@ jobs:
         run: |
           # Construct VC_REDIST_DIR
           readonly VC_REDIST_BASE="C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Redist/MSVC"
-          readonly VC_REDIST_VERSION="14.32.31326"
+          readonly VC_REDIST_VERSION="14.34.31931"
           readonly VC_REDIST_CRT_VERSION="Microsoft.VC143.CRT"
           export VC_REDIST_DIR="$VC_REDIST_BASE/$VC_REDIST_VERSION/${{ matrix.conf.arch }}/$VC_REDIST_CRT_VERSION"
           find "$VC_REDIST_BASE" -maxdepth 3 -type d
@@ -242,13 +240,13 @@ jobs:
         shell: bash
         run: |
           set +x
-          git fetch --unshallow || true
+          git fetch --unshallow
           git fetch --all --tags --force
           VERSION=$(git describe --abbrev=0)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           NEWEST_TAG=$(git describe --abbrev=0)
           git log "$NEWEST_TAG..HEAD" > changelog-$VERSION.txt
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           # Keep exactly this artifact name; it's being used to propagate
           # version info via GitHub REST API

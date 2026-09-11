@@ -1,3 +1,33 @@
+:TITLEBAR_CYCLES_MS
+cicli/ms
+.
+:TITLEBAR_HINT_PAUSED
+(PAUSA)
+.
+:TITLEBAR_HINT_NOMOUSE
+modalità senza mouse
+.
+:TITLEBAR_HINT_CAPTURED_HOTKEY
+mouse catturato, %s+F10 per rilasciarlo
+.
+:TITLEBAR_HINT_CAPTURED_HOTKEY_MIDDLE
+mouse catturato, %s+F10 o pulsante centrale del mouse per rilasciarlo
+.
+:TITLEBAR_HINT_RELEASED_HOTKEY
+per catturare il mouse premere %s+F10
+.
+:TITLEBAR_HINT_RELEASED_HOTKEY_MIDDLE
+per catturare il mouse premere %s+F10 o pulsante centrale del mouse
+.
+:TITLEBAR_HINT_RELEASED_HOTKEY_ANY_BUTTON
+per catturare il mouse premere %s+F10 o fare clic su qualsiasi pulsante
+.
+:TITLEBAR_HINT_SEAMLESS_HOTKEY
+mouse senza soluzione di continuità, %s+F10 per catturarlo
+.
+:TITLEBAR_HINT_SEAMLESS_HOTKEY_MIDDLE
+mouse senza soluzione di continuità, %s+F10 o pulsante centrale del mouse per catturarlo
+.
 :CONFIG_FULLSCREEN
 Avvia direttamente a schermo intero.
 Digita INTRO e osserva la sezione Tasti Speciali per la lista dei tasti di
@@ -85,33 +115,16 @@ Scegli un driver di rendering da utilizzare nella modalità di uscita texture.
 Usa texture_renderer=auto per una scelta automatica.
 .
 :CONFIG_CAPTURE_MOUSE
-Scegli un metodo di controllo del mouse:
-   onclick:       Cattura il mouse alla pressione di qualsiasi tasto
-                  all'interno della finestra.
-   onstart:       Cattura il mouse immediatamente all'avvio.
-   seamless:      Permette al mouse di muoversi liberamente; È possibile
-                  catturarlo con un clic centrale o con l'apposito tasto di
-                  scelta rapida.
-   nomouse:       Nasconde il mouse e impedisce che vengano inviati segnali di
-                  input al gioco.
-Scegli come vengono gestiti i clic centrali (secondo parametro):
-   middlegame:    I clic centrali vengono inviati al gioco.
-   middlerelease: Il clic centrale rilascia il mouse precedentemente catturato.
-                  Nel caso in cui si utilizzi il metodo di controllo seamless,
-                  esso si occuperà anche di catturarlo.
-Predefiniti (se non presenti o incorretti): seamless middlerelease
+Spostato nella sezione [mouse].
 .
 :CONFIG_SENSITIVITY
-Sensibilità del mouse. Il secondo parametro, facoltativo, specifica la
-sensibilità verticale (es. 100,-50).
+Spostato nella sezione [mouse].
 .
 :CONFIG_RAW_MOUSE_INPUT
-Abilita questa impostazione per bypassare le impostazioni di sensibilità
-e accelerazione del mouse del tuo sistema operativo. Funziona in modalità
-schermo intero o quando il mouse viene catturato in modalità finestra.
+Spostato nella sezione [mouse].
 .
 :CONFIG_WAITONERROR
-Attendi prima di chiudere la console in caso di errore di DOSBox.
+Mantiene la console aperta se si verifica un errore.
 .
 :CONFIG_PRIORITY
 Livelli di priorità da applicare rispettivamente quando la finestra è
@@ -229,7 +242,8 @@ auto        | 'low' se viene fornito un'eseguibile, un batch o una directory,
             |  (es. dosbox run.bat), altrimenti sarà impostato su 'high'
 .
 :CONFIG_FRAMESKIP
-Determina il numero di fotogrammi saltati da DOSBox prima di disegnarne uno.
+Prendi in considerazione l'idea di limitare la frequenza dei fotogrammi
+utilizzando l'impostazione '[sdl] host_rate'.
 .
 :CONFIG_ASPECT
 Ridimensiona la risoluzione verticale dello schermo per produrre un rapporto
@@ -248,12 +262,17 @@ Funziona solo quando si emula hercules o cga_mono.
 Imposta l'interpretazione dei colori CGA RGBI. Influisce su tutti i tipi di
 macchine in grado di visualizzare CGA o grafica migliore. Preset integrati:
   default:       Tavolozza CGA emulata come negli adattatori VGA (predefinito).
-  tandy [BL]:    Emulazione di un monitor Tandy con livello marrone regolabile
-                 (0 - rosso, 50 - marrone, 100 - giallo scuro; predefinito 50).
-  tandy-warm:    Emulazione dell'effettiva resa cromatica di un monitor Tandy.
+  tandy [BL]:    Emulazione di un monitor Tandy con livello del marrone
+                 regolabile. Il livello del marrone può essere fornito come
+                 secondo parametro opzionale (0 - rosso, 50 - marrone,
+                 100 - giallo scuro; predefinito 50), Es. tandy 100
+  tandy-warm:    Emulazione dell'effettiva resa cromatica di un monitor Tandy
+                 sconosciuto.
   ibm5153 [C]:   Emulazione dell'effettiva resa cromatica di un monitor
                  IBM 5153 con un esclusivo controllo del contrasto che attenua
-                 solo i colori non luminosi (da 0 a 100; predefinito 100).
+                 solo i colori non luminosi. Il contrasto può essere fornito
+                 come secondo parametro opzionale (da 0 a 100; predefinito 100)
+                 Es. ibm5153 60
   agi-amiga-v1, agi-amiga-v2, agi-amiga-v3:
                  Tavolozze utilizzate dai port Amiga dei giochi AGI Sierra
                  (fare riferimento al manuale per ulteriori dettagli).
@@ -265,23 +284,28 @@ macchine in grado di visualizzare CGA o grafica migliore. Preset integrati:
 È possibile impostare colori personalizzati specificando 16 valori di colore
 separati da spazi o virgole, come codici esadecimali a 3 o 6 cifre (es. #f00 o
 #ff0000 per rosso), o triplette RGB decimali (es. (255, 0, 255) per magenta).
+I 16 colori sono ordinati come segue:
+nero, blu, verde, ciano, rosso, magenta, marrone, grigio-chiaro, grigio-scuro,
+azzurro, verde-chiaro, ciano-chiaro, rosso-chiaro, magenta-chiaro, giallo,
+e bianco.
+I loro valori predefiniti, mostrati qui in formato codice esadecimale a 6 cifre
+sono rispettivamente:
+#000000 #0000aa #00aa00 #00aaaa #aa0000 #aa00aa #aa5500 #aaaaaa #555555
+#5555ff #55ff55 #55ffff #ff5555 #ff55ff #ffff55 e #ffffff.
 .
 :CONFIG_SCALER
-Scaler usato per ingrandire/migliorare le modalità a bassa risoluzione.
-Se viene aggiunto 'forced', lo scaler sarà usato anche se i risultati
-potrebbero non essere come desiderati.
-Nota che alcuni scaler possono utilizzare bordi neri per adattare l'immagine
-alla risoluzione dello schermo configurata. Se questo non è l'effetto
-desiderato, prova uno scaler diverso o attiva l'uscita a piena risoluzione.
+Gli scaler software sono deprecati a favore delle opzioni con accelerazione
+hardware:
+ - Se hai utilizzato in passato gli scaler normal2x/3x, imposta invece
+   l'opzione 'windowresolution'.
+ - Se hai utilizzato in passato uno scaler avanzato, considera invece una
+   delle opzioni "glshader".
 .
 :CONFIG_GLSHADER
 Imposta 'none' (nessuno) o il nome di uno shader GLSL. Funziona solo con
-l'uscita OpenGL. Può essere un percorso assoluto, un file nella sottodirectory
-'glshaders' della directory di configurazione di DOSBox, o uno degli shader
-inclusi:
-advinterp2x, advinterp3x, advmame2x, advmame3x,
-crt-easymode-flat, crt-fakelottes-flat, rgb2x, rgb3x,
-scan2x, scan3x, tv2x, tv3x, sharp (predefinito).
+l'uscita OpenGL. Può essere un percorso assoluto o un file nella sottodirectory
+'glshaders' della directory di configurazione di DOSBox.
+L'estensione '.glsl' può essere omessa.
 .
 :CONFIG_COMPOSITE
 Abilita la modalità composita all'avvio. 'auto' lascia decidere al programma.
@@ -338,6 +362,76 @@ controllo della velocità.
 Un valore più basso di 100 indica una percentuale.
 Digita INTRO e osserva la sezione Tasti Speciali per la lista dei tasti di
 scelta rapida.
+.
+:CONFIG_MOUSE_CAPTURE
+Scegli un metodo di controllo del mouse:
+   onclick:       Cattura il mouse quando fai clic con qualsiasi pulsante
+                  all'interno della finestra.
+   onstart:       Cattura il mouse immediatamente all'avvio.
+   seamless:      Modalità mouse senza soluzione di continuità; È possibile
+                  catturarlo premendo il pulsante centrale del mouse o
+                  l'apposito tasto di scelta rapida.
+   nomouse:       Nasconde il mouse e impedisce che vengano inviati segnali di
+                  input al gioco.
+.
+:CONFIG_MOUSE_MIDDLE_RELEASE
+Se vero, il pulsante centrale rilascerà il mouse. Con il metodo di controllo
+'seamless', esso si occuperà anche di catturarlo.
+.
+:CONFIG_MOUSE_SENSITIVITY
+Sensibilità del mouse predefinita. 100 è il valore base, 150 equivale al 150%
+di sensibilità, ecc.
+Valori negativi invertono la direzione del mouse, 0 lo disabilita.
+Il secondo parametro specifica la sensibilità verticale (ad es. 100,200).
+Questa impostazione può essere regolata durante l'esecuzione del programma
+(per ogni interfaccia del mouse) utilizzando lo strumento interno MOUSECTL.COM,
+disponibile sull'unità Z:.
+.
+:CONFIG_MOUSE_RAW_INPUT
+Abilita questa impostazione per bypassare le impostazioni di sensibilità
+e accelerazione del mouse del tuo sistema operativo. Funziona in modalità
+schermo intero o quando il mouse viene catturato in modalità finestra.
+.
+:CONFIG_DOS_MOUSE_DRIVER
+Abilita il driver del mouse DOS integrato.
+Note:
+   Disabilitalo se intendi utilizzare il driver MOUSE.COM originale.
+   Quando un sistema operativo guest viene avviato, il driver integrato viene
+   disabilitato automaticamente.
+.
+:CONFIG_DOS_MOUSE_IMMEDIATE
+Aggiorna immediatamente i contatori di movimento del mouse, senza attendere
+l'interrupt. Può migliorare la giocabilità, specialmente nei giochi dal ritmo
+veloce (arcade, FPS, ecc.) poichè per alcuni incrementa efficacemente la
+frequenza di polling a 1000 Hz, senza aumentare il sovraccarico dell'interrupt.
+Potrebbe causare problemi di compatibilità. 
+Elenco di giochi incompatibili noti:
+   - Ultima Underworld: The Stygian Abyss
+   - Ultima Underworld II: Labyrinth of Worlds
+Segnala un bug nel repository del progetto se trovi un altro gioco che ha
+problemi con questa impostazione abilitata, aggiorneremo questo elenco.
+.
+:CONFIG_PS2_MOUSE_MODEL
+Modello mouse porta PS/2 AUX:
+   standard:       3 pulsanti, mouse PS/2 standard.
+   intellimouse:   3 pulsanti + rotellina, Microsoft IntelliMouse.
+Predefinito: intellimouse
+.
+:CONFIG_COM_MOUSE_MODEL
+Modello mouse predefinito porta COM (seriale):
+   2button:        2 pulsanti, mouse Microsoft.
+   3button:        3 pulsanti, mouse Logitech,
+                   per lo più compatibile con mouse Microsoft.
+   wheel:          3 pulsanti + rotellina,
+                   per lo più compatibile con mouse Microsoft.
+   msm:            3 pulsanti, mouse Mouse Systems,
+                   NON COMPATIBILE con mouse Microsoft.
+   2button+msm:    Scelta automatica tra 2button e msm.
+   3button+msm:    Scelta automatica tra 3button e msm.
+   wheel+msm:      Scelta automatica tra wheel e msm.
+Predefinito: wheel+msm
+Note:
+   Vai alla sezione [serial] per abilitare/disabilitare i mouse su porta COM.
 .
 :CONFIG_NOSOUND
 Attiva la modalità silenziosa, ma il suono viene comunque emulato.
@@ -726,14 +820,36 @@ Filtro per l'uscita audio del DAC PS/1:
   <custom>:  Definizione di filtri personalizzati; 
              fare riferimento a 'sb_filter' per ulteriori dettagli.
 .
+:CONFIG_REELMAGIC
+Supporto per la riproduzione MPEG di ReelMagic (alias REALmagic).
+  off:      Disabilita il supporto (predefinito).
+  cardonly: Inizializza la scheda senza caricare il driver FMPDRV.EXE.
+  on:       Inizializza la scheda e carica il driver FMPDRV.EXE all'avvio.
+.
+:CONFIG_REELMAGIC_KEY
+Imposta la chiave a 32 bit utilizzata per decodificare i video dei giochi.
+  auto:     Utilizza le routine integrate per determinare la chiave
+            (predefinito).
+  common:   Utilizza la chiave trovata più comunemente, cioè 0x40044041.
+  thehorde: Utilizza la chiave del videogioco The Horde, cioè 0xC39D7088.
+  <custom>: Imposta una chiave personalizzata in formato esadecimale
+            (ad esempio, 0x12345678).
+.
+:CONFIG_REELMAGIC_FCODE
+Modifica la frequenza dei fotogrammi utilizzata durante la riproduzione video.
+  0:        Nessuna modifica: tenta il rilevamento automatico della frequenza
+            (predefinito).
+  1 - 7:    Modifica la frequenza dei fotogrammi con una delle seguenti:
+            1=23.976, 2=24, 3=25, 4=29.97, 5=30, 6=50, o 7=59.94 FPS.
+.
 :CONFIG_JOYSTICKTYPE
 Tipo di joystick da emulare: auto (predefinito),
 auto     : Rileva e usa qualsiasi joystick, se possibile.
-2axis    : Supporta fino a due joystick.
-4axis    : Supporta solo il primo joystick.
-4axis_2  : Supporta solo il secondo joystick.
-fcs      : Supporta un joystick di tipo Thrustmaster.
-ch       : Supporta un joystick di tipo CH Flightstick.
+2axis    : Supporta fino a due joystick, ciascuno con 2 assi.
+4axis    : Supporta solo il primo joystick, come tipo a 4 assi.
+4axis_2  : Supporta solo il secondo joystick, come tipo a 4 assi.
+fcs      : Emula il joystick Thrustmaster FCS.
+ch       : Emula il joystick CH Flightstick.
 hidden   : Impedisce a DOS di vedere i joystick, ma sono abilitali per la
            mappatura.
 disabled : Disabilita completamente i joystick: non saranno interrogati,
@@ -795,14 +911,7 @@ Può essere: disabled, dummy, mouse, modem, nullmodem, direct.
 Eventuali parametri aggiuntivi devono essere sulla stessa riga nella forma di
 parametro:valore. Un parametro per tutti i tipi è 'irq' (facoltativo).
 per mouse:
-   type (tipo), può essere uno dei seguenti:
-      2btn:  2 pulsanti, mouse seriale Microsoft
-      3btn:  3 pulsanti, mouse seriale Logitech
-      wheel: mouse seriale 3 pulsanti + rotellina
-      msm:   3 pulsanti, mouse Mouse Systems
-      2btn+msm, 3btn+msm, wheel+msm : selezione automatica
-   rate (tasso), può essere normal o smooth (aggiornamenti più frequenti)
-   Predefinito type:wheel+msm rate:smooth
+   model, sovrascrive l'impostazione dalla sezione [mouse].
 per direct: realport (richiesto), rxdelay (facoltativo).
    (realport:COM1 realport:ttyS0).
 per modem: listenport, sock, baudrate (tutti facoltativi).
@@ -962,29 +1071,30 @@ Scrittura del file di configurazione in %s
 .
 :SHELL_CMD_CONFIG_HELP_LONG
 Regola i parametri configurabili di DOSBox Staging.
--writeconf o -wc senza parametro: scrive nel file di config. primario caricato.
--writeconf o -wc [nomefile]: scrive il file nella directory di configurazione.
-Usa -writelang o -wl [nomefile] per scrivere le stringhe della lingua corrente.
+
+-writeconf o -wc Scrive nel file di configigurazione primario caricato.
+-writeconf o -wc [nomefile] Scrive il file nella directory di configurazione.
+-writelang o -wl [nomefile] Scrive le stringhe della lingua corrente.
 -r [parametri]
  Riavvia DOSBox, utilizzando i parametri precedenti o quelli aggiunti.
 -wcp [nomefile]
- Scrive il file di config. nella directory del programma, col nome dosbox.conf
- o con il nome del file specificato.
--wcd
- Scrive nel file di config. predefinito nella directory di configurazione.
--l elenca i parametri di configurazione.
+ Scrive il file di configurazione nella directory del programma, con il nome
+ 'dosbox.conf' o quello specificato.
+-wcd Scrive nel file di configurazione predefinito.
+-l Elenca i parametri di configurazione.
 -h, -help, -? sections / nomeSezione / nomeProprietà
  Senza parametri, visualizza questa guida. Aggiungi "sections" per elencare le
- sezioni. Per info su sezione o proprietà, aggiungere il suo nome dopo -help.
--axclear pulisce la sezione autoexec.
--axadd [riga] aggiunge una riga alla sezione autoexec.
--axtype stampa il contenuto della sezione autoexec.
--securemode passa alla modalità sicura.
--avistart avvia la registrazione AVI.
--avistop interrompe la registrazione AVI.
--startmapper avvia il keymapper.
--get "[sezione] proprietà" restituisce il valore della proprietà.
--set "[sezione] proprietà=valore" imposta il valore.
+ sezioni. Per informazioni su una sezione o proprietà specifica, aggiungere il
+ suo nome alla fine del comando (es. config -h sdl).
+-axclear Pulisce la sezione 'autoexec'.
+-axadd [riga] Aggiunge una riga alla sezione 'autoexec'.
+-axtype Stampa il contenuto della sezione 'autoexec'.
+-securemode Passa alla modalità sicura.
+-avistart Avvia la registrazione AVI.
+-avistop Interrompe la registrazione AVI.
+-startmapper Avvia il keymapper.
+-get "[sezione] proprietà" Restituisce il valore della proprietà.
+-set "[sezione] proprietà=valore" Imposta il valore.
 
 .
 :PROGRAM_CONFIG_HLP_PROPHLP
@@ -1008,7 +1118,7 @@ Questa proprietà non può essere modificata mentre il programma è in esecuzion
 
 .
 :PROGRAM_CONFIG_HLP_POSINT
-Numero intero positivo.
+numero intero positivo.
 .
 :PROGRAM_CONFIG_HLP_SECTHLP
 La sezione %s contiene le seguenti proprietà:
@@ -1067,13 +1177,13 @@ dispositivo non configurato
 directory locale
 .
 :MOUNT_TYPE_CDROM
-Unità CD-ROM
+unità CD-ROM
 .
 :MOUNT_TYPE_FAT
-Unità FAT
+unità FAT
 .
 :MOUNT_TYPE_ISO
-Unità ISO
+unità ISO
 .
 :MOUNT_TYPE_VIRTUAL
 unità virtuale interna
@@ -1087,7 +1197,7 @@ https://github.com/dosbox-staging/dosbox-staging/wiki/Add-Utilities
 :WIKI_URL
 https://github.com/dosbox-staging/dosbox-staging/wiki
 .
-:SHELL_CMD_AUTOTYPE_HELP_LONG
+:PROGRAM_AUTOTYPE_HELP_LONG
 Esegue l'immissione da tastiera tramite script in un gioco DOS.
 
 Utilizzo:
@@ -1102,7 +1212,7 @@ Dove:
 Note:
   I [color=cyan]TASTI[reset] forniti in questo comando verranno digitati automaticamente nei
   giochi DOS dopo il loro avvio. La digitazione automatica inizia dopo i
-  secondi di [color=cyan]ATTESA[reset], e ogni pulsante viene inserito in base all'[color=white]ANDATURA[reset] in
+  secondi di [color=cyan]ATTESA[reset], e ogni tasto viene inserito in base all'[color=white]ANDATURA[reset] in
   secondi. Il carattere [color=cyan],[reset] inserisce un ritardo di [color=white]ANDATURA[reset] extra. I valori
   predefiniti di [color=white]ATTESA[reset] e [color=white]ANDATURA[reset] sono rispettivamente 2 e 0.5 secondi, se non
   specificati. È possibile ottenere un elenco di tutti i nomi dei tasti
@@ -1113,7 +1223,7 @@ Esempi:
   [color=green]autotype[reset] -w [color=white]1[reset] -p [color=white]0.3[reset] [color=cyan]up enter , right enter[reset]
   [color=green]autotype[reset] -p [color=white]0.2[reset] [color=cyan]f1 kp_8 , , enter[reset]
 .
-:SHELL_CMD_BOOT_HELP_LONG
+:PROGRAM_BOOT_HELP_LONG
 Avvia DOSBox Staging da un'unità DOS o da un'immagine disco.
 
 Utilizzo:
@@ -1190,6 +1300,46 @@ Comandi della cartuccia PCjr disponibili: %s
 :PROGRAM_BOOT_CART_NO_CMDS
 Nessun comando della cartuccia PCjr trovato.
 .
+:PROGRAM_FMPDRV_HELP_LONG
+Carica o disabilita il driver integrato del lettore ReelMagic Full Motion.
+
+Utilizzo:
+  [color=green]fmpdrv[reset]    (carica il driver)
+  [color=green]fmpdrv[reset] /u (disabilita il driver)
+
+Note:
+  L'impostazione di configurazione "reelmagic = on" permette di caricare il
+  driver all'avvio e impedisce che venga disabilitato.
+
+.
+:PROGRAM_FMPDRV_TITLE
+Driver Lettore ReelMagic Full Motion (integrato) %hhu.%hhu
+
+.
+:PROGRAM_FMPDRV_LOADED
+[reset][color=light-yellow]Caricato all'interrupt %xh[reset]
+
+.
+:PROGRAM_FMPDRV_LOAD_FAILED_ALREADY_LOADED
+[reset][color=light-yellow]Già caricato all'interrupt %xh[reset]
+
+.
+:PROGRAM_FMPDRV_LOAD_FAILED_INT_CONFLICT
+[reset][color=red]Non caricato: Nessun interrupt disponibile![reset]
+
+.
+:PROGRAM_FMPDRV_UNLOADED
+[reset][color=light-yellow]Driver disabilitato[reset]
+
+.
+:PROGRAM_FMPDRV_UNLOAD_FAILED_NOT_LOADED
+[reset][color=light-yellow]Il driver non è stato caricato[reset]
+
+.
+:PROGRAM_FMPDRV_UNLOAD_FAILED_BLOCKED
+[reset][color=light-yellow]Driver non disabilitato: configurato per rimanere residente[reset]
+
+.
 :MSCDEX_SUCCESS
 MSCDEX installato.
 
@@ -1254,7 +1404,7 @@ Unità %c montata come %s
 Le unità attualmente montate sono:
 
 .
-:SHELL_CMD_IMGMOUNT_HELP_LONG
+:PROGRAM_IMGMOUNT_HELP_LONG
 Monta un'immagine CD-ROM, floppy o disco su una lettera di unità.
 
 Utilizzo:
@@ -1272,17 +1422,15 @@ Dove:
 Note:
   - %s+F4 scambia e monta il [color=cyan]CDROM-SET[reset] o l'immagine [color=cyan]AVVIABILE[reset] successiva.
   - Il flag -ro monta l'immagine disco in sola lettura (Protetto da scrittura).
-  - Il flag -ide emula un controller IDE con un'unità CD collegata, utile per i
-    giochi CD che richiedono un ambiente DOS tramite l'immagine HDD avviabile.
+  - Il flag -ide emula un controller IDE con un'unità CD IDE collegata, utile
+    per i giochi basati su CD che richiedono un vero ambiente DOS tramite
+    un'immagine HDD avviabile.
+
 Esempi:
   [color=green]imgmount[reset] [color=white]D[reset] [color=cyan]C:\giochi\doom.iso[reset] -t cdrom
   [color=green]imgmount[reset] [color=white]D[reset] [color=cyan]cd/quake1.cue[reset] -t cdrom
   [color=green]imgmount[reset] [color=white]A[reset] [color=cyan]floppy1.img floppy2.img floppy3.img[reset] -t floppy -ro
   [color=green]imgmount[reset] [color=white]C[reset] [color=cyan]discoAvviabile.img[reset] -t hdd -fs none -size 512,63,32,1023
-
-.
-:PROGRAM_IMGMOUNT_STATUS_1
-Le unità disco e immagini CD attualmente montate sono:
 
 .
 :PROGRAM_IMGMOUNT_SPECIFY_DRIVE
@@ -1360,8 +1508,31 @@ L'immagine deve trovarsi su un'unità host o locale.
 L'uso di file multipli è supportato solo per le immagini cue/iso.
 
 .
+:PROGRAM_INTRO_HELP
+Visualizza un'introduzione a schermo intero in DOSBox Staging.
+
+.
+:PROGRAM_INTRO_HELP_LONG
+Utilizzo:
+  [color=green]intro[reset]
+  [color=green]intro[reset] [color=white]PAGINA[reset]
+
+Dove:
+  [color=white]PAGINA[reset] è il nome della pagina da visualizzare, incluso [color=white]cdrom[reset], [color=white]mount[reset] e [color=white]special[reset]
+
+Note:
+  L'esecuzione di [color=green]intro[reset] senza un argomento, permette di visualizzare una pagina
+  di informazioni alla volta; premere un tasto qualsiasi per passare alla
+  pagina successiva. Se viene fornito il nome della pagina, verrà visualizzata
+  direttamente quella specificata.
+
+Esempi:
+  [color=green]intro[reset]
+  [color=green]intro[reset] [color=white]cdrom[reset]
+
+.
 :PROGRAM_INTRO
-[2J[color=green]Benvenuto in DOSBox Staging[reset], un emulatore di x86 con audio e grafica.
+[erases=entire][color=green]Benvenuto in DOSBox Staging[reset], un emulatore di x86 con audio e grafica.
 DOSBox crea una shell simile al vecchio DOS.
 
 Per informazioni sul montaggio delle unità, digita [color=blue]intro mount[reset]
@@ -1374,25 +1545,25 @@ https://github.com/dosbox-staging/dosbox-staging/wiki[reset]
 
 .
 :PROGRAM_INTRO_MOUNT_START
-[2J[color=green]Ecco alcuni comandi utili per iniziare:[reset]
+[erases=entire][color=green]Ecco alcuni comandi utili per iniziare:[reset]
 Prima di poter utilizzare i file che si trovano sul tuo filesystem,
 Devi montare la directory contenente i file.
 
 
 .
 :PROGRAM_INTRO_MOUNT_WINDOWS
-[bgcolor=blue]╔══════════════════════════════════════════════════════════════════════════╗
-║ [color=light-green]mount c c:\giochi\ [color=light-white]crea un'unità C con il contenuto di c:\giochi.        ║
+[bgcolor=blue][color=white]╔══════════════════════════════════════════════════════════════════════════╗
+║ [color=green]mount c c:\giochi\ [color=white]crea un'unità C con il contenuto di c:\giochi.        ║
 ║                                                                          ║
-║ [color=light-green]c:\giochi\ [color=light-white]è un esempio. Sostituiscilo con la tua directory dei giochi.[color=light-white]  ║
+║ [color=green]c:\giochi\ [color=white]è un esempio. Sostituiscilo con la tua directory dei giochi.  ║
 ╚══════════════════════════════════════════════════════════════════════════╝[reset]
 
 .
 :PROGRAM_INTRO_MOUNT_OTHER
-[bgcolor=blue]╔════════════════════════════════════════════════════════════════════════╗
-║ [color=light-green]mount c ~/giochi[color=light-white] crea un'unità C con il contenuto di ~/giochi.         ║
+[bgcolor=blue][color=white]╔════════════════════════════════════════════════════════════════════════╗
+║ [color=green]mount c ~/giochi[color=white] crea un'unità C con il contenuto di ~/giochi.         ║
 ║                                                                        ║
-║ [color=light-green]~/giochi[color=light-white] è un esempio. Sostituiscilo con la tua directory dei giochi.[color=light-white]  ║
+║ [color=green]~/giochi[color=white] è un esempio. Sostituiscilo con la tua directory dei giochi.  ║
 ╚════════════════════════════════════════════════════════════════════════╝[reset]
 
 .
@@ -1405,7 +1576,7 @@ Puoi eseguire programmi/file con estensione [color=light-red].exe[reset], [color
 
 .
 :PROGRAM_INTRO_CDROM_WINDOWS
-[2J[color=green]Come montare un'unità CD-ROM reale/virtuale in DOSBox:[reset]
+[erases=entire][color=green]Come montare un'unità CD-ROM reale/virtuale in DOSBox:[reset]
 DOSBox fornisce un'emulazione CD-ROM su due livelli.
 
 Il livello [color=light-yellow]base[reset] funziona su tutte le directory normali, installa MSCDEX e
@@ -1417,9 +1588,9 @@ Se non funziona, potresti dover specificare a DOSBox l'etichetta del CD-ROM:
 
 Il livello [color=light-yellow]successivo[reset] aggiunge un supporto di basso livello.
 Pertanto funziona solo su unità CD-ROM:
-[color=blue]mount d [reset][color=light-red]D:\ [reset][color=blue]-t cdrom -usecd [color=light-yellow]0[reset]
+[color=blue]mount d[reset] [color=light-red]D:\ [color=blue]-t cdrom -usecd [color=yellow]0[reset]
 Sostituisci [color=light-red]D:\ [reset]con la posizione del tuo CD-ROM.
-Sostituisci lo [color=yellow]0[reset] in [color=blue]-usecd [color=light-yellow]0[reset] con il numero riportato per il tuo CD-ROM
+Sostituisci lo [color=yellow]0[reset] in [color=blue]-usecd [color=yellow]0[reset] con il numero riportato per il tuo CD-ROM
 se digiti: [color=blue]mount -listcd[reset]
 
 Inoltre, puoi usare imgmount per montare immagini iso o cue/bin:
@@ -1428,7 +1599,7 @@ Inoltre, puoi usare imgmount per montare immagini iso o cue/bin:
 
 .
 :PROGRAM_INTRO_CDROM_OTHER
-[2J[color=green]Come montare un'unità CD-ROM reale/virtuale in DOSBox:[reset]
+[erases=entire][color=green]Come montare un'unità CD-ROM reale/virtuale in DOSBox:[reset]
 DOSBox fornisce un'emulazione CD-ROM su due livelli.
 
 Il livello [color=light-yellow]base[reset] funziona su tutte le directory normali, installa MSCDEX e
@@ -1440,9 +1611,9 @@ Se non funziona, potresti dover specificare a DOSBox l'etichetta del CD-ROM:
 
 Il livello [color=light-yellow]successivo[reset] aggiunge un supporto di basso livello.
 Pertanto funziona solo su unità CD-ROM:
-[color=blue]mount d [reset][color=light-red]~/esempio[reset][color=blue] -t cdrom -usecd [color=light-yellow]0[reset]
+[color=blue]mount d[reset] [color=light-red]~/esempio[color=blue] -t cdrom -usecd [color=yellow]0[reset]
 Sostituisci [color=light-red]~/esempio[reset] con la posizione del tuo CD-ROM.
-Sostituisci lo [color=yellow]0[reset] in [color=blue]-usecd [color=light-yellow]0[reset] con il numero riportato per il tuo CD-ROM
+Sostituisci lo [color=yellow]0[reset] in [color=blue]-usecd [color=yellow]0[reset] con il numero riportato per il tuo CD-ROM
 se digiti: [color=blue]mount -listcd[reset]
 
 Inoltre, puoi usare imgmount per montare immagini iso o cue/bin:
@@ -1451,24 +1622,25 @@ Inoltre, puoi usare imgmount per montare immagini iso o cue/bin:
 
 .
 :PROGRAM_INTRO_SPECIAL
-[2J[color=green]Tasti speciali:[reset]
+[erases=entire][color=green]Tasti speciali:[reset]
 Queste sono le combinazioni di tasti predefinite.
 Possono essere modificate nel [color=light-yellow]keymapper[reset].
 
-[color=yellow]%s+Enter[reset]  Passa dalla modalità a schermo intero a quella a finestra
+[color=yellow]%s+Invio[reset]  Passa dalla modalità a schermo intero a quella a finestra
            e viceversa.
-[color=yellow]%s+Pause[reset]  Mette in Pausa/Riavvia l'emulatore.
+[color=yellow]%s+Pausa[reset]  Mette in Pausa/Riavvia l'emulatore.
 [color=yellow]%s+F1[reset]   %s Avvia il [color=light-yellow]keymapper[reset].
 [color=yellow]%s+F4[reset]   %s Passa tra le immagini disco montate, scansiona tutte le unità per
            rilevare modifiche.               
-[color=yellow]%s+F5[reset]   %s Scatta un'istantanea dello schermo (screenshot).
+[color=yellow]%s+F5[reset]     Scatta un'istantanea dello schermo (immagine renderizzata).
+[color=yellow]%s+F5[reset]   %s Scatta un'istantanea dello schermo (risoluzione originale).
 [color=yellow]%s+F6[reset]   %s Avvia/Ferma la registrazione dell'uscita audio in un file wave.
 [color=yellow]%s+F7[reset]   %s Avvia/Ferma la registrazione dell'uscita video in un file zmbv.
 [color=yellow]%s+F8[reset]   %s Disattiva/Riattiva l'audio.
 [color=yellow]%s+F9[reset]   %s Chiude l'emulatore.
 [color=yellow]%s+F10[reset]  %s Cattura/Rilascia il mouse.
-[color=yellow]%s+F11[reset]  %s Rallenta l'emulazione (Decrementa i Cicli DOSBox).
-[color=yellow]%s+F12[reset]  %s Accelera l'emulazione (Incrementa i Cicli DOSBox).
+[color=yellow]%s+F11[reset]  %s Rallenta l'emulazione (Decrementa i cicli DOSBox).
+[color=yellow]%s+F12[reset]  %s Accelera l'emulazione (Incrementa i cicli DOSBox).
 [color=yellow]%s+F12[reset]    Sblocca la velocità (pulsante turbo/avanzamento rapido).
 
 .
@@ -1480,7 +1652,7 @@ Tabella codici %i caricata.
 Tabella codici %i caricata per il layout %s
 
 .
-:SHELL_CMD_KEYB_HELP_LONG
+:PROGRAM_KEYB_HELP_LONG
 Configura la tastiera in base alla lingua specificata.
 
 Utilizzo:
@@ -1527,7 +1699,7 @@ Impossibile trovare il layout %s per la tabella codici %i.
 File tabella codici mancante o non valido per il layout %s.
 
 .
-:SHELL_CMD_LOADFIX_HELP_LONG
+:PROGRAM_LOADFIX_HELP_LONG
 Carica un programma nella regione di memoria specifica e lo esegue.
 
 Utilizzo:
@@ -1567,7 +1739,7 @@ Memoria in uso liberata.
 Errore allocazione di memoria.
 
 .
-:SHELL_CMD_LOADROM_HELP_LONG
+:PROGRAM_LOADROM_HELP_LONG
 Carica un'immagine ROM del BIOS video o IBM BASIC.
 
 Utilizzo:
@@ -1609,7 +1781,7 @@ File ROM non riconosciuto.
 ROM BASIC caricata.
 
 .
-:SHELL_CMD_MEM_HELP_LONG
+:PROGRAM_MEM_HELP_LONG
 Visualizza le informazioni sulla memoria DOS.
 
 Utilizzo:
@@ -1643,11 +1815,61 @@ Esempi:
 %10d kB di memoria superiore libera in %d blocchi (UMB più grande %d kB)
 
 .
-:SHELL_CMD_MOUNT_HELP
+:PROGRAM_MORE_HELP_LONG
+Visualizza l'output una schermata alla volta.
+
+Utilizzo:
+  [color=cyan]COMANDO[reset] | [color=green]more[reset] [/t[color=white]n[reset]]
+  [color=green]more[reset] [/t[color=white]n[reset]] < [color=cyan]FILE[reset]
+  [color=green]more[reset] [/t[color=white]n[reset]] [color=cyan]MODELLO[reset] [[color=cyan]MODELLO[reset] ...]
+
+Dove:
+  [color=cyan]COMANDO[reset] è il comando di cui visualizzare l'output.
+  [color=cyan]FILE[reset]    è il nome del file da visualizzare, facoltativamente con un percorso.
+  [color=cyan]MODELLO[reset] è un percorso a un singolo file o con caratteri jolly,
+          cioè asterisco (*) e punto di domanda (?).
+  [color=white]n[reset]       è la misura della tabulazione, 1-9, il valore predefinito è 8.
+
+Note:
+  Questo comando serve solo per visualizzare file di testo, non file binari.
+
+Esempi:
+  [color=cyan]dir /on[reset] | [color=green]more[reset]    ; visualizza la directory ordinata una schermata alla volta
+  [color=green]more[reset] /t[color=white]4[reset] < [color=cyan]A:\MANUALE.TXT[reset]    ; mostra il contenuto del file con misura tab. 4
+
+.
+:PROGRAM_MORE_NO_FILE
+Nessun file di input trovato.
+.
+:PROGRAM_MORE_END
+[reset][color=light-yellow]--- fine ---[reset]
+.
+:PROGRAM_MORE_NEW_FILE
+[reset][color=light-yellow]--- file %s ---[reset]
+.
+:PROGRAM_MORE_NEW_DEVICE
+[reset][color=light-yellow]--- dispositivo %s ---[reset]
+.
+:PROGRAM_MORE_PROMPT_SINGLE
+[reset][color=light-yellow]--- premere SPAZIO per mostrare di più ---[reset]
+.
+:PROGRAM_MORE_PROMPT_MULTI
+[reset][color=light-yellow]--- premere SPAZIO per mostrare di più, N per il prossimo file ---[reset]
+.
+:PROGRAM_MORE_OPEN_ERROR
+[reset][color=red]--- impossibile aprire %s ---[reset]
+.
+:PROGRAM_MORE_TERMINATE
+[reset][color=light-yellow](terminato)[reset]
+.
+:PROGRAM_MORE_NEXT_FILE
+[reset][color=light-yellow](file succ.)[reset]
+.
+:PROGRAM_MOUNT_HELP
 Mappa cartelle fisiche o unità su una lettera di unità virtuale.
 
 .
-:SHELL_CMD_MOUNT_HELP_LONG
+:PROGRAM_MOUNT_HELP_LONG
 Monta una directory del sistema operativo host su una lettera di unità.
 
 Utilizzo:
@@ -1752,7 +1974,110 @@ Sovrapposizione %s nell'unità %c montata.
 Impossibile spostare l'unità Z. L'unità %c è già montata.
 
 .
-:SHELL_CMD_RESCAN_HELP_LONG
+:PROGRAM_MOUSECTL_HELP_LONG
+Gestisce i mouse fisici e logici.
+
+Utilizzo:
+  [color=green]mousectl[reset] [-all]
+  [color=green]mousectl[reset] [color=white]INTERFACCIA[reset] -map [color=cyan]NOME[reset]
+  [color=green]mousectl[reset] [color=white]INTERFACCIA[reset] [[color=white]INTERFACCIA[reset] ...] -map
+  [color=green]mousectl[reset] [[color=white]INTERFACCIA[reset] ...] -unmap | -on | -off | -reset
+  [color=green]mousectl[reset] [[color=white]INTERFACCIA[reset] ...] -s | -sx | -sy [sensibilità]
+  [color=green]mousectl[reset] [[color=white]INTERFACCIA[reset] ...] -s sensibilità_x sensibilità_y
+  [color=green]mousectl[reset] [[color=white]INTERFACCIA[reset] ...] -r [freq_min]
+
+Dove:
+  [color=white]INTERFACCIA[reset] è uno dei seguenti: [color=white]DOS[reset], [color=white]PS/2[reset], [color=white]COM1[reset], [color=white]COM2[reset], [color=white]COM3[reset], [color=white]COM4[reset].
+  -map -unmap mappa/disattiva mouse fisico, accetta caratteri jolly DOS in [color=cyan]NOME[reset]
+  -s -sx -sy  imposta la sensibilità per l'asse x / asse y, da -999 a +999.
+  -r          imposta la frequenza di polling minima del mouse.
+  -on -off    abilita o disabilita il mouse sull'interfaccia specificata.
+  -reset      ripristina tutte le impostazioni dal file di configurazione.
+
+Note:
+  Se sensibilità o frequenza sono omessi, verrà usato il valore predefinito.
+
+Esempi:
+  [color=green]mousectl[reset] [color=white]DOS[reset] [color=white]COM1[reset] -map    ; chiede all'utente di selezionare i mouse da usare
+.
+:PROGRAM_MOUSECTL_SYNTAX
+Sintassi del comando errata.
+.
+:PROGRAM_MOUSECTL_SYNTAX_PATTERN
+Sintassi errata, sono ammessi solo caratteri ASCII.
+.
+:PROGRAM_MOUSECTL_SYNTAX_SENSITIVITY
+Sintassi errata, la sensibilità deve essere compresa tra -999 e +999.
+.
+:PROGRAM_MOUSECTL_SYNTAX_DUPLICATED
+Sintassi errata, interfacce del mouse duplicate.
+.
+:PROGRAM_MOUSECTL_SYNTAX_MIN_RATE
+Sintassi errata, la frequenza di polling deve essere una dei seguenti:
+%s
+.
+:PROGRAM_MOUSECTL_MAPPING_NO_MOUSE
+Mappatura non disponibile in modalità senza mouse.
+.
+:PROGRAM_MOUSECTL_NO_INTERFACES
+Nessuna interfaccia del mouse disponibile.
+.
+:PROGRAM_MOUSECTL_MISSING_INTERFACES
+Interfaccia mouse non disponibile.
+.
+:PROGRAM_MOUSECTL_NO_PHYSICAL_MICE
+Nessun mouse fisico rilevato.
+.
+:PROGRAM_MOUSECTL_NO_MATCH
+Nessun mouse corrispondente trovato.
+.
+:PROGRAM_MOUSECTL_TABLE_HEADER1
+[color=white]Interfaccia    Sensibilità    Frequenza (Hz)    Stato[reset]
+.
+:PROGRAM_MOUSECTL_TABLE_LAYOUT1
+[color=cyan]%-4s[reset]          X:%+.3d Y:%+.3d       %1s %3s        %s
+.
+:PROGRAM_MOUSECTL_TABLE_HEADER2
+[color=white]Interfaccia    Nome Mouse[reset]
+.
+:PROGRAM_MOUSECTL_TABLE_LAYOUT2
+[color=cyan]%-4s[reset]           %s
+.
+:PROGRAM_MOUSECTL_TABLE_LAYOUT2_UNMAPPED
+non mappato    %s
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_HOST
+utilizza il puntatore di sistema
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_MAPPED
+mouse fisico mappato
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_DISCONNECTED
+[color=red]mouse mappato disconnesso[reset]
+.
+:PROGRAM_MOUSECTL_TABLE_STATUS_DISABLED
+disabilitato
+.
+:PROGRAM_MOUSECTL_TABLE_HINT_RATE_COM
+Le frequenze di polling per i mouse sulle interfacce [color=cyan]COM[reset] sono solo stime.
+.
+:PROGRAM_MOUSECTL_TABLE_HINT_RATE_MIN
+Le frequenze di polling con valore minimo impostato sono contrassegnate con '*'
+.
+:PROGRAM_MOUSECTL_MAP_ADVICE
+Fare clic sul pulsante [color=white]sinistro[reset] del mouse per mappare il mouse fisico
+sull'interfaccia. Facendo clic su qualsiasi altro pulsante, si annulla la 
+mappatura e si assegna il puntatore di sistema a tutte le interfacce del mouse.
+.
+:PROGRAM_MOUSECTL_MAP_CANCEL
+(mappatura annullata)
+.
+:PROGRAM_MOUSECTL_MAP_HINT
+L'integrazione del mouse senza soluzione di continuità è sempre disabilitata
+mentre la mappatura è attiva e i mouse mappati ricevono eventi di input
+non elaborati.
+.
+:PROGRAM_RESCAN_HELP_LONG
 Scansiona le modifiche sulle unità DOS montate.
 
 Utilizzo:
@@ -1787,7 +2112,7 @@ Utilizzo:
   [color=green]mixer[reset] [/listmidi]
 
 Dove:
-  [color=cyan]CANALE[reset] è il canale audio di cui modificare le impostazioni.
+  [color=cyan]CANALE[reset]  è il canale audio di cui modificare le impostazioni.
   [color=white]COMANDI[reset] è uno o più dei seguenti comandi:
     Volume:    da [color=white]0[reset] a [color=white]100[reset], o valore in decibel con prefisso [color=white]d[reset] (es. [color=white]d-7.5[reset])
                utilizza [color=white]L:R[reset] per impostare il lato sinistro e destro (es. [color=white]10:20[reset])
@@ -1817,10 +2142,13 @@ spento
 :SHELL_CMD_MIXER_CHANNEL_STEREO
 Stereo
 .
+:SHELL_CMD_MIXER_CHANNEL_REVERSE
+Inverso
+.
 :SHELL_CMD_MIXER_CHANNEL_MONO
 Mono
 .
-:SHELL_CMD_SERIAL_HELP_LONG
+:PROGRAM_SERIAL_HELP_LONG
 Gestisce le porte seriali.
 
 Utilizzo:
@@ -1893,7 +2221,7 @@ Note:
 
 Esempi:
   [color=green]command[reset]
-  [color=green]command[reset] /c [color=cyan]echo[reset] [color=white]Hello world![reset]
+  [color=green]command[reset] /c [color=cyan]echo[reset] [color=white]Ciao mondo![reset]
   [color=green]command[reset] /init [color=cyan]dir[reset]
 
 .
@@ -1958,10 +2286,10 @@ Dove:
   [color=cyan]DATA[reset] è la nuova data da impostare, nel formato [color=cyan]%s[reset].
 
 Note:
-  L'esecuzione di [color=green]date[reset] senza un argomento, mostra la data corrente e permette
-  l'immissione di una nuova. Aggiungendo l'opzione /t, sarà mostrata solo la
-  data corrente. È possibile forzare la sincronizzazione della data con il
-  sistema host tramite l'opzione /h.
+  L'esecuzione di [color=green]date[reset] senza un argomento mostra la data corrente, in formato
+  breve se viene fornita l'opzione /t. È possibile forzare la sincronizzazione
+  della data con il sistema host tramite l'opzione /h, o specificare
+  manualmente una nuova data.
 
 Esempi:
   [color=green]date[reset]
@@ -1994,10 +2322,10 @@ Dove:
   [color=cyan]ORA[reset] è il nuovo orario da impostare, nel formato [color=cyan]%s[reset].
 
 Note:
-  L'esecuzione di [color=green]time[reset] senza un argomento, mostra l'orario corrente e permette
-  l'immissione di uno nuovo. Aggiungendo l'opzione /t, sarà mostrato solo
-  l'orario corrente. È possibile forzare la sincronizzazione dell'orario con il
-  sistema host tramite l'opzione /h.
+  L'esecuzione di [color=green]time[reset] senza un argomento mostra l'orario corrente, in formato
+  breve se viene fornita l'opzione /t. È possibile forzare la sincronizzazione
+  dell'orario con il sistema host tramite l'opzione /h, o specificare
+  manualmente un nuovo orario.
 
 Esempi:
   [color=green]time[reset]
@@ -2098,7 +2426,7 @@ Il file %s esiste già.
 :SHELL_EXECUTE_DRIVE_NOT_FOUND
 Unità %c inesistente!
 È necessario montare l'unità con il comando [color=light-red]mount[reset]. 
-Per maggiori informazioni, digita [color=light-yellow]intro[reset] o [color=light-yellow]intro mount[reset].
+Per maggiori informazioni, digita [color=yellow]intro[reset] o [color=yellow]intro mount[reset].
 
 .
 :SHELL_EXECUTE_ILLEGAL_COMMAND
@@ -2146,43 +2474,43 @@ SUBST fallito. È stato commesso un errore nella riga di comando o l'unità di
 destinazione è già in uso. È possibile utilizzare SUBST solo su unità locali.
 .
 :SHELL_STARTUP_BEGIN
-[bgcolor=blue]╔══════════════════════════════════════════════════════════════════════╗
-║ [color=light-green]Benvenuto in DOSBox Staging %-40s[color=light-white] ║
+[bgcolor=blue][color=white]╔══════════════════════════════════════════════════════════════════════╗
+║ [color=green]Benvenuto in DOSBox Staging %-40s[color=white] ║
 ║                                                                      ║
-║ Per una breve introduzione per i nuovi utenti, digita: [color=light-yellow]INTRO[color=light-white]         ║
-║ Per la lista dei comandi della shell supportati, digita: [color=light-yellow]HELP[color=light-white]        ║
+║ Per una breve introduzione per i nuovi utenti, digita: [color=yellow]INTRO[color=white]         ║
+║ Per la lista dei comandi della shell supportati, digita: [color=yellow]HELP[color=white]        ║
 ║                                                                      ║
-║ Per regolare la velocità della CPU emulata, usa [color=light-red]%s+F11[color=light-white] e [color=light-red]%s+F12[color=light-white].%s%s ║
-║ Per attivare il keymapper, usa [color=light-red]%s+F1[color=light-white].%s                              ║
-║ Ulteriori informazioni nel file [color=light-cyan]README[color=light-white] nella directory di DOSBox.    ║
+║ Per regolare la velocità della CPU emulata, usa [color=red]%s+F11[color=white] e [color=red]%s+F12[color=white].%s%s ║
+║ Per attivare il keymapper, usa [color=red]%s+F1[color=white].%s                              ║
+║ Ulteriori informazioni nel file [color=cyan]README[color=white] nella directory di DOSBox.    ║
 ║                                                                      ║
 
 .
 :SHELL_STARTUP_CGA
 ║ DOSBox supporta la modalità CGA Composita.                           ║
-║ Usa [color=light-red]F12[color=light-white] per impostare l'uscita composita su ON, OFF o AUTO           ║
+║ Usa [color=red]F12[color=white] per impostare l'uscita composita su ON, OFF o AUTO           ║
 ║ (predefinito).                                                       ║
-║ Usa [color=light-red]F10[color=light-white] per selezionare le impostazioni CGA da modificare e [color=light-red]%s+F11[color=light-white]  ║
+║ Usa [color=red]F10[color=white] per selezionare le impostazioni CGA da modificare e [color=red]%s+F11[color=white]  ║
 ║ per effettuare le modifiche.                                         ║
 
 .
 :SHELL_STARTUP_CGA_MONO
-║ Usa [color=light-red]F11[color=light-white] per scorrere le modalità verde, ambra, bianco e bianco-carta,║
-║ e [color=light-red]%s+F11[color=light-white] per modificare le impostazioni di contrasto/luminosità.    ║
+║ Usa [color=red]F11[color=white] per scorrere le modalità verde, ambra, bianco e bianco-carta,║
+║ e [color=red]%s+F11[color=white] per modificare le impostazioni di contrasto/luminosità.    ║
 
 .
 :SHELL_STARTUP_HERC
-║ Usa [color=light-red]F11[color=light-white] per scorrere i colori monocromatici bianco, ambra e verde.   ║
+║ Usa [color=red]F11[color=white] per scorrere i colori monocromatici bianco, ambra e verde.   ║
 ║                                                                      ║
 
 .
 :SHELL_STARTUP_DEBUG
-║ Premi [color=light-red]%s+Pause[color=light-white] per avviare il debugger o avvia l'exe con [color=light-yellow]DEBUG[color=light-white].      ║
+║ Premi [color=red]%s+Pause[color=white] per avviare il debugger o avvia l'exe con [color=yellow]DEBUG[color=white].      ║
 ║                                                                      ║
 
 .
 :SHELL_STARTUP_END
-║ [color=light-yellow]https://dosbox-staging.github.io[color=light-white]                                     ║
+║ [color=yellow]https://dosbox-staging.github.io[color=white]                                     ║
 ╚══════════════════════════════════════════════════════════════════════╝[reset]
 
 
@@ -2241,8 +2569,8 @@ Utilizzo:
   [color=green]dir[reset] [color=cyan][MODELLO][reset] [/w] [/b] [/p] [ad] [a-d] [/o[color=white]ORDINAM[reset]]
 
 Dove:
-  [color=cyan]MODELLO[reset] è un nome file specifico o con caratteri jolly, cioè asterisco(*)
-          o punto di domanda (?). È possibile specificare il percorso di
+  [color=cyan]MODELLO[reset] è un nome file specifico o con caratteri jolly, cioè asterisco (*)
+          e punto di domanda (?). È possibile specificare il percorso di
           una directory per elencarne il contenuto.
   [color=white]ORDINAM[reset] è il tipo di ordinamento scelto, cioè: [color=white]n[reset] (per nome, alfabetico),
           [color=white]s[reset] (per dimensione, dal minore), [color=white]e[reset] (per estensione, alfabetico),
@@ -2261,7 +2589,7 @@ Esempi:
   [color=green]dir[reset] [color=cyan]c:\giochi\*.exe[reset] /b /o[color=white]-d[reset]
 .
 :SHELL_CMD_ECHO_HELP
-Visualizza messaggi oppure attiva/disattiva la ripetizione dei comandi.
+Visualizza i messaggi o attiva/disattiva la ripetizione dei comandi.
 
 .
 :SHELL_CMD_ECHO_HELP_LONG
@@ -2281,7 +2609,7 @@ Note:
 
 Esempi:
   [color=green]echo[reset] [color=cyan]off[reset]
-  [color=green]echo[reset] [color=cyan]Hello world![reset]
+  [color=green]echo[reset] [color=cyan]Ciao mondo![reset]
 
 .
 :SHELL_CMD_EXIT_HELP
@@ -2331,29 +2659,6 @@ Note:
 Esempi:
   [color=green]help[reset] [color=cyan]dir[reset]
   [color=green]help[reset] /all
-
-.
-:SHELL_CMD_INTRO_HELP
-Visualizza un'introduzione a schermo intero di DOSBox Staging.
-
-.
-:SHELL_CMD_INTRO_HELP_LONG
-Utilizzo:
-  [color=green]intro[reset]
-  [color=green]intro[reset] [color=white]PAGINA[reset]
-
-Dove:
-  [color=white]PAGINA[reset] è il nome della pagina da visualizzare, incluso [color=white]cdrom[reset], [color=white]mount[reset] e [color=white]special[reset]
-
-Note:
-  L'esecuzione di [color=green]intro[reset] senza un argomento, permette di visualizzare una pagina
-  di informazioni alla volta; premere un tasto qualsiasi per passare alla
-  pagina successiva. Se viene fornito il nome della pagina, verrà visualizzata
-  direttamente quella specificata.
-
-Esempi:
-  [color=green]intro[reset]
-  [color=green]intro[reset] [color=white]cdrom[reset]
 
 .
 :SHELL_CMD_MKDIR_HELP
@@ -2443,7 +2748,7 @@ Note:
 
 Esempi:
   [color=green]if[reset] [color=cyan]errorlevel[reset] [color=white]2[reset] dir
-  [color=green]if[reset] [color=white]"%%variabile%%"=="stringa"[reset] echo Hello world!
+  [color=green]if[reset] [color=white]"%%variabile%%"=="stringa"[reset] echo Ciao mondo!
   [color=green]if[reset] [color=magenta]not[reset] [color=cyan]exist[reset] [color=white]file.txt[reset] exit
 
 .
@@ -2564,11 +2869,10 @@ Utilizzo:
   [color=green]erase[reset] [color=cyan]MODELLO[reset]
 
 Dove:
-  [color=cyan]MODELLO[reset] può essere un nome di uno file specifico (come [color=cyan]file.txt[reset]) oppure
-          un nome file contenente uno o più caratteri jolly, cioè:
-          asterisco (*), che rappresenta una qualsiasi sequenza di uno o più
-          caratteri, o punto di domanda (?) che rappresenta un singolo
-          carattere, ad esempio [color=cyan]*.bat[reset] e [color=cyan]c?.txt[reset].
+  [color=cyan]MODELLO[reset] può essere un nome file specifico (come [color=cyan]file.txt[reset]) o con caratteri
+          jolly, cioè: asterisco (*), che rappresenta una qualsiasi sequenza di
+          uno o più caratteri, e punto di domanda (?) che rappresenta un
+          singolo carattere, ad esempio [color=cyan]*.bat[reset] e [color=cyan]c?.txt[reset].
 
 Avvertimento:
   Fai attenzione quando usi un nome file con caratteri jolly, in particolare
@@ -2591,7 +2895,7 @@ Utilizzo:
 
 Dove:
   [color=white]ORIGINE[reset]      è un nome file specifico o con caratteri jolly, cioè
-               asterisco(*) o punto di domanda (?).
+               asterisco (*) e punto di domanda (?).
   [color=cyan]DESTINAZIONE[reset] è un nome file specifico o una directory che non contiene
                caratteri jolly.
 
@@ -2624,7 +2928,7 @@ Note:
 
 Esempi:
   [color=green]call[reset] [color=white]batch.bat[reset]
-  [color=green]call[reset] [color=white]file.bat[reset] [color=cyan]Hello world![reset]
+  [color=green]call[reset] [color=white]file.bat[reset] [color=cyan]Ciao mondo![reset]
 
 .
 :SHELL_CMD_SUBST_HELP
@@ -2683,7 +2987,7 @@ Utilizzo:
 
 Dove:
   [color=cyan]MODELLO[reset]  è un nome file specifico o con caratteri jolly, cioè asterisco (*)
-           o punto di domanda (?).
+           e punto di domanda (?).
   [color=cyan]PERCORSO[reset] è un percorso di un'unità DOS montata da cui elencare il contenuto.
 
 Note:
@@ -2711,13 +3015,13 @@ Dove:
   [color=white]ATTRIBUTI[reset] sono gli attributi da applicare, tra cui uno o più dei seguenti:
             [color=white]+R[reset], [color=white]-R[reset], [color=white]+A[reset], [color=white]-A[reset], [color=white]+S[reset], [color=white]-S[reset], [color=white]+H[reset], [color=white]-H[reset]
             Dove: R = Sola lettura, A = Archivio, S = Sistema, H = Nascosto
-  [color=cyan]MODELLO[reset]   può essere un nome file esatto o un nome file con caratteri jolly,
-            cioè asterisco (*) o punto di domanda (?), oppure il nome di
-            una directory.
+  [color=cyan]MODELLO[reset]   può essere un nome file specifico o con caratteri jolly, cioè
+            asterisco (*) e punto di domanda (?), oppure il nome di una
+            directory.
 
 Note:
   In questo comando è possibile specificare più attributi, separati da spazi.
-  Se non specificati, esso mostra gli attributi di file/directory correnti.
+  Se non specificati, sono mostrati gli attributi correnti di file/directory.
 
 Esempi:
   [color=green]attrib[reset] [color=cyan]file.txt[reset]
