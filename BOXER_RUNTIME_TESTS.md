@@ -4,7 +4,7 @@
 
 This suite protects Boxer/MaddTheSane behavior while DOSBox Staging is upgraded. It complements `BOXER_PATCHES.md`: that manifest explains the production changes, while these tests invoke the changed production entry points and record Boxer-visible outcomes. `boxer-compat-local:BOXER_TEST_COVERAGE.md` remains historical source-contract coverage; it is not evidence that a runtime path was executed.
 
-The current integration under test is DOSBox v0.79.1 at `92281b3ee732508334b6d96df81d37e2780428ec`.
+The current integration under test is the DOSBox v0.80.0 merge checkpoint at `78fea163c`; the prior v0.79.1 integration evidence remains anchored at `92281b3ee732508334b6d96df81d37e2780428ec`.
 
 ## Architecture
 
