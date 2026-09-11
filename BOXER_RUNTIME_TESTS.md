@@ -204,6 +204,8 @@ No test was weakened, deleted, skipped, or converted to an expected failure; no 
 
 Remaining risks are physical controller behavior, real MIDI/Boxer-hosted MT-32 output, audible audio, Cocoa/Metal presentation and frame pacing, mouse capture/relative-input interaction, fullscreen transitions, real printer UI/output, and removable media. Recommended v0.80.1 migration order is: compare mouse/input first, then run-loop/configuration, renderer/video, mixer/MIDI/MT-32, filesystem/cache, shell dispatch, and finally Boxer-owned printer/parport; rerun all shared expectations and their mutation groups after each adapter move.
 
+Manual v0.80.0 validation subsequently confirmed that Boxer mouse detection is not operational. The failure remains visible and is classified as **likely v0.80.1 supersession**: official v0.80.1 substantially revises `src/hardware/mouse/mouse.cpp` and `mouse_config.cpp`, adding explicit desktop-environment detection and changing capture/default-state policy. No v0.80.1 mouse code was backported to this checkpoint. Retest detection, capture transitions, relative input, button delivery, and repeated emulator sessions after merging v0.80.1.
+
 ## Manual-only coverage
 
 Physical controller behavior, real MIDI/MT-32 output, audible audio, Cocoa/Metal presentation and frame pacing, fullscreen/window transitions, real printer UI/output, real removable-media handling, and user-facing localization selection remain manual. Automated fakes should protect routing and lifecycle semantics without claiming those physical or presentation checks.
