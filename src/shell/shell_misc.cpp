@@ -65,7 +65,7 @@ static void move_cursor_back_one() {
 // BOXER-HOOK: shell-misc-bridge
 void DOS_Shell::InputCommand(char * line) {
 	Bitu size=CMD_MAXLINE-2; //lastcharacter+0
-	uint8_t c;uint16_t n=1;
+	uint8_t c=0;uint16_t n=1;
 	size_t str_len = 0;
 	size_t str_index = 0;
 	uint16_t len=0;
@@ -91,9 +91,20 @@ void DOS_Shell::InputCommand(char * line) {
 		bool execute_immediately = false;
 		if (boxer_handleShellCommandInput(this, line, &str_index,
 		                                  &execute_immediately)) {
-			str_len = strlen(line);
-			if (execute_immediately)
+			// Boxer may legitimately adjust the cursor position; clamp
+			// it to the line buffer before use so a stale or bogus
+			// value cannot cause an out-of-bounds write below.
+			// BOXER-BEGIN: input-command-bounds
+			str_len = strnlen(line, CMD_MAXLINE);
+			if (str_index > str_len)
+				str_index = str_len;
+			if (execute_immediately) {
+				size_t used = str_len < CMD_MAXLINE - 1 ? str_len : CMD_MAXLINE - 1;
+				terminate_str_at(line, used);
 				size = 0;
+				continue;
+			}
+			// BOXER-END: input-command-bounds
 		}
 		if (!n) {
 			size=0;			//Kill the while loop
@@ -392,6 +403,14 @@ void DOS_Shell::InputCommand(char * line) {
 			break;
 		default:
 			if (l_completion.size()) l_completion.clear();
+			// BOXER-BEGIN: input-command-bounds
+			// Never write past the end of the CMD_MAXLINE line buffer:
+			// when size is exhausted (0, e.g. after an injected command
+			// or Return) ignore further phantom input instead of
+			// wrapping the unsigned size counter and overflowing.
+			if (size == 0 || str_index >= CMD_MAXLINE - 1 ||
+			    str_len >= CMD_MAXLINE - 1)
+				break;
 			if(str_index < str_len && true) { //mem_readb(BIOS_KEYBOARD_FLAGS1)&0x80) dev_con.h ?
 				outc(' ');//move cursor one to the right.
 				auto text_len = static_cast<uint16_t>(str_len - str_index);
