@@ -1,9 +1,9 @@
 libgui_sources = files(
     'render.cpp',
     'render_scalers.cpp',
-    'sdl_gui.cpp',
     'sdl_mapper.cpp',
     'sdlmain.cpp',
+    'shader_manager.cpp',
 )
 
 libgui = static_library(
@@ -11,14 +11,14 @@ libgui = static_library(
     libgui_sources,
     include_directories: incdir,
     dependencies: [
-        sdl2_dep,
-        opengl_dep,
         ghc_dep,
         libiir_dep,
         libloguru_dep,
+        opengl_dep,
+        sdl2_dep,
         tracy_dep,
-        libppscale_dep,
     ],
+    cpp_args: warnings,
 )
 
 libgui_dep = declare_dependency(link_with: libgui)

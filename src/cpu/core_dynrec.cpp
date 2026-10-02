@@ -29,8 +29,11 @@
 #include <type_traits>
 
 #if defined (WIN32)
+// clang-format off
+// 'windows.h' must be included first, otherwise we'll get compilation errors
 #include <windows.h>
 #include <winbase.h>
+// clang-format on
 #endif
 
 #if defined(HAVE_MPROTECT) || defined(HAVE_MMAP)
@@ -182,18 +185,34 @@ static_assert(offsetof(core_dynrec_t, readdata) % sizeof(uint32_t) == 0,
 
 CacheBlock *LinkBlocks(BlockReturn ret)
 {
-	CacheBlock *block = NULL;
 	// the last instruction was a control flow modifying instruction
-	Bitu temp_ip=SegPhys(cs)+reg_eip;
-	CodePageHandler *temp_handler = (CodePageHandler *)get_tlb_readhandler(temp_ip);
-	if (temp_handler->flags & (cpu.code.big ? PFLAG_HASCODE32:PFLAG_HASCODE16)) {
-		// see if the target is an already translated block
-		block=temp_handler->FindCacheBlock(temp_ip & 4095);
-		if (block) { // found it, link the current block to
-			cache.block.running->LinkTo(ret==BR_Link2,block);
-		}
+	const auto temp_ip = SegPhys(cs) + reg_eip;
+
+	const auto read_handler = get_tlb_readhandler(temp_ip);
+	if (!read_handler) {
+		return nullptr;
 	}
-	return block;
+
+	const auto cp_handler = reinterpret_cast<CodePageHandler*>(read_handler);
+	if (!cp_handler) {
+		return nullptr;
+	}
+
+	const bool cp_has_code = cp_handler->flags &
+	                         (cpu.code.big ? PFLAG_HASCODE32 : PFLAG_HASCODE16);
+	if (!cp_has_code) {
+		return nullptr;
+	}
+
+	// see if the target is an already translated block
+	const auto cache_block = cp_handler->FindCacheBlock(temp_ip & 4095);
+	if (!cache_block) {
+		return nullptr;
+	}
+
+	// found it, link the current block to
+	cache.block.running->LinkTo(ret == BR_Link2, cache_block);
+	return cache_block;
 }
 
 /*
@@ -208,7 +227,8 @@ CacheBlock *LinkBlocks(BlockReturn ret)
 	execution process, or returning from the core etc.
 */
 
-Bits CPU_Core_Dynrec_Run(void) {
+Bits CPU_Core_Dynrec_Run() noexcept
+{
 	ZoneScoped;
 	for (;;) {
 		// Determine the linear address of CS:EIP
@@ -218,7 +238,7 @@ Bits CPU_Core_Dynrec_Run(void) {
 			return debugCallback;
 #endif
 
-		CodePageHandler *chandler = 0;
+		CodePageHandler *chandler = nullptr;
 		// see if the current page is present and contains code
 		if (GCC_UNLIKELY(MakeCodePage(ip_point,chandler))) {
 			// page not present, throw the exception
@@ -252,7 +272,7 @@ Bits CPU_Core_Dynrec_Run(void) {
 		}
 
 run_block:
-		cache.block.running=0;
+		cache.block.running=nullptr;
 		// now we're ready to run the dynamic code block
 //		BlockReturn ret=((BlockReturn (*)(void))(block->cache.start))();
 		BlockReturn ret=core_dynrec.runcode(block->cache.start);
@@ -333,7 +353,8 @@ run_block:
 	return CBRET_NONE;
 }
 
-Bits CPU_Core_Dynrec_Trap_Run(void) {
+Bits CPU_Core_Dynrec_Trap_Run() noexcept
+{
 	Bits oldCycles = CPU_Cycles;
 	CPU_Cycles = 1;
 	cpu.trap_skip = false;

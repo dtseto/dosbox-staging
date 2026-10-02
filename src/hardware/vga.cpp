@@ -20,15 +20,17 @@
 
 #include <cassert>
 #include <cstring>
+#include <string>
 #include <utility>
 
 #include "../ints/int10.h"
 #include "logging.h"
 #include "math_utils.h"
 #include "pic.h"
+#include "string_utils.h"
 #include "video.h"
 
-VGA_Type vga;
+VgaType vga;
 SVGA_Driver svga;
 
 uint32_t CGA_2_Table[16];
@@ -42,74 +44,14 @@ uint32_t ExpandTable[256];
 uint32_t Expand16Table[4][16];
 uint32_t FillTable[16];
 
-// Get the current video mode's type and numeric ID
-std::pair<VGAModes, uint16_t> VGA_GetCurrentMode()
-{
-	assert(CurMode != ModeList_VGA.end());
-	return {vga.mode, CurMode->mode};
-}
-
-// Describes the given video mode's type and ID, ie: "VGA, "256 color"
-std::pair<const char*, const char*> VGA_DescribeMode(const VGAModes video_mode_type,
-                                                     const uint16_t video_mode_id)
-{
-	// clang-format off
-	switch (video_mode_type) {
-	case M_HERC_TEXT:          return {"Text",     "monochrome"};
-	case M_HERC_GFX:           return {"Hercules", "monochrome"};
-	case M_TEXT:
-	case M_TANDY_TEXT:
-	case M_CGA_TEXT_COMPOSITE: return {"Text",  "16 color"};
-	case M_CGA2_COMPOSITE:
-	case M_CGA4_COMPOSITE:     return {"CGA",   "composite"};
-	case M_CGA2:               return {"CGA",   "2 color"};
-	case M_CGA4:               return {"CGA",   "4 color"};
-	case M_CGA16:              return {"CGA",   "16 color"};
-	case M_TANDY2:             return {"Tandy", "2 color"};
-	case M_TANDY4:             return {"Tandy", "4 color"};
-	case M_TANDY16:            return {"Tandy", "16 color"};
-	case M_EGA: // see comment below
-	    switch (video_mode_id) {
-	    case 0x011:            return {"VGA",   "monochrome"};
-	    case 0x012:            return {"VGA",   "16 color"};
-	    default:               return {"EGA",   "16 color"};
-	    }
-	case M_VGA:                return {"VGA",   "8-bit"};
-	case M_LIN4:               return {"VESA",  "16 color"};
-	case M_LIN8:               return {"VESA",  "8-bit"};
-	case M_LIN15:              return {"VESA",  "15-bit"};
-	case M_LIN16:              return {"VESA",  "16-bit"};
-	case M_LIN24:              return {"VESA",  "24-bit"};
-	case M_LIN32:              return {"VESA",  "32-bit"};
-
-	case M_ERROR:
-	default:
-		// Should not occur; log the values and inform the user 
-		LOG_ERR("VIDEO: Unknown mode: %u with ID: %u",
-		        static_cast<uint32_t>(video_mode_type),
-		        video_mode_id);
-		return {"Unknown mode", "Unknown color-depth"};
-	}
-	// clang-format on
-
-	// Modes 11h and 12h were supported by high-end EGA cards and because of
-	// that operate internally more like EGA modes (so DOBBox uses the EGA
-	// type for them), however they were classified as VGA from a standards
-	// perspective, so we report them as such.
-	// References:
-	// [1] IBM VGA Technical Reference, Mode of Operation, pp 2-12, 19
-	// March, 1992. [2] "IBM PC Family- BIOS Video Modes",
-	// http://minuszerodegrees.net/video/bios_video_modes.htm
-}
-
 void VGA_LogInitialization(const char *adapter_name,
                            const char *ram_type,
                            const size_t num_modes)
 {
-	const auto mem_in_kib = vga.vmemsize / 1024;
-	LOG_INFO("VIDEO: Initialized %s with %d-%s of %s supporting %d modes",
-	         adapter_name, mem_in_kib < 1024 ? mem_in_kib : mem_in_kib / 1024,
-	         mem_in_kib < 1024 ? "KiB" : "MiB", ram_type,
+	const auto mem_in_kb = vga.vmemsize / 1024;
+	LOG_INFO("VIDEO: Initialised %s with %d %s of %s supporting %d modes",
+	         adapter_name, mem_in_kb < 1024 ? mem_in_kb : mem_in_kb / 1024,
+	         mem_in_kb < 1024 ? "KB" : "MB", ram_type,
 	         check_cast<int16_t>(num_modes));
 }
 
@@ -117,7 +59,7 @@ void VGA_SetModeNow(VGAModes mode) {
 	if (vga.mode == mode) return;
 	vga.mode=mode;
 	VGA_SetupHandlers();
-	VGA_StartResize(0);
+	VGA_StartResizeAfter(0);
 }
 
 
@@ -133,10 +75,10 @@ void VGA_DetermineMode(void) {
 		svga.determine_mode();
 		return;
 	}
-	/* Test for VGA output active or direct color modes */
+	/* Test for VGA output active or direct colour modes */
 	switch (vga.s3.misc_control_2 >> 4) {
 	case 0:
-		if (vga.attr.mode_control & 1) { // graphics mode
+		if (vga.attr.mode_control.is_graphics_enabled) {
 			if (IS_VGA_ARCH && (vga.gfx.mode & 0x40)) {
 				// access above 256k?
 				if (vga.s3.reg_31 & 0x8) VGA_SetMode(M_LIN8);
@@ -161,67 +103,174 @@ void VGA_DetermineMode(void) {
 	}
 }
 
-void VGA_StartResize(Bitu delay /*=50*/) {
-	if (!vga.draw.resizing) {
-		vga.draw.resizing=true;
-		if (vga.mode==M_ERROR) delay = 5;
-		/* Start a resize after delay (default 50 ms) */
-		if (delay==0) VGA_SetupDrawing(0);
-		else
-			PIC_AddEvent(VGA_SetupDrawing, (double)delay);
+const char* to_string(const GraphicsStandard g)
+{
+	switch (g) {
+	case GraphicsStandard::Hercules: return "Hercules";
+	case GraphicsStandard::Cga: return "CGA";
+	case GraphicsStandard::Pcjr: return "PCjr";
+	case GraphicsStandard::Tga: return "Tandy";
+	case GraphicsStandard::Ega: return "EGA";
+	case GraphicsStandard::Vga: return "VGA";
+	case GraphicsStandard::Svga: return "SVGA";
+	case GraphicsStandard::Vesa: return "VESA";
+	default: assertm(false, "Invalid GraphicsStandard"); return "";
+	}
+}
+
+const char* to_string(const ColorDepth c)
+{
+	switch (c) {
+	case ColorDepth::Monochrome: return "monochrome";
+	case ColorDepth::Composite: return "composite";
+	case ColorDepth::IndexedColor2: return "2-colour";
+	case ColorDepth::IndexedColor4: return "4-colour";
+	case ColorDepth::IndexedColor16: return "16-colour";
+	case ColorDepth::IndexedColor256: return "256-colour";
+	case ColorDepth::HighColor15Bit: return "15-bit high colour";
+	case ColorDepth::HighColor16Bit: return "16-bit high colour";
+	case ColorDepth::TrueColor24Bit: return "24-bit true colour";
+	default: assertm(false, "Invalid ColorDepth"); return "";
+	}
+}
+
+// Return a human-readable description of the video mode, e.g.:
+//   - "CGA 640x200 16-colour text mode 03h"
+//   - "EGA 640x350 16-colour graphics mode 10h"
+//   - "VGA 720x400 16-colour text mode 03h"
+//   - "VGA 320x200 256-colour graphics mode 13h"
+//   - "VGA 360x240 256-colour graphics mode"
+//   - "VESA 800x600 256-colour graphics mode 103h"
+std::string to_string(const VideoMode& video_mode)
+{
+	const char* mode_type = (video_mode.is_graphics_mode ? "graphics mode"
+	                                                     : "text mode");
+
+	const auto mode_number = (video_mode.is_custom_mode
+	                                  ? ""
+	                                  : format_string(" %02Xh",
+	                                                  video_mode.bios_mode_number));
+
+	return format_string("%s %dx%d %s %s%s",
+	                     to_string(video_mode.graphics_standard),
+	                     video_mode.width,
+	                     video_mode.height,
+	                     to_string(video_mode.color_depth),
+	                     mode_type,
+	                     mode_number.c_str());
+}
+
+const char* to_string(const VGAModes mode)
+{
+	switch (mode) {
+	case M_CGA2: return "M_CGA2";
+	case M_CGA4: return "M_CGA4";
+	case M_EGA: return "M_EGA";
+	case M_VGA: return "M_VGA";
+	case M_LIN4: return "M_LIN4";
+	case M_LIN8: return "M_LIN8";
+	case M_LIN15: return "M_LIN15";
+	case M_LIN16: return "M_LIN16";
+	case M_LIN24: return "M_LIN24";
+	case M_LIN32: return "M_LIN32";
+	case M_TEXT: return "M_TEXT";
+	case M_HERC_GFX: return "M_HERC_GFX";
+	case M_HERC_TEXT: return "M_HERC_TEXT";
+	case M_TANDY2: return "M_TANDY2";
+	case M_TANDY4: return "M_TANDY4";
+	case M_TANDY16: return "M_TANDY16";
+	case M_TANDY_TEXT: return "M_TANDY_TEXT";
+	case M_CGA16: return "M_CGA16";
+	case M_CGA2_COMPOSITE: return "M_CGA2_COMPOSITE";
+	case M_CGA4_COMPOSITE: return "M_CGA4_COMPOSITE";
+	case M_CGA_TEXT_COMPOSITE: return "M_CGA_TEXT_COMPOSITE";
+	case M_ERROR: return "M_ERROR";
+	default: assertm(false, "Invalid VGAMode"); return "";
+	}
+}
+
+void VGA_StartResize()
+{
+	// Once requested, start the VGA resize within half the current VGA mode's
+	// frame time, typically between 4ms and 8ms. The goal is to mimick the time
+	// taken for video card to process and establish its new state based on the
+	// CRTC registers.
+	//
+	// If this duration is too long, games like Earthworm Jim and Prehistorik 2
+	// might have subtle visible glitches. If this gets too short, emulation
+	// might lockup because the VGA state needs to change across some finite
+	// duration.
+	//
+	constexpr auto max_frame_period_ms = 1000.0 /*ms*/ / 50 /*Hz*/;
+	constexpr auto min_frame_period_ms = 1000.0 /*ms*/ / 120 /*Hz*/;
+
+	const auto half_frame_period_ms = clamp(vga.draw.delay.vtotal,
+	                                        min_frame_period_ms,
+	                                        max_frame_period_ms) / 2;
+
+	VGA_StartResizeAfter(static_cast<int16_t>(half_frame_period_ms));
+}
+
+void VGA_StartResizeAfter(const uint16_t delay_ms)
+{
+	if (vga.draw.resizing) {
+		return;
+	}
+
+	vga.draw.resizing = true;
+	if (delay_ms == 0) {
+		VGA_SetupDrawing(0);
+	} else {
+		PIC_AddEvent(VGA_SetupDrawing, delay_ms);
 	}
 }
 
 void VGA_SetHostRate(const double refresh_hz)
 {
 	// may come from user content, so always clamp it
-	constexpr auto min_rate = static_cast<double>(REFRESH_RATE_MIN);
-	constexpr auto max_rate = static_cast<double>(REFRESH_RATE_MAX);
+	constexpr auto min_rate = static_cast<double>(RefreshRateMin);
+	constexpr auto max_rate = static_cast<double>(RefreshRateMax);
 	vga.draw.host_refresh_hz = clamp(refresh_hz,min_rate, max_rate);
 }
 
 void VGA_SetRatePreference(const std::string &pref)
 {
 	if (pref == "default") {
-		vga.draw.dos_rate_mode = VGA_RATE_MODE::DEFAULT;
+		vga.draw.dos_rate_mode = VgaRateMode::Default;
 		LOG_MSG("VIDEO: Using the DOS video mode's frame rate");
 
 	} else if (pref == "host") {
-		vga.draw.dos_rate_mode = VGA_RATE_MODE::HOST;
+		vga.draw.dos_rate_mode = VgaRateMode::Host;
 		LOG_MSG("VIDEO: Matching the DOS graphical frame rate to the host");
 
 	} else if (const auto rate = to_finite<double>(pref); std::isfinite(rate)) {
-		vga.draw.dos_rate_mode = VGA_RATE_MODE::CUSTOM;
-		constexpr auto min_rate = static_cast<double>(REFRESH_RATE_MIN);
-		constexpr auto max_rate = static_cast<double>(REFRESH_RATE_MAX);
+		vga.draw.dos_rate_mode = VgaRateMode::Custom;
+		constexpr auto min_rate = static_cast<double>(RefreshRateMin);
+		constexpr auto max_rate = static_cast<double>(RefreshRateMax);
 		vga.draw.custom_refresh_hz = clamp(rate, min_rate, max_rate);
 		LOG_MSG("VIDEO: Using a custom DOS graphical frame rate of %.3g Hz",
 		        vga.draw.custom_refresh_hz);
 
 	} else {
-		vga.draw.dos_rate_mode = VGA_RATE_MODE::DEFAULT;
-		LOG_WARNING("VIDEO: Unknown frame rate setting: %s, using default",
+		vga.draw.dos_rate_mode = VgaRateMode::Default;
+		LOG_WARNING("VIDEO: Unknown frame rate setting: '%s', using 'default'",
 		            pref.c_str());
 	}
 }
 
 double VGA_GetPreferredRate()
 {
-	// If we're in a text-mode, always use the as-indicated DOS rate because
-	// the vblank rate is often used for timing.
-	if (CurMode->type & M_TEXT_MODES)
-		return vga.draw.dos_refresh_hz;
-
-	// In we're in a graphical mode, then we can use preferred rates
 	switch (vga.draw.dos_rate_mode) {
-	case VGA_RATE_MODE::DEFAULT:
-		return vga.draw.dos_refresh_hz;
-	case VGA_RATE_MODE::HOST:
-		assert(vga.draw.host_refresh_hz > REFRESH_RATE_MIN);
+	case VgaRateMode::Default:
+		// If another device is overriding our VGA card, then use its rate
+		return vga.draw.vga_override ? vga.draw.override_refresh_hz
+		                             : vga.draw.dos_refresh_hz;
+	case VgaRateMode::Host:
+		assert(vga.draw.host_refresh_hz > RefreshRateMin);
 		return vga.draw.host_refresh_hz;
-	case VGA_RATE_MODE::CUSTOM:
-		assert(vga.draw.custom_refresh_hz >= REFRESH_RATE_MIN);
-		assert(vga.draw.custom_refresh_hz <= REFRESH_RATE_MAX);
+	case VgaRateMode::Custom:
+		assert(vga.draw.custom_refresh_hz >= RefreshRateMin);
+		assert(vga.draw.custom_refresh_hz <= RefreshRateMax);
 		return vga.draw.custom_refresh_hz;
 	}
 	return vga.draw.dos_refresh_hz;
@@ -240,7 +289,7 @@ void VGA_SetClock(const Bitu which, const uint32_t desired_clock)
 
 	// The clk parameters (r, n, m) will be populated with those that find a
 	// clock closest to the desired_clock clock.
-	VGA_S3::clk_t best_clk;
+	VgaS3::clk_t best_clk;
 	auto best_error = clock;
 
 	uint8_t r = 0;
@@ -316,10 +365,35 @@ void VGA_SetCGA4Table(uint8_t val0,uint8_t val1,uint8_t val2,uint8_t val3) {
 	}	
 }
 
-void VGA_Init(Section* sec) {
-//	Section_prop * section=static_cast<Section_prop *>(sec);
-	vga.draw.resizing=false;
-	vga.mode=M_ERROR;			//For first init
+void VGA_EnableVgaDoubleScanning(const bool enable)
+{
+	if (machine != MCH_VGA) {
+		return;
+	}
+	if (enable && !vga.draw.double_scanning_enabled) {
+		LOG_MSG("VGA: Double scanning VGA video modes enabled");
+	}
+	if (!enable && vga.draw.double_scanning_enabled) {
+		LOG_MSG("VGA: Forcing single scanning of double-scanned VGA video modes");
+	}
+	vga.draw.double_scanning_enabled = enable;
+}
+
+void VGA_EnablePixelDoubling(const bool enable)
+{
+	if (enable && !vga.draw.pixel_doubling_enabled) {
+		LOG_MSG("VGA: Pixel doubling enabled");
+	}
+	if (!enable && vga.draw.pixel_doubling_enabled) {
+		LOG_MSG("VGA: Forcing no pixel doubling");
+	}
+	vga.draw.pixel_doubling_enabled = enable;
+}
+
+void VGA_Init(Section* sec)
+{
+	vga.draw.resizing = false;
+	vga.mode          = M_ERROR; // For first init
 	SVGA_Setup_Driver();
 	VGA_SetupMemory(sec);
 	VGA_SetupMisc();
@@ -405,3 +479,13 @@ void SVGA_Setup_Driver(void) {
 		break;
 	}
 }
+
+const VideoMode& VGA_GetCurrentVideoMode()
+{
+	// This function would most likely return the previous video mode if
+	// called in the middle of a mode change.
+	assert(!vga.mode_change_in_progress);
+
+	return vga.draw.image_info.video_mode;
+}
+

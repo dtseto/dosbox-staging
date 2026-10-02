@@ -34,7 +34,7 @@
 TCHAR szDescription[] = TEXT("Zipped Motion Block Video v0.1a");
 TCHAR szName[]        = TEXT(CODEC_4CC);
 
-#define VERSION         0x00000002      // newer version
+#define ZMBV_CODEC_VERSION 0x00000002 // newer version
 
 /********************************************************************
 ********************************************************************/
@@ -164,7 +164,7 @@ DWORD CodecInst::GetInfo(ICINFO* icinfo, DWORD dwSize) {
   memcpy(&icinfo->fccHandler,CODEC_4CC, 4);
   icinfo->dwFlags           = VIDCF_FASTTEMPORALC | VIDCF_FASTTEMPORALD | VIDCF_TEMPORAL;
 
-  icinfo->dwVersion         = VERSION;
+  icinfo->dwVersion         = ZMBV_CODEC_VERSION;
   icinfo->dwVersionICM      = ICVERSION;
   MultiByteToWideChar(CP_ACP, 0, szDescription, -1, icinfo->szDescription, sizeof(icinfo->szDescription)/sizeof(WCHAR));
   MultiByteToWideChar(CP_ACP, 0, szName, -1, icinfo->szName, sizeof(icinfo->szName)/sizeof(WCHAR));
@@ -331,9 +331,9 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
 	}
 
 	codec->PrepareCompressFrame( flags, format, pal, reinterpret_cast<uint8_t*>(icinfo->lpOutput), 99999999);
-	char *readPt = (char *)icinfo->lpInput + pitch*(lpbiIn->biHeight - 1);
+	const char *readPt = (char *)icinfo->lpInput + pitch*(lpbiIn->biHeight - 1);
 	for(i = 0;i<lpbiIn->biHeight;i++) {
-		codec->CompressLines(1, reinterpret_cast<uint8_t **>(&readPt));
+		codec->CompressLines(1, reinterpret_cast<const uint8_t **>(&readPt));
 		readPt -= pitch;
 	}
 	lpbiOut->biSizeImage = codec->FinishCompressFrame();

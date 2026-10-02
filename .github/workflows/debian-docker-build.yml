@@ -7,8 +7,11 @@ on:
       - 'packages/debian-10-docker-apt.txt'
       - 'packages/debian-11-docker-apt.txt'
       - '.github/workflows/debian-docker-build.yml'
+<<<<<<< HEAD
     tags:
       - 'v*'
+=======
+>>>>>>> v0.81.0
   pull_request:
     paths:
       - 'packages/Dockerfile*'
@@ -46,7 +49,11 @@ jobs:
             vers: 11
     steps:
       - name: Checkout repository
+<<<<<<< HEAD
         uses: actions/checkout@v3
+=======
+        uses: actions/checkout@v4
+>>>>>>> v0.81.0
 
       - name: Get dosbox-staging version
         id: db_vers
@@ -61,25 +68,41 @@ jobs:
           fi
     
       - name: Log in to the Container registry
+<<<<<<< HEAD
         uses: docker/login-action@v2
+=======
+        uses: docker/login-action@v3
+>>>>>>> v0.81.0
         with:
           registry: ${{ env.DOCKER_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
+<<<<<<< HEAD
         uses: docker/setup-buildx-action@v2
       
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v4
+=======
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+>>>>>>> v0.81.0
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_BASE_IMG_NAME }}
           tags: |
             type=raw,${{ matrix.conf.vers }}-${{ steps.db_vers.outputs.DOSBOX_VERS }}
       
       - name: Build and push base Docker image
+<<<<<<< HEAD
         uses: docker/build-push-action@v3
+=======
+        uses: docker/build-push-action@v5
+>>>>>>> v0.81.0
         with:
           context: ./packages
           file: ./packages/Dockerfile.debian-base
@@ -113,30 +136,54 @@ jobs:
           - name: Debian 11 cross ARM 32
             arch: armhf
             vers: 11
+<<<<<<< HEAD
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
     
       - name: Log in to the Container registry
         uses: docker/login-action@v2
+=======
+          - name: Debian 11 cross PowerPC 64 LE
+            arch: ppc64el
+            vers: 11
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+    
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+>>>>>>> v0.81.0
         with:
           registry: ${{ env.DOCKER_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
+<<<<<<< HEAD
         uses: docker/setup-buildx-action@v2
       
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v4
+=======
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+>>>>>>> v0.81.0
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_IMG_NAME }}
           tags: |
             type=raw,${{ matrix.conf.vers }}-${{ needs.build_base_image.outputs.db_vers }}-${{ matrix.conf.arch }}
       
       - name: Build and push base Docker image
+<<<<<<< HEAD
         uses: docker/build-push-action@v3
+=======
+        uses: docker/build-push-action@v5
+>>>>>>> v0.81.0
         with:
           context: ./packages
           file: ./packages/Dockerfile.debian

@@ -159,9 +159,9 @@ public:
 	IDEATADevice(IDEController *c, uint8_t disk_index);
 	IDEATADevice(const IDEATADevice &other) = delete;            // prevent copying
 	IDEATADevice &operator=(const IDEATADevice &other) = delete; // prevent assignment
-	virtual ~IDEATADevice();
+	~IDEATADevice() override;
 
-	virtual void writecommand(uint8_t cmd);
+	void writecommand(uint8_t cmd) override;
 
 public:
 	std::string id_serial = "8086";
@@ -169,11 +169,13 @@ public:
 	std::string id_model = "DOSBox IDE disk";
 	uint8_t bios_disk_index;
 
-	std::shared_ptr<imageDisk> getBIOSdisk();
+	imageDisk* getBIOSdisk();
 
 	void update_from_biosdisk();
-	virtual uint32_t data_read(io_width_t width);          /* read from 1F0h data port from IDE device */
-	virtual void data_write(uint32_t v, io_width_t width); /* write to 1F0h data port to IDE device */
+	/* read from 1F0h data port from IDE device */
+	uint32_t data_read(io_width_t width) override;
+	/* write to 1F0h data port to IDE device */
+	void data_write(uint32_t v, io_width_t width) override;
 	virtual void generate_identify_device();
 	virtual void prepare_read(uint32_t offset, uint32_t size);
 	virtual void prepare_write(uint32_t offset, uint32_t size);
@@ -216,9 +218,9 @@ public:
 	IDEATAPICDROMDevice(IDEController *c, uint8_t requested_drive_index);
 	IDEATAPICDROMDevice(const IDEATAPICDROMDevice &other) = delete;            // prevent copying
 	IDEATAPICDROMDevice &operator=(const IDEATAPICDROMDevice &other) = delete; // prevent assignment
-	virtual ~IDEATAPICDROMDevice();
+	~IDEATAPICDROMDevice() override;
 
-	virtual void writecommand(uint8_t cmd);
+	void writecommand(uint8_t cmd) override;
 
 public:
 	std::string id_serial = "123456789";
@@ -228,13 +230,16 @@ public:
 
 	CDROM_Interface *getMSCDEXDrive();
 	void update_from_cdrom();
-	virtual uint32_t data_read(io_width_t width);          /* read from 1F0h data port from IDE device */
-	virtual void data_write(uint32_t v, io_width_t width); /* write to 1F0h data port to IDE device */
+	/* read from 1F0h data port from IDE device */
+	uint32_t data_read(io_width_t width) override;
+	/* write to 1F0h data port to IDE device */
+	void data_write(uint32_t v, io_width_t width) override;
 	virtual void generate_identify_device();
 	virtual void generate_mmc_inquiry();
 	virtual void prepare_read(uint32_t offset, uint32_t size);
 	virtual void prepare_write(uint32_t offset, uint32_t size);
-	virtual void set_sense(uint8_t SK, uint8_t ASC = 0, uint8_t ASCQ = 0, uint32_t len = 0);
+	virtual void set_sense(uint8_t SK, uint8_t ASC = 0, uint8_t ASCQ = 0,
+	                       uint32_t len = 0);
 	virtual bool common_spinup_response(bool trigger, bool wait);
 	virtual void on_mode_select_io_complete();
 	virtual void atapi_io_completion();
@@ -2129,7 +2134,7 @@ IDEATADevice::IDEATADevice(IDEController *c, uint8_t disk_index)
 IDEATADevice::~IDEATADevice()
 {}
 
-std::shared_ptr<imageDisk> IDEATADevice::getBIOSdisk()
+imageDisk* IDEATADevice::getBIOSdisk()
 {
 	if (bios_disk_index >= (2 + MAX_HDD_IMAGES))
 		return nullptr;
@@ -2157,7 +2162,7 @@ void IDEATAPICDROMDevice::update_from_cdrom()
 
 void IDEATADevice::update_from_biosdisk()
 {
-	std::shared_ptr<imageDisk> dsk = getBIOSdisk();
+	const auto dsk = getBIOSdisk();
 	if (dsk == nullptr) {
 		LOG_WARNING("IDE: IDE update from BIOS disk failed, disk not available");
 		return;
@@ -2397,7 +2402,7 @@ void IDE_Hard_Disk_Attach(int8_t index,
 		return;
 	}
 
-	if (!imageDiskList[bios_disk_index]) {
+	if (!imageDiskList.at(bios_disk_index)) {
 		LOG_WARNING("IDE: Asked to attach bios disk that does not exist");
 		return;
 	}
@@ -2478,8 +2483,6 @@ static bool IDE_CPU_Is_Vm86()
 {
 	return (cpu.pmode && ((GETFLAG_IOPL < cpu.cpl) || GETFLAG(VM)));
 }
-
-static void ide_baseio_w(io_port_t port, io_val_t val, io_width_t width);
 
 static uint32_t IDE_SelfIO_In(IDEController * /* ide */, io_port_t port, io_width_t width)
 {
@@ -2697,7 +2700,7 @@ void IDE_EmuINT13DiskReadByBIOS(uint8_t disk, uint32_t cyl, uint32_t head, unsig
 				bool vm86 = IDE_CPU_Is_Vm86();
 
 				if ((ata->bios_disk_index - 2) == (disk - 0x80)) {
-					std::shared_ptr<imageDisk> dsk = ata->getBIOSdisk();
+					const auto dsk = ata->getBIOSdisk();
 
 					/* print warning if INT 13h is being called after the OS changed
 					 * logical geometry */
@@ -2944,7 +2947,7 @@ static void IDE_DelayedCommand(uint32_t idx /*which IDE controller*/)
 		IDEATADevice *ata = (IDEATADevice *)dev;
 		uint32_t sectorn = 0; /* TBD: expand to uint64_t when adding LBA48 emulation */
 		uint32_t sectcount;
-		std::shared_ptr<imageDisk> disk;
+		imageDisk* disk = nullptr;
 		//      int i;
 
 		switch (dev->command) {

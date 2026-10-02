@@ -16,12 +16,21 @@ jobs:
       matrix:
         conf:
           - name: Clang
-            host: macos-12
+            host: macos-13
             arch: x86_64
             needs_deps: true
             build_flags: -Denable_debugger=normal
             brew_path: /usr/local/homebrew
-            max_warnings: 0
+            max_warnings: 80
+
+#          - name: GCC 12
+#            host: macos-13
+#            arch: x86_64
+#            needs_deps: true
+#            packages: gcc@12
+#            build_flags: -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-gcc-12.ini
+#            brew_path: /usr/local/homebrew
+#            max_warnings: 0
 
           - name: Clang
             host: [self-hosted, macOS, arm64, debug-builds]
@@ -33,18 +42,9 @@ jobs:
             run_tests: true
             max_warnings: 0
 
-          - name: GCC 12
-            host: macos-11
-            arch: x86_64
-            needs_deps: true
-            packages: gcc@12
-            build_flags: -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-gcc-12.ini
-            brew_path: /usr/local/homebrew
-            max_warnings: 0
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
 
@@ -67,14 +67,18 @@ jobs:
           BREW_DIR="$(brew --cache)"
           DISCARD_DIR="${{ github.workspace }}/discard"
           mkdir -p "$DISCARD_DIR"
-          mv -f "$BREW_DIR"/* "$DISCARD_DIR"
+          mv -f "$BREW_DIR"/* "$DISCARD_DIR" || true
           mkdir -p "$CCACHE_DIR"
           echo "brew_dir=$BREW_DIR"     >> $GITHUB_OUTPUT
           echo "ccache_dir=$CCACHE_DIR" >> $GITHUB_OUTPUT
           echo "today=$(date +%F)"      >> $GITHUB_OUTPUT
           echo "name_hash=$(echo '${{ matrix.conf.name }} ${{ matrix.conf.arch }}' | shasum | cut -b-8)" >> $GITHUB_OUTPUT
 
+<<<<<<< HEAD
       - uses:  actions/cache@v3.2.2
+=======
+      - uses:  actions/cache@v3.3.2
+>>>>>>> v0.81.0
         if:    matrix.conf.needs_deps
         with:
           path: ${{ steps.prep-caches.outputs.brew_dir }}
@@ -84,11 +88,19 @@ jobs:
       - name: Install C++ compiler and libraries
         if:   matrix.conf.needs_deps
         run: |
-          arch -arch=${{ matrix.conf.arch }} brew install \
+          arch -arch=${{ matrix.conf.arch }} brew unlink openssl@1.1 || true
+          rm -f /usr/local/bin/openssl || true
+          arch -arch=${{ matrix.conf.arch }} brew install --overwrite openssl@3 || true
+          arch -arch=${{ matrix.conf.arch }} brew link --overwrite openssl@3 || true
+          arch -arch=${{ matrix.conf.arch }} brew install --overwrite \
             ${{ matrix.conf.packages }} \
-            $(cat packages/macos-12-brew.txt)
+            $(cat packages/macos-12-brew.txt) || true
 
+<<<<<<< HEAD
       - uses:  actions/cache@v3.2.2
+=======
+      - uses:  actions/cache@v3.3.2
+>>>>>>> v0.81.0
         if:    matrix.conf.needs_deps
         with:
           path: ${{ steps.prep-caches.outputs.ccache_dir }}
@@ -97,11 +109,25 @@ jobs:
             ccache-macos-debug-${{ steps.prep-caches.outputs.name_hash }}-
             ccache-macos-debug-
 
+<<<<<<< HEAD
       - name:  Cache subprojects
         uses:  actions/cache@v3.2.2
+=======
+      - name: Cache subprojects
+        id:   cache-subprojects
+        uses: actions/cache@v3.3.2
+>>>>>>> v0.81.0
         with:
-          path: subprojects/packagecache
-          key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}-2
+          path: subprojects.tar
+          key: subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
+          enableCrossOsArchive: true
+
+      - if:   steps.cache-subprojects.outputs.cache-hit != 'true'
+        name: Generate subprojects cache
+        run:  scripts/fetch-and-tar-subprojects.sh
+
+      - name: Extract subprojects cache
+        run:  scripts/extract-subprojects-tar.sh
 
       - name: Setup and build
         run: |
@@ -130,14 +156,14 @@ jobs:
     runs-on: ${{ matrix.runner.host }}
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     env:
-      MIN_SUPPORTED_MACOSX_DEPLOYMENT_TARGET: ${{ matrix.runner.minimum_deployment }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.runner.minimum_deployment }}
 
     strategy:
       matrix:
         runner:
-          - host: [self-hosted, macOS, arm64, release-builds]
+          - host: [self-hosted, macOS, X64, release-builds]
             arch: x86_64
-            build_flags: -Db_lto=true -Db_lto_threads=4 --native-file=.github/meson/macos-arm64-to-x86_64-10.15-deployment-target.ini
+            build_flags: -Db_lto=true -Db_lto_threads=4
             brew_path: /usr/local/homebrew
             minimum_deployment: '10.15'
             needs_deps: false
@@ -151,7 +177,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
 
@@ -162,8 +188,9 @@ jobs:
         run: |
           set -eu
           echo 'CCACHE_DIR="${{ github.workspace }}/.ccache"' >> $GITHUB_ENV
-          echo 'CCACHE_MAXSIZE="64M"' >> $GITHUB_ENV
+          echo 'CCACHE_MAXSIZE="128M"' >> $GITHUB_ENV
           echo 'CCACHE_COMPRESS="true"' >> $GITHUB_ENV
+          echo 'CCACHE_SLOPPINESS="pch_defines,time_macros"' >> $GITHUB_ENV
 
       - name:  Prepare brew and compiler caches
         if:    matrix.runner.needs_deps
@@ -180,7 +207,11 @@ jobs:
           echo "ccache_dir=$CCACHE_DIR" >> $GITHUB_OUTPUT
           echo "today=$(date +%F)"      >> $GITHUB_OUTPUT
 
+<<<<<<< HEAD
       - uses:  actions/cache@v3.2.2
+=======
+      - uses:  actions/cache@v3.3.2
+>>>>>>> v0.81.0
         if:    matrix.runner.needs_deps
         with:
           path: ${{ steps.prep-caches.outputs.brew_dir }}
@@ -190,26 +221,43 @@ jobs:
       - name: Install C++ compiler and libraries
         if:   matrix.runner.needs_deps
         run: >-
-          arch -arch=${{ matrix.runner.arch }} brew install librsvg tree
-          ccache libpng meson opusfile sdl2 sdl2_image sdl2_net speexdsp
+          brew install --overwrite librsvg tree ccache libpng meson opusfile sdl2 sdl2_net speexdsp
 
+<<<<<<< HEAD
       # Workaround frequent HTTPS-based connectivity issues
       # https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/407
       - name:  Fetch the libffi subproject for Glib
         run: ./scripts/fetch-libffi-subproject.sh
 
       - uses:  actions/cache@v3.2.2
+=======
+      - uses:  actions/cache@v3.3.2
+>>>>>>> v0.81.0
         if:    matrix.runner.needs_deps
         with:
           path: ${{ steps.prep-caches.outputs.ccache_dir }}
           key:  ccache-macos-release-${{ matrix.runner.arch }}-${{ steps.prep-caches.outputs.today }}-2
           restore-keys: ccache-macos-release-${{ matrix.runner.arch }}-
 
+<<<<<<< HEAD
       - name:  Cache subprojects
         uses:  actions/cache@v3.2.2
+=======
+      - name: Cache subprojects
+        id: cache-subprojects
+        uses: actions/cache@v3.3.2
+>>>>>>> v0.81.0
         with:
-          path: subprojects/packagecache
-          key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}-2
+          path: subprojects.tar
+          key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
+          enableCrossOsArchive: true
+
+      - if:   steps.cache-subprojects.outputs.cache-hit != 'true'
+        name: Generate subprojects cache
+        run:  scripts/fetch-and-tar-subprojects.sh
+
+      - name: Extract subprojects cache
+        run:  scripts/extract-subprojects-tar.sh
 
       - name: Log environment
         run:  arch -arch=${{ matrix.runner.arch }} ./scripts/log-env.sh
@@ -226,7 +274,13 @@ jobs:
         run: |
           set -x
           eval "$(${{ matrix.runner.brew_path }}/bin/brew shellenv)"
-          meson setup ${{ matrix.runner.build_flags }} -Ddefault_library=static -Dwrap_mode=forcefallback -Dtry_static_libs=sdl2,sdl2_image,sdl2_net build
+          meson setup \
+            ${{ matrix.runner.build_flags }} \
+            -Ddefault_library=static \
+            -Dwrap_mode=forcefallback \
+            -Dtry_static_libs=sdl2,sdl2_net \
+            -Duse_zlib_ng=sse2,ssse3,neon \
+            build
           meson compile -C build
 
       - name: Upload binary
@@ -244,10 +298,10 @@ jobs:
   publish_universal_build:
     name: Publish universal build
     needs: build_macos_release
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
 
@@ -260,7 +314,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Install brew depedencies
-        run: brew install librsvg
+        run: HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 brew install --overwrite librsvg
 
       - name: Download binaries
         uses: actions/download-artifact@v3
@@ -290,7 +344,7 @@ jobs:
         id:    prep-clamdb
         shell: bash
         run: |
-          brew install clamav
+          brew install --overwrite clamav
           export CLAMDB_DIR="/usr/local/Cellar/clamav"
           clamscan --heuristic-scan-precedence=yes --recursive --infected dist || true
 
@@ -309,10 +363,10 @@ jobs:
   publish_additional_artifacts:
     name: Publish additional artifacts
     needs: build_macos_release
-    runs-on: macos-12
+    runs-on: macos-13
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: false
 

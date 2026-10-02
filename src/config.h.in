@@ -22,7 +22,7 @@
 #define DOSBOX_CONFIG_H
 
 /* Version and branding tweaks
- */
+*/
 
 // Name of project, lower-case without spaces
 #define CANONICAL_PROJECT_NAME "@project_name@"
@@ -35,6 +35,16 @@
 // Ref: https://semver.org/
 
 #define VERSION "@version@"
+
+/* Strings to be returned by virtual drivers, etc.
+*/
+
+// Name of the emulator
+#define DOSBOX_NAME "DOSBox Staging"
+// Development team name
+#define DOSBOX_TEAM "The " DOSBOX_NAME " Team"
+// Copyright string
+#define DOSBOX_COPYRIGHT "(C) " DOSBOX_TEAM
 
 /* Operating System
  */
@@ -63,6 +73,9 @@
 
 // Define to 1 if target CPU supports unaligned memory access
 #mesondefine C_UNALIGNED_MEMORY
+
+// Define to 1 if the target platform needs per-page dynamic core write or execute (W^X) tagging
+#mesondefine C_PER_PAGE_W_OR_X
 
 // Define to 1 to use x86/x86_64 dynamic cpu core
 // Can not be used together with C_DYNREC
@@ -108,12 +121,6 @@
 
 // Define to 1 to enable Novell NE 2000 NIC emulation
 #mesondefine C_NE2000
-
-// Define to 1 to enable rendered screenshots in .png format (using SDL2_image)
-#mesondefine C_SDL_IMAGE
-
-// Define to 1 to enable surface screenshots in .png format
-#mesondefine C_SSHOT
 
 // Define to 1 to enable the Tracy profiling server
 #mesondefine C_TRACY
@@ -165,6 +172,9 @@
  * between operating systems.
  */
 
+// Define to 1 when zlib-ng support is provided by the system
+#mesondefine C_SYSTEM_ZLIB_NG
+
 // Defined if function clock_gettime is available
 #mesondefine HAVE_CLOCK_GETTIME
 
@@ -192,9 +202,6 @@
 // Defined if function pthread_setname_np is available
 #mesondefine HAVE_PTHREAD_SETNAME_NP
 
-// Defined if function realpath is available
-#mesondefine HAVE_REALPATH
-
 // Defind if function setpriority is available
 #mesondefine HAVE_SETPRIORITY
 
@@ -212,12 +219,14 @@
  * Checks for non-POSIX headers and POSIX headers not supported on Windows.
  */
 
+#mesondefine HAVE_LIBGEN_H
 #mesondefine HAVE_NETINET_IN_H
 #mesondefine HAVE_PWD_H
 #define HAVE_STDLIB_H 1
 #mesondefine HAVE_STRINGS_H
 #mesondefine HAVE_SYS_SOCKET_H
 #define HAVE_SYS_TYPES_H 1
+#mesondefine HAVE_SYS_XATTR_H
 
 /* Hardware-related defines
  */
@@ -242,14 +251,5 @@
 // be used as a fallback if the user hasn't populated their
 // XDG_DATA_HOME or XDG_DATA_DIRS to include the --datadir.
 #mesondefine CUSTOM_DATADIR
-
-/* Loguru-related defines
- */
-
-// Prevent loguru from parsing command-line arguments with
-// with the hosts's locale-applied, because this can foul up
-// ncurses. (DOSBox also doesn't have foreign-language arguments).
-//
-#define LOGURU_USE_LOCALE 0
 
 #endif

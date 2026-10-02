@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,74 +20,145 @@
 
 #ifndef DOSBOX_SDLMAIN_H
 #define DOSBOX_SDLMAIN_H
- 
+
+#include "SDL.h"
+#include <optional>
+#include <string.h>
 #include <string>
 #include <string_view>
-#include <string.h>
-#include "SDL.h"
+
 #if C_OPENGL
 #include <SDL_opengl.h>
 #endif
+
+#include "fraction.h"
+#include "rect.h"
+#include "render.h"
+#include "shader_manager.h"
 #include "video.h"
 
-#include "../libs/ppscale/ppscale.h"
+// The image rendered in the emulated computer's raw framebuffer as raw pixels
+// goes through a number of transformations until it gets shown on the host
+// display. It is important to use a common vocabulary for the terms involved
+// in these various stages and to apply them consistently. To understand
+// the difference between logical units and pixels, please see `video.h`.
+//
+// Video mode dimensions
+// ---------------------
+//   The dimensions of the DOS video mode in raw pixels as stored on disk or
+//   in the emulated video card's framebuffer (e.g., 320x200 = 64000 pixels).
+//
+// Rendered image size
+// -------------------
+//   Size of the final rendered image in pixels *after* width and height
+//   doubling has been applied (e.g. 320x200 VGA is width and height doubled
+//   (scan-doubled) to 640x400; 320x200 CGA composite output is quadrupled in
+//   width to 1280x200, etc.). The rendered image size is more or less
+//   analogous to the actual video signal the CRT monitor "sees" (e.g., a
+//   monitor cannot differentiate between 320x200 double-scanned to 640x400,
+//   or an actual 640x400 video mode, as they're identical at the analog VGA
+//   signal level). In OpenGL mode, this is the size of the input image in
+//   pixels sent to GLSL shaders.
+//
+// Canvas size
+// -----------
+//   The unrestricted total available drawing area of the emulator window or
+//   the screen in fullscreen. This is reported by SDL as logical units.
+//
+// Viewport rectangle
+// ------------------
+//   The maximum area we can *potentially* draw into in logical units.
+//   Normally, it's smaller than the canvas, but it can also be larger in
+//   certain viewport modes where we "zoom into" the image, or when we
+//   simulate the horiz/vert stretch controls of CRT monitors. In these cases,
+//   the canvas effectively acts as our "window" into the oversized viewport,
+//   and one or both coordinates of the viewport rectangle's start point are
+//   negative.
+//
+//   IMPORTANT: Note that this viewport concept is different to what SDL &
+//   OpenGL calls the "viewport". Technically, we set the SDL/OpenGL viewport
+//   to the draw rectangle described below.
+//
+// Draw rectangle
+// --------------
+//   The actual draw rectangle in pixels after applying all rendering
+//   constraints such as integer scaling. It's always 100% filled with the
+//   final output image, so its ratio is equal to the output display aspect
+//   ratio. The draw rectangle is always equal to or is contained within the
+//   viewport rectangle.
+//
+//   We set the SDL/OpenGL viewport (which is different to our *our* viewport
+//   concept) to the draw rectangle without any further transforms. In OpenGL
+//   mode, this is the size of the final output image coming out of the
+//   shaders, which is the image that is displayed on the host monitor with
+//   1:1 physical pixel mapping.
+//
+//   Because the viewport can be larger than the canvas, the draw area can be
+//   larger too. In other words, the draw rectangle can extend beyond the
+//   edges of the window or the screen in fullscreen mode, in which case the
+//   image is centered and the overhanging areas are clipped.
+//
 
 #define SDL_NOFRAME 0x00000020
 
 // Texture buffer and presentation functions and type-defines
-using update_frame_buffer_f = void(const uint16_t *);
-using present_frame_f = bool();
-static void update_frame_texture([[maybe_unused]] const uint16_t *changedLines);
-static bool present_frame_texture();
-#if C_OPENGL
-static void update_frame_gl_pbo([[maybe_unused]] const uint16_t *changedLines);
-static void update_frame_gl_fb(const uint16_t *changedLines);
-static bool present_frame_gl();
-#endif
-static void update_frame_surface(const uint16_t *changedLines);
-constexpr void update_frame_noop([[maybe_unused]] const uint16_t *) { /* no-op */ }
-static inline bool present_frame_noop() { return true; }
+using update_frame_buffer_f = void(const uint16_t*);
+using present_frame_f       = bool();
 
-enum SCREEN_TYPES	{
-	SCREEN_SURFACE,
-	SCREEN_TEXTURE,
-#if C_OPENGL
-	SCREEN_OPENGL
-#endif
+constexpr void update_frame_noop([[maybe_unused]] const uint16_t*)
+{
+	// no-op
+}
+
+static inline bool present_frame_noop()
+{
+	return true;
+}
+
+enum class FrameMode {
+	Unset,
+
+	// Constant frame rate, as defined by the emulated system
+	Cfr,
+
+	// Variable frame rate, as defined by the emulated system
+	Vfr,
+
+	// Variable frame rate, throttled to the display's rate
+	ThrottledVfr,
 };
 
-enum class FRAME_MODE {
-	UNSET,
-	CFR,        // constant frame rate, as defined by the emulated system
-	VFR,        // variable frame rate, as defined by the emulated system
-	SYNCED_CFR, // constant frame rate, synced with the display's refresh rate
-	THROTTLED_VFR, // variable frame rate, throttled to the display's rate
+enum class HostRateMode {
+	Auto,
+
+	// Serial digital interface
+	Sdi,
+
+	// Variable refresh rate
+	Vrr,
+
+	Custom,
 };
 
-enum class HOST_RATE_MODE {
-	AUTO,
-	SDI, // serial digital interface
-	VRR, // variable refresh rate
-	CUSTOM,
+enum class VsyncState {
+	Unset    = -2,
+	Adaptive = -1,
+	Off      = 0,
+	On       = 1,
+	Yield    = 2,
 };
 
-enum class SCALING_MODE { NONE, NEAREST, PERFECT };
-
-enum class VSYNC_STATE {
-	UNSET = -2,
-	ADAPTIVE = -1,
-	OFF = 0,
-	ON = 1,
-};
-
-// A vsync preference consists of three parts:
-//  - What the user asked for
-//  - What the host reports vsync as after setting it
-//  - What the actual resulting state is after setting it
-struct VsyncPreference {
-	VSYNC_STATE requested = VSYNC_STATE::UNSET;
-	VSYNC_STATE reported = VSYNC_STATE::UNSET;
-	VSYNC_STATE resultant = VSYNC_STATE::UNSET;
+// The vsync settings consists of three parts:
+//  - What the user asked for.
+//  - What the measured state is after setting the requested vsync state.
+//    The video driver may honor the requested vsync state, ignore it, change
+//    it, or be outright buggy.
+//  - The benchmarked rate is the actual frame rate after setting the requested
+//    stated, and is used to determined the measured state.
+//
+struct VsyncSettings {
+	VsyncState requested = VsyncState::Unset;
+	VsyncState measured  = VsyncState::Unset;
 	int benchmarked_rate = 0;
 };
 
@@ -101,51 +172,62 @@ enum PRIORITY_LEVELS {
 };
 
 struct SDL_Block {
-	bool initialized = false;
-	bool active = false; // If this isn't set don't draw
-	bool updating = false;
-	bool update_display_contents = true;
+	bool initialized     = false;
+	bool active          = false; // If this isn't set don't draw
+	bool updating        = false;
 	bool resizing_window = false;
-	bool wait_on_error = false;
-	SCALING_MODE scaling_mode = SCALING_MODE::NONE;
+	bool wait_on_error   = false;
+
+	RenderingBackend rendering_backend      = RenderingBackend::Texture;
+	RenderingBackend want_rendering_backend = RenderingBackend::Texture;
+
+	InterpolationMode interpolation_mode    = InterpolationMode::Bilinear;
+	IntegerScalingMode integer_scaling_mode = IntegerScalingMode::Off;
+
 	struct {
-		int width = 0;
-		int height = 0;
-		double scalex = 1.0;
-		double scaley = 1.0;
-		double pixel_aspect = 1.0;
-		uint16_t previous_mode = 0;
-		bool has_changed = false;
+		int render_width_px                = 0;
+		int render_height_px               = 0;
+		Fraction render_pixel_aspect_ratio = {1};
+
+		bool has_changed        = false;
 		GFX_CallBack_t callback = nullptr;
-		bool width_was_doubled = false;
+		bool width_was_doubled  = false;
 		bool height_was_doubled = false;
 	} draw = {};
+
+	// The DOS video mode is populated after we set up the SDL window.
+	std::optional<VideoMode> maybe_video_mode = {};
+
 	struct {
 		struct {
-			int width = 0;
-			int height = 0;
-			bool fixed = false;
+			int width        = 0;
+			int height       = 0;
+			bool fixed       = false;
 			bool display_res = false;
 		} full = {};
+
 		struct {
-			// user-configured window size
-			int width = 0;
-			int height = 0;
-			bool resizable = false;
-			bool show_decorations = true;
+			// User-configured window size
+			int width                  = 0;
+			int height                 = 0;
+			bool show_decorations      = true;
 			bool adjusted_initial_size = false;
-			int initial_x_pos = -1;
-			int initial_y_pos = -1;
-			// instantaneous canvas size of the window
+			int initial_x_pos          = -1;
+			int initial_y_pos          = -1;
+
+			// Instantaneous canvas size of the window
 			SDL_Rect canvas_size = {};
 		} window = {};
+
 		struct {
-			int width = 0;
+			int width  = 0;
 			int height = 0;
 		} requested_window_bounds = {};
 
-		uint8_t bpp = 0;
-		double dpi_scale = 1.0;
+		PixelFormat pixel_format = {};
+
+		float dpi_scale = 1.0f;
+
 		bool fullscreen = false;
 
 		// This flag indicates, that we are in the process of switching
@@ -153,55 +235,58 @@ struct SDL_Block {
 		// rendering size due to rotating screen, emulation state, or
 		// user resizing the window).
 		bool switching_fullscreen = false;
+
 		// Lazy window size init triggers updating window size and
 		// position when leaving fullscreen for the first time.
 		// See FinalizeWindowState function for details.
 		bool lazy_init_window_size = false;
-		HOST_RATE_MODE host_rate_mode = HOST_RATE_MODE::AUTO;
-		double preferred_host_rate = 0.0;
-		bool want_resizable_window = false;
-		SDL_WindowEventID last_size_event = {};
-		SCREEN_TYPES type = SCREEN_SURFACE;
-		SCREEN_TYPES want_type = SCREEN_SURFACE;
+
+		HostRateMode host_rate_mode = HostRateMode::Auto;
+		double preferred_host_rate  = 0.0;
 	} desktop = {};
+
 	struct {
-		int num_cycles = 0;
+		int num_cycles              = 0;
 		std::string hint_mouse_str  = {};
 		std::string hint_paused_str = {};
 		std::string cycles_ms_str   = {};
 	} title_bar = {};
+
 	struct {
-		VsyncPreference when_windowed = {};
-		VsyncPreference when_fullscreen = {};
-		VSYNC_STATE current = VSYNC_STATE::ON;
-		int skip_us = 0;
+		VsyncSettings when_windowed   = {};
+		VsyncSettings when_fullscreen = {};
+		int skip_us                   = 0;
 	} vsync = {};
+
 #if C_OPENGL
 	struct {
 		SDL_GLContext context;
-		int pitch = 0;
-		void *framebuf = nullptr;
-		GLuint buffer;
+		int pitch      = 0;
+		void* framebuf = nullptr;
 		GLuint texture;
 		GLuint displaylist;
 		GLint max_texsize;
 		bool bilinear;
-		bool pixel_buffer_object = false;
 		bool npot_textures_supported = false;
 		bool use_shader;
 		bool framebuffer_is_srgb_encoded;
 		GLuint program_object;
-		std::string_view shader_source_sv = {};
+
+		ShaderInfo shader_info    = {};
+		std::string shader_source = {};
+
 		struct {
 			GLint texture_size;
 			GLint input_size;
 			GLint output_size;
 			GLint frame_count;
 		} ruby = {};
+
 		GLuint actual_frame_count;
-		GLfloat vertex_data[2*3];
+		GLfloat vertex_data[2 * 3];
 	} opengl = {};
 #endif // C_OPENGL
+
 	struct {
 		PRIORITY_LEVELS active   = PRIORITY_LEVEL_AUTO;
 		PRIORITY_LEVELS inactive = PRIORITY_LEVEL_AUTO;
@@ -210,41 +295,60 @@ struct SDL_Block {
 	bool mute_when_inactive  = false;
 	bool pause_when_inactive = false;
 
-	SDL_Rect clip = {0, 0, 0, 0};
-	SDL_Surface *surface = nullptr;
-	SDL_Window *window = nullptr;
-	SDL_Renderer *renderer = nullptr;
+	SDL_Rect draw_rect_px     = {};
+	SDL_Window* window        = nullptr;
+	SDL_Renderer* renderer    = nullptr;
 	std::string render_driver = "";
-	int display_number = 0;
+	int display_number        = 0;
+
 	struct {
-		SDL_Surface *input_surface = nullptr;
-		SDL_Texture *texture = nullptr;
-		SDL_PixelFormat *pixelFormat = nullptr;
+		SDL_Surface* input_surface   = nullptr;
+		SDL_Texture* texture         = nullptr;
+		SDL_PixelFormat* pixelFormat = nullptr;
 	} texture = {};
+
 	struct {
-		present_frame_f *present = present_frame_noop;
-		update_frame_buffer_f *update = update_frame_noop;
-		FRAME_MODE desired_mode = FRAME_MODE::UNSET;
-		FRAME_MODE mode = FRAME_MODE::UNSET;
-		double period_ms = 0.0; // in ms, for use with PIC timers
-		int period_us = 0;      // same but in us, for use with chrono
+		present_frame_f* present      = present_frame_noop;
+		update_frame_buffer_f* update = update_frame_noop;
+		FrameMode desired_mode        = FrameMode::Unset;
+		FrameMode mode                = FrameMode::Unset;
+
+		// in ms, for use with PIC timers
+		double period_ms      = 0.0;
+		float max_dupe_frames = 0.0f;
+
+		// same but in us, for use with chrono
+		int period_us       = 0;
 		int period_us_early = 0;
-		int period_us_late = 0;
+		int period_us_late  = 0;
 	} frame = {};
-	PPScale pp_scale = {};
-	SDL_Rect updateRects[1024] = {};
+
 	bool use_exact_window_resolution = false;
-	bool use_viewport_limits = false;
-	SDL_Point viewport_resolution = {-1, -1};
-#if defined (WIN32)
+
+#if defined(WIN32)
 	// Time when sdl regains focus (Alt+Tab) in windowed mode
 	int64_t focus_ticks = 0;
 #endif
+
 	// State of Alt keys for certain special handlings
 	SDL_EventType laltstate = SDL_KEYUP;
 	SDL_EventType raltstate = SDL_KEYUP;
 };
 
 extern SDL_Block sdl;
+
+constexpr uint32_t sdl_version_to_uint32(const SDL_version version)
+{
+	return (version.major << 16) + (version.minor << 8) + version.patch;
+}
+
+bool is_runtime_sdl_version_at_least(const SDL_version min_version)
+{
+	SDL_version version = {};
+	SDL_GetVersion(&version);
+	const auto curr_version = sdl_version_to_uint32(version);
+
+	return curr_version >= sdl_version_to_uint32(min_version);
+}
 
 #endif

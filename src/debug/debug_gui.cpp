@@ -39,7 +39,7 @@
 #endif
 
 struct _LogGroup {
-	char const *front = nullptr;
+	const char* front = nullptr;
 	bool enabled = false;
 };
 #include <list>
@@ -50,14 +50,13 @@ using namespace std;
 static list<string> logBuff = {};
 static list<string>::iterator logBuffPos = logBuff.end();
 
-static _LogGroup loggrp[LOG_MAX]={{"",true},{0,false}};
+static _LogGroup loggrp[LOG_MAX]={{"",true},{nullptr,false}};
 static FILE *debuglog = nullptr;
 
 extern int old_cursor_state;
 
-
-
-void DEBUG_ShowMsg(char const* format,...) {
+void DEBUG_ShowMsg(const char* format, ...)
+{
 	// Quit early if the window hasn't been created yet
 	if (!dbg.win_out)
 		return;
@@ -99,9 +98,9 @@ void DEBUG_RefreshPage(int scroll) {
 		return;
 
 	if (scroll == -1 && logBuffPos != logBuff.begin())
-		logBuffPos--;
+		--logBuffPos;
 	else if (scroll == 1 && logBuffPos != logBuff.end())
-		logBuffPos++;
+		++logBuffPos;
 
 	list<string>::iterator i = logBuffPos;
 	int maxy, maxx; getmaxyx(dbg.win_out,maxy,maxx);
@@ -121,7 +120,8 @@ void DEBUG_RefreshPage(int scroll) {
 	wrefresh(dbg.win_out);
 }
 
-void LOG::operator() (char const* format, ...){
+void LOG::operator()(const char* format, ...)
+{
 	char buf[512];
 	va_list msg;
 	va_start(msg,format);
@@ -132,7 +132,6 @@ void LOG::operator() (char const* format, ...){
 	if ((d_severity!=LOG_ERROR) && (!loggrp[d_type].enabled)) return;
 	DEBUG_ShowMsg("%10u: %s:%s\n",static_cast<uint32_t>(cycle_count),loggrp[d_type].front,buf);
 }
-
 
 static void Draw_RegisterLayout(void) {
 	// Quit early if the window hasn't been created yet
@@ -221,16 +220,16 @@ static void MakePairs() {
 }
 static void LOG_Destroy(Section*) {
 	if(debuglog) fclose(debuglog);
-	debuglog = 0;
+	debuglog = nullptr;
 }
 
 static void LOG_Init(Section * sec) {
 	Section_prop * sect = static_cast<Section_prop *>(sec);
-	const char * blah = sect->Get_string("logfile");
-	if(blah && blah[0] && (debuglog = fopen(blah,"wt+"))){
+	std::string blah = sect->Get_string("logfile");
+	if(!blah.empty() && (debuglog = fopen(blah.c_str(),"wt+"))){
 		;
 	} else {
-		debuglog = 0;
+		debuglog = nullptr;
 	}
 	sect->AddDestroyFunction(&LOG_Destroy);
 	char buf[64];
@@ -278,13 +277,13 @@ void LOG_StartUp(void) {
 	/* Register the log section */
 	Section_prop * sect=control->AddSection_prop("log",LOG_Init);
 	Prop_string* Pstring = sect->Add_string("logfile",Property::Changeable::Always,"");
-	Pstring->Set_help("file where the log messages will be saved to");
+	Pstring->Set_help("File where the log messages will be saved to");
 	char buf[64];
 	for (Bitu i = LOG_ALL + 1;i < LOG_MAX;i++) {
 		safe_strcpy(buf, loggrp[i].front);
 		lowcase(buf);
 		Prop_bool* Pbool = sect->Add_bool(buf,Property::Changeable::Always,true);
-		Pbool->Set_help("Enable/Disable logging of this type.");
+		Pbool->Set_help("Enable/disable logging of this type.");
 	}
 //	MSG_Add("LOG_CONFIGFILE_HELP","Logging related options for the debugger.\n");
 }

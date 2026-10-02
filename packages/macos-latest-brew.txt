@@ -3,6 +3,7 @@ cmake
 curl
 fluid-synth
 git
+gnu-tar
 libpng
 libslirp
 meson
@@ -13,7 +14,8 @@ pcre
 pkg-config
 readline
 sdl2
-sdl2_image
 sdl2_net
 speexdsp
 wget
+ffmpeg
+conan

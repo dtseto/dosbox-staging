@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -52,7 +53,7 @@ callback_number_t CALLBACK_Allocate()
 
 	for (callback_number_t i = 1; i < CB_MAX; ++i) {
 		if (CallBack_Handlers[i] == &illegal_handler) {
-			CallBack_Handlers[i] = 0;
+			CallBack_Handlers[i] = nullptr;
 			return i;
 		}
 	}
@@ -94,8 +95,8 @@ static Bitu stop_handler(void) {
 
 void CALLBACK_RunRealFar(uint16_t seg,uint16_t off) {
 	reg_sp-=4;
-	real_writew(SegValue(ss),reg_sp+0,RealOff(CALLBACK_RealPointer(call_stop)));
-	real_writew(SegValue(ss),reg_sp+2,RealSeg(CALLBACK_RealPointer(call_stop)));
+	real_writew(SegValue(ss),reg_sp+0,RealOffset(CALLBACK_RealPointer(call_stop)));
+	real_writew(SegValue(ss),reg_sp+2,RealSegment(CALLBACK_RealPointer(call_stop)));
 	auto oldeip=reg_eip;
 	auto oldcs=SegValue(cs);
 	reg_eip=off;
@@ -147,7 +148,7 @@ void CALLBACK_SetDescription(callback_number_t cb_num, const char* descr)
 const char* CALLBACK_GetDescription(callback_number_t cb_num)
 {
 	if (cb_num >= CB_MAX)
-		return 0;
+		return nullptr;
 	return CallBack_Description[cb_num].c_str();
 }
 

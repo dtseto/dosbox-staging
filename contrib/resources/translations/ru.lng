@@ -48,7 +48,6 @@
              малый, средний, большой.
   <своё>:    Масштабировать содержимое окна до указанного размера,
              в формате ШxВ. Например: '1024x768'.
-             Масштабирование не выполняется для output=surface.
 .
 :CONFIG_VIEWPORT_RESOLUTION
 Задать размер области отрисовки в окне / на экране:
@@ -971,7 +970,7 @@ MAC-адрес карты NE2000.
 # Строки, начинающиеся со знака '#' - это комментарии.
 
 .
-:CONFIG_SUGGESTED_VALUES
+:CONFIG_VALID_VALUES
 Возможные значения
 .
 :PROGRAM_CONFIG_PROPERTY_ERROR
@@ -1114,7 +1113,7 @@ DOSBox был запущен со следующими параметрами к
 Метка
 .
 :PROGRAM_MOUNT_STATUS_2
-Диск %c смонтирован как %s
+%s смонтирован как диск %c
 
 .
 :PROGRAM_MOUNT_STATUS_1
@@ -1154,11 +1153,11 @@ DOSBox был запущен со следующими параметрами к
 
 .
 :PROGRAM_MOUNT_WARNING_WIN
-[color=red]Монтирование C:\ НЕ рекомендуется! В следующий раз смонтируйте подкаталог.[reset]
+[color=light-red]Монтирование C:\ НЕ рекомендуется! В следующий раз смонтируйте подкаталог.[reset]
 
 .
 :PROGRAM_MOUNT_WARNING_OTHER
-[color=red]Монтирование / НЕ рекомендуется! В следующий раз смонтируйте подкаталог.[reset]
+[color=light-red]Монтирование / НЕ рекомендуется! В следующий раз смонтируйте подкаталог.[reset]
 
 .
 :PROGRAM_MOUNT_NO_OPTION
@@ -1271,20 +1270,20 @@ MSCDEX: Внимание: Игнорирование неподдерживае�
 
 .
 :PROGRAM_INTRO
-[erases=entire][color=green]Добро пожаловать в DOSBox Staging[reset], эмулятор x86 со звуком и графикой.
+[erases=entire][color=light-green]Добро пожаловать в DOSBox Staging[reset], эмулятор x86 со звуком и графикой.
 DOSBox Staging создаёт для вас оболочку, выглядящую как старый добрый DOS.
 
-Для получения информации о монтировании, введите [color=blue]intro mount[reset]
-Для получения информации о поддержке CD-ROM, введите [color=blue]intro cdrom[reset]
-Для получения информации о горячих клавишах, введите [color=blue]intro special[reset]
+Для получения информации о монтировании, введите [color=light-blue]intro mount[reset]
+Для получения информации о поддержке CD-ROM, введите [color=light-blue]intro cdrom[reset]
+Для получения информации о горячих клавишах, введите [color=light-blue]intro special[reset]
 Для более подробной информации посетите вики-сайт DOSBox Staging:
-[color=blue]https://github.com/dosbox-staging/dosbox-staging/wiki[reset]
+[color=light-blue]https://github.com/dosbox-staging/dosbox-staging/wiki[reset]
 
-[color=red]При возникновении ошибки DOSBox Staging будет закрыт без предупреждения![reset]
+[color=light-red]При возникновении ошибки DOSBox Staging будет закрыт без предупреждения![reset]
 
 .
 :PROGRAM_INTRO_MOUNT_START
-[erases=entire][color=green]Вот несколько команд для начала:[reset]
+[erases=entire][color=light-green]Вот несколько команд для начала:[reset]
 Прежде чем вы сможете использовать файлы вашей файловой системы,
 вы должны смонтировать каталог, содержащий эти файлы.
 
@@ -1292,29 +1291,29 @@ DOSBox Staging создаёт для вас оболочку, выглядящу
 .
 :PROGRAM_INTRO_MOUNT_WINDOWS
 [bgcolor=blue]╔═════════════════════════════════════════════════════════════════════════╗
-║ [color=green]mount c c:\dosgames\[color=white] создаст диск C с содержимым из c:\dosgames.        ║
+║ [color=light-green]mount c c:\dosgames\[color=white] создаст диск C с содержимым из c:\dosgames.        ║
 ║                                                                         ║
-║ [color=green]c:\dosgames\[color=white] - это пример. Замените его своим каталогом с играми.       ║
+║ [color=light-green]c:\dosgames\[color=white] - это пример. Замените его своим каталогом с играми.       ║
 ╚═════════════════════════════════════════════════════════════════════════╝[reset]
 
 .
 :PROGRAM_INTRO_MOUNT_OTHER
 [bgcolor=blue]╔══════════════════════════════════════════════════════════════════════╗
-║ [color=green]mount c ~/dosgames[color=white] создаст диск C с содержимым из ~/dosgames.        ║
+║ [color=light-green]mount c ~/dosgames[color=white] создаст диск C с содержимым из ~/dosgames.        ║
 ║                                                                      ║
-║ [color=green]~/dosgames[color=white] - это пример. Замените его своим каталогом с играми.      ║
+║ [color=light-green]~/dosgames[color=white] - это пример. Замените его своим каталогом с играми.      ║
 ╚══════════════════════════════════════════════════════════════════════╝[reset]
 
 .
 :PROGRAM_INTRO_MOUNT_END
-После успешного монтирования диска вы можете ввести [color=blue]C:[reset] для перехода к
-смонтированному диску C. Введите [color=blue]dir[reset] для показа содержимого. [color=blue]cd[reset] позволит вам
+После успешного монтирования диска вы можете ввести [color=light-blue]C:[reset] для перехода к
+смонтированному диску C. Введите [color=light-blue]dir[reset] для показа содержимого. [color=light-blue]cd[reset] позволит вам
 войти в каталог (обозначены [color=yellow][][reset] в списке каталогов).
-Вы можете запускать программы/файлы с расширениями [color=light-red].exe[reset], [color=light-red].bat[reset] и [color=light-red].com[reset].
+Вы можете запускать программы/файлы с расширениями [color=red].exe[reset], [color=red].bat[reset] и [color=red].com[reset].
 
 .
 :PROGRAM_INTRO_SPECIAL
-[erases=entire][color=green]Горячие клавиши:[reset]
+[erases=entire][color=light-green]Горячие клавиши:[reset]
 Это заданные по умолчанию горячие клавиши.
 Они могут быть изменены в [color=yellow]клавишном маппере[reset].
 
@@ -1354,9 +1353,9 @@ DOSBox Staging создаёт для вас оболочку, выглядящу
 %s+F4, и -l указывает смонтированный диск для загрузки. Если буква диска
 не указана, по умолчанию загрузка с диска A. Единственными буквами
 загрузочного диска являются A, C и D. При загрузке с жёсткого диска (C или D),
-образ должен быть уже смонтирован с помощью команды [color=blue]IMGMOUNT[reset].
+образ должен быть уже смонтирован с помощью команды [color=light-blue]IMGMOUNT[reset].
 
-Введите [color=blue]BOOT /?[reset] для получения справки по синтаксису этой команды.
+Введите [color=light-blue]BOOT /?[reset] для получения справки по синтаксису этой команды.
 
 .
 :PROGRAM_BOOT_UNABLE
@@ -1410,27 +1409,27 @@ PCjr картридж найден, но машина не PCjr.
 Монтирует образ CD-ROM, дискеты или диска на указанную букву диска.
 
 Использование:
-  [color=green]imgmount[reset] [color=white]ДИСК[reset] [color=cyan]CDROM-SET[reset] [-fs iso] [-ide] -t cdrom|iso
-  [color=green]imgmount[reset] [color=white]ДИСК[reset] [color=cyan]IMAGEFILE[reset] [IMAGEFILE_2 [..]] [-fs fat] -t hdd|floppy -ro
-  [color=green]imgmount[reset] [color=white]ДИСК[reset] [color=cyan]BOOTIMAGE[reset] [-fs fat|none] -t hdd -size ГЕОМЕТРИЯ -ro
-  [color=green]imgmount[reset] -u [color=white]ДИСК[reset]  (демонтирует образ диска)
+  [color=light-green]imgmount[reset] [color=white]ДИСК[reset] [color=light-cyan]CDROM-SET[reset] [-fs iso] [-ide] -t cdrom|iso
+  [color=light-green]imgmount[reset] [color=white]ДИСК[reset] [color=light-cyan]IMAGEFILE[reset] [IMAGEFILE_2 [..]] [-fs fat] -t hdd|floppy -ro
+  [color=light-green]imgmount[reset] [color=white]ДИСК[reset] [color=light-cyan]BOOTIMAGE[reset] [-fs fat|none] -t hdd -size ГЕОМЕТРИЯ -ro
+  [color=light-green]imgmount[reset] -u [color=white]ДИСК[reset]  (демонтирует образ диска)
 
 Где:
   [color=white]ДИСК[reset]      - буква диска, на который будет смонтирован образ: A, C, D, ...
-  [color=cyan]CDROM-SET[reset] - образ ISO, CUE+BIN, CUE+ISO, или CUE+ISO+FLAC/OPUS/OGG/MP3/WAV
-  [color=cyan]IMAGEFILE[reset] - образ жёсткого диска или дискеты в формате FAT16 или FAT12.
-  [color=cyan]BOOTIMAGE[reset] - образ загрузочного диска с заданной геометрией:
+  [color=light-cyan]CDROM-SET[reset] - образ ISO, CUE+BIN, CUE+ISO, или CUE+ISO+FLAC/OPUS/OGG/MP3/WAV
+  [color=light-cyan]IMAGEFILE[reset] - образ жёсткого диска или дискеты в формате FAT16 или FAT12.
+  [color=light-cyan]BOOTIMAGE[reset] - образ загрузочного диска с заданной геометрией:
             байтов_на_сектор,секторов_на_головку,головки,цилиндры.
 Примечания:
-  - %s+F4 меняет и монтирует следующий [color=cyan]CDROM-SET[reset] или [color=cyan]BOOTIMAGE[reset], если указан.
+  - %s+F4 меняет и монтирует следующий [color=light-cyan]CDROM-SET[reset] или [color=light-cyan]BOOTIMAGE[reset], если указан.
   - Флаг -ro монтирует образ в режиме только для чтения (защищённом от записи).
   - Флаг -ide эмулирует контроллер IDE с подключённым IDE CD-приводом, полезно
     для CD-игр, которым нужно настоящее окружение DOS с загрузочного образа ЖД.
 Примеры:
-  [color=green]imgmount[reset] [color=white]D[reset] [color=cyan]/home/имя_пользователя/Games/образ.iso[reset] -t cdrom
-  [color=green]imgmount[reset] [color=white]D[reset] [color=cyan]cd/образ.cue[reset] -t cdrom
-  [color=green]imgmount[reset] [color=white]A[reset] [color=cyan]дискета_1.img дискета_2.img дискета_3.img[reset] -t floppy -ro
-  [color=green]imgmount[reset] [color=white]C[reset] [color=cyan]загрузочный_образ.img[reset] -t hdd -fs none -size 512,63,32,1023
+  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/home/имя_пользователя/Games/образ.iso[reset] -t cdrom
+  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]cd/образ.cue[reset] -t cdrom
+  [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]дискета_1.img дискета_2.img дискета_3.img[reset] -t floppy -ro
+  [color=light-green]imgmount[reset] [color=white]C[reset] [color=light-cyan]загрузочный_образ.img[reset] -t hdd -fs none -size 512,63,32,1023
 
 .
 :PROGRAM_MOUNT_HELP
@@ -1441,13 +1440,13 @@ PCjr картридж найден, но машина не PCjr.
 Монтирует каталог из операционной системы на букву виртуального диска DOS.
 
 Использование:
-  [color=green]mount[reset] [color=white]ДИСК[reset] [color=cyan]КАТАЛОГ[reset] [-t ТИП] [-usecd #] [-freesize РАЗМЕР] [-label МЕТКА]
-  [color=green]mount[reset] -listcd / -cd (выводит все обнаруженные приводы CD-ROM и их номера)
-  [color=green]mount[reset] -u [color=white]ДИСК[reset]  (демонтирует каталог ДИСКа)
+  [color=light-green]mount[reset] [color=white]ДИСК[reset] [color=light-cyan]КАТАЛОГ[reset] [-t ТИП] [-usecd #] [-freesize РАЗМЕР] [-label МЕТКА]
+  [color=light-green]mount[reset] -listcd / -cd (выводит все обнаруженные приводы CD-ROM и их номера)
+  [color=light-green]mount[reset] -u [color=white]ДИСК[reset]  (демонтирует каталог ДИСКа)
 
 Где:
   [color=white]ДИСК[reset]    - буква диска, куда будет смонтирован каталог: A, C, D, ...
-  [color=cyan]КАТАЛОГ[reset] - каталог в ОС, который будет смонтирован
+  [color=light-cyan]КАТАЛОГ[reset] - каталог в ОС, который будет смонтирован
   ТИП     - тип монтируемого каталога: dir, floppy, cdrom или overlay
   РАЗМЕР  - свободное место виртуального диска (КиБ для дискет, МиБ для
           остального)
@@ -1458,9 +1457,9 @@ PCjr картридж найден, но машина не PCjr.
   - Дополнительные опции описаны в руководстве (файл README, глава 4).
 
 Примеры:
-  [color=green]mount[reset] [color=white]C[reset] [color=cyan]~/DOS-игры[reset]
-  [color=green]mount[reset] [color=white]D[reset] [color=cyan]"/media/имя_пользователя/Название CD"[reset] -t cdrom
-  [color=green]mount[reset] [color=white]C[reset] [color=cyan]мои_сохранения[reset] -t overlay
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]~/DOS-игры[reset]
+  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]"/media/имя_пользователя/Название CD"[reset] -t cdrom
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]мои_сохранения[reset] -t overlay
 
 .
 :PROGRAM_IMGMOUNT_SPECIFY_DRIVE
@@ -1473,11 +1472,11 @@ PCjr картридж найден, но машина не PCjr.
 
 .
 :PROGRAM_IMGMOUNT_SPECIFY_GEOMETRY
-Для образов [color=yellow]компакт-дисков[reset]: [color=blue]IMGMOUNT буква_диска путь_к_образу -t iso[reset]
+Для образов [color=yellow]компакт-дисков[reset]: [color=light-blue]IMGMOUNT буква_диска путь_к_образу -t iso[reset]
 
 Для образов [color=yellow]жёстких дисков[reset]: Должна быть указана геометрия жёсткого диска:
 байтов_на_сектор, секторов_на_головку, головок_на_цилиндр,количество_цилиндров.
-[color=blue]IMGMOUNT буква_диска путь_к_образу -size бнс,снг,гнц,кц[reset]
+[color=light-blue]IMGMOUNT буква_диска путь_к_образу -size бнс,снг,гнц,кц[reset]
 
 .
 :PROGRAM_IMGMOUNT_INVALID_IMAGE
@@ -1507,7 +1506,7 @@ PCjr картридж найден, но машина не PCjr.
 
 .
 :PROGRAM_IMGMOUNT_MOUNT
-Для монтирования каталогов используйте команду [color=blue]MOUNT[reset], а не команду [color=blue]IMGMOUNT[reset].
+Для монтирования каталогов используйте команду [color=light-blue]MOUNT[reset], а не команду [color=light-blue]IMGMOUNT[reset].
 
 .
 :PROGRAM_IMGMOUNT_ALREADY_MOUNTED
@@ -1562,6 +1561,38 @@ PCjr картридж найден, но машина не PCjr.
 Недопустимый путь.
 
 .
+:SHELL_ILLEGAL_SWITCH
+Недопустимый переключатель: %s.
+
+.
+:SHELL_MISSING_PARAMETER
+Отсутствует обязательный параметр.
+
+.
+:SHELL_SYNTAX_ERROR
+Синтаксис команды неверный.
+
+.
+:SHELL_ACCESS_DENIED
+Отказ в доступе - '%s'
+
+.
+:SHELL_FILE_CREATE_ERROR
+Ошибка создания файла - '%s'
+
+.
+:SHELL_FILE_OPEN_ERROR
+Ошибка открытия файла - '%s'
+
+.
+:SHELL_FILE_NOT_FOUND
+Файл '%s' не найден.
+
+.
+:SHELL_FILE_EXISTS
+Файл '%s' уже существует.
+
+.
 :SHELL_CMD_HELP
 Для показа списка всех доступных команд, введите [color=yellow]help /all[reset].
 Краткий список часто используемых команд:
@@ -1575,29 +1606,21 @@ PCjr картридж найден, но машина не PCjr.
 Вывод команд выключен.
 
 .
-:SHELL_ILLEGAL_SWITCH
-Недопустимый переключатель: %s.
-
-.
-:SHELL_MISSING_PARAMETER
-Отсутствует обязательный параметр.
-
-.
 :SHELL_CMD_CHDIR_ERROR
 Невозможно перейти в %s.
 
 .
 :SHELL_CMD_CHDIR_HINT
-Подсказка: Для перехода на другой диск введите [color=light-red]%C:[reset]
+Подсказка: Для перехода на другой диск введите [color=red]%C:[reset]
 
 .
 :SHELL_CMD_CHDIR_HINT_2
 Имя каталога длиннее восьми символов и/или содержит пробелы.
-Попробуйте ввести [color=light-red]cd %s[reset].
+Попробуйте ввести [color=red]cd %s[reset].
 
 .
 :SHELL_CMD_CHDIR_HINT_3
-Вы всё ещё находитесь на диске Z:, для перехода на диск C:, введите [color=light-red]C:[reset].
+Вы всё ещё находитесь на диске Z:, для перехода на диск C:, введите [color=red]C:[reset].
 
 .
 :SHELL_CMD_DATE_HELP
@@ -1620,22 +1643,22 @@ PCjr картридж найден, но машина не PCjr.
 .
 :SHELL_CMD_DATE_HELP_LONG
 Использование:
-  [color=green]date[reset] [/t]
-  [color=green]date[reset] /h
-  [color=green]date[reset] [color=cyan]ДАТА[reset]
+  [color=light-green]date[reset] [/t]
+  [color=light-green]date[reset] /h
+  [color=light-green]date[reset] [color=light-cyan]ДАТА[reset]
 
 Где:
-  [color=cyan]ДАТА[reset] - новая дата, в формате [color=cyan]%s[reset].
+  [color=light-cyan]ДАТА[reset] - новая дата, в формате [color=light-cyan]%s[reset].
 
 Примечания:
-  Вызов [color=green]date[reset] без аргумента показывает текущую дату, или только дату
+  Вызов [color=light-green]date[reset] без аргумента показывает текущую дату, или только дату
   с опцией /t. Вы можете принудительно синхронизировать дату с основной
   системой с помощью опции /h, или вручную указать новую дату.
 
 Примеры:
-  [color=green]date[reset]
-  [color=green]date[reset] /h
-  [color=green]date[reset] [color=cyan]%s[reset]
+  [color=light-green]date[reset]
+  [color=light-green]date[reset] /h
+  [color=light-green]date[reset] [color=light-cyan]%s[reset]
 
 .
 :SHELL_CMD_TIME_HELP
@@ -1647,22 +1670,22 @@ PCjr картридж найден, но машина не PCjr.
 .
 :SHELL_CMD_TIME_HELP_LONG
 Использование:
-  [color=green]time[reset] [/t]
-  [color=green]time[reset] /h
-  [color=green]time[reset] [color=cyan]ВРЕМЯ[reset]
+  [color=light-green]time[reset] [/t]
+  [color=light-green]time[reset] /h
+  [color=light-green]time[reset] [color=light-cyan]ВРЕМЯ[reset]
 
 Где:
-  [color=cyan]ВРЕМЯ[reset] - новое время, в формате [color=cyan]%s[reset].
+  [color=light-cyan]ВРЕМЯ[reset] - новое время, в формате [color=light-cyan]%s[reset].
 
 Примечания:
-  Вызов [color=green]time[reset] без аргумента показывает текущее время, или время в простом виде
+  Вызов [color=light-green]time[reset] без аргумента показывает текущее время, или время в простом виде
   с опцией /t. Вы можете принудительно синхронизировать время с основной
   системой с помощью опции /h, или вручную указать новое время.
 
 Примеры:
-  [color=green]time[reset]
-  [color=green]time[reset] /h
-  [color=green]time[reset] [color=cyan]%s[reset]
+  [color=light-green]time[reset]
+  [color=light-green]time[reset] /h
+  [color=light-green]time[reset] [color=light-cyan]%s[reset]
 
 .
 :SHELL_CMD_MKDIR_ERROR
@@ -1675,10 +1698,6 @@ PCjr картридж найден, но машина не PCjr.
 .
 :SHELL_CMD_DEL_ERROR
 Невозможно удалить: %s.
-
-.
-:SHELL_SYNTAXERROR
-Синтаксис команды неверный.
 
 .
 :SHELL_CMD_SET_NOT_SET
@@ -1709,14 +1728,6 @@ IF ERRORLEVEL: Неверное число.
 GOTO: Метка %s не найдена.
 
 .
-:SHELL_CMD_FILE_NOT_FOUND
-Файл %s не найден.
-
-.
-:SHELL_CMD_FILE_EXISTS
-Файл %s уже существует.
-
-.
 :SHELL_CMD_DIR_VOLUME
  Том %2$s на диске %1$c
 
@@ -1735,7 +1746,7 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_EXECUTE_DRIVE_NOT_FOUND
 Диск %C не существует!
-Нужно использовать [color=light-red]mount[reset]. Для большей информации введите [color=yellow]intro[reset] или [color=yellow]intro mount[reset].
+Нужно использовать [color=red]mount[reset]. Для большей информации введите [color=yellow]intro[reset] или [color=yellow]intro mount[reset].
 .
 :SHELL_EXECUTE_ILLEGAL_COMMAND
 Запрещённая команда: %s.
@@ -1766,37 +1777,37 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_STARTUP_BEGIN
 [bgcolor=blue][color=white]╔════════════════════════════════════════════════════════════════════════╗
-║ [color=green]Добро пожаловать в DOSBox Staging %-36s[color=white] ║
+║ [color=light-green]Добро пожаловать в DOSBox Staging %-36s[color=white] ║
 ║                                                                        ║
 ║ Для краткого введения для новых пользователей введите: [color=yellow]INTRO[color=white]           ║
 ║ Для поддерживаемых оболочкой команд введите: [color=yellow]HELP[color=white]                      ║
 ║                                                                        ║
-║ Чтобы поменять скорость эмулируемого ЦПУ нажмите [color=red]%s+F11[color=white] и [color=red]%s+F12[color=white].%s%s  ║
-║ Чтобы переназначить клавиши нажмите [color=red]%s+F1[color=white].%s                           ║
-║ Более подробную информацию читайте в файле [color=cyan]README[color=white] в каталоге DOSBox.   ║
+║ Чтобы поменять скорость эмулируемого ЦПУ нажмите [color=light-red]%s+F11[color=white] и [color=light-red]%s+F12[color=white].%s%s  ║
+║ Чтобы переназначить клавиши нажмите [color=light-red]%s+F1[color=white].%s                           ║
+║ Более подробную информацию читайте в файле [color=light-cyan]README[color=white] в каталоге DOSBox.   ║
 ║                                                                        ║
 
 .
 :SHELL_STARTUP_CGA
 ║ DOSBox поддерживает композитный режим CGA.                             ║
-║ [color=red]F12[color=white] переключает композитный вывод: вкл, выкл, или авто (по умолчанию). ║
-║ [color=red]F10[color=white] выбирает настройку CGA и [color=red](%s+)F11[color=white] изменяет её.                    ║
+║ [color=light-red]F12[color=white] переключает композитный вывод: вкл, выкл, или авто (по умолчанию). ║
+║ [color=light-red]F10[color=white] выбирает настройку CGA и [color=light-red](%s+)F11[color=white] изменяет её.                    ║
 ║                                                                        ║
 
 .
 :SHELL_STARTUP_CGA_MONO
-║ [color=red]F11[color=white] переключает режим: зелёный, янтарный, белый, или бумажно-белый,    ║
-║ и [color=red]%s+F11[color=white] для изменения настроек яркости/контрастности.                ║
+║ [color=light-red]F11[color=white] переключает режим: зелёный, янтарный, белый, или бумажно-белый,    ║
+║ и [color=light-red]%s+F11[color=white] для изменения настроек яркости/контрастности.                ║
 ║                                                                        ║
 
 .
 :SHELL_STARTUP_HERC
-║ [color=red]F11[color=white] переключает монохромный цвет: белый, янтарный, или зелёный.        ║
+║ [color=light-red]F11[color=white] переключает монохромный цвет: белый, янтарный, или зелёный.        ║
 ║                                                                        ║
 
 .
 :SHELL_STARTUP_DEBUG
-║ [color=red]%s+Pause[color=white] для входа в отладчик, или запустите программу через [color=yellow]DEBUG[color=white].   ║
+║ [color=light-red]%s+Pause[color=white] для входа в отладчик, или запустите программу через [color=yellow]DEBUG[color=white].   ║
 ║                                                                        ║
 
 .
@@ -1807,7 +1818,7 @@ GOTO: Метка %s не найдена.
 
 .
 :SHELL_STARTUP_SUB
-[color=light-green]dosbox-staging %s[reset]
+[color=green]dosbox-staging %s[reset]
 
 .
 :SHELL_CMD_CHDIR_HELP
@@ -1816,19 +1827,19 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_CMD_CHDIR_HELP_LONG
 Использование:
-  [color=green]cd[reset] [color=cyan]КАТАЛОГ[reset]
-  [color=green]chdir[reset] [color=cyan]КАТАЛОГ[reset]
+  [color=light-green]cd[reset] [color=light-cyan]КАТАЛОГ[reset]
+  [color=light-green]chdir[reset] [color=light-cyan]КАТАЛОГ[reset]
 
 Где:
-  [color=cyan]КАТАЛОГ[reset] - имя каталога для перехода.
+  [color=light-cyan]КАТАЛОГ[reset] - имя каталога для перехода.
 
 Примечания:
-  Вызов [color=green]cd[reset] без аргумента показывает текущий каталог.
-  С аргументом [color=cyan]КАТАЛОГ[reset] команда изменяет только каталог, не текущий диск.
+  Вызов [color=light-green]cd[reset] без аргумента показывает текущий каталог.
+  С аргументом [color=light-cyan]КАТАЛОГ[reset] команда изменяет только каталог, не текущий диск.
 
 Примеры:
-  [color=green]cd[reset]
-  [color=green]cd[reset] [color=cyan]мойкат[reset]
+  [color=light-green]cd[reset]
+  [color=light-green]cd[reset] [color=light-cyan]мойкат[reset]
 
 .
 :SHELL_CMD_CLS_HELP
@@ -1841,10 +1852,10 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_CMD_DIR_HELP_LONG
 Использование:
-  [color=green]dir[reset] [color=cyan][ШАБЛОН][reset] [/w] [/b] [/p] [/ad] [/a-d] [/o[color=white]ПОРЯДОК[reset]]
+  [color=light-green]dir[reset] [color=light-cyan][ШАБЛОН][reset] [/w] \[/b] [/p] [/ad] [/a-d] [/o[color=white]ПОРЯДОК[reset]]
 
 Где:
-  [color=cyan]ШАБЛОН[reset]    - точное имя файла либо имя файла с символами подстановки:
+  [color=light-cyan]ШАБЛОН[reset]    - точное имя файла либо имя файла с символами подстановки:
             звёздочка (*) и знак вопроса (?). Путь может быть указан в виде
             шаблона для показа содержимого в указанном каталоге.
   [color=white]ПОРЯДОК[reset]   - порядок сортировки, включая [color=white]n[reset] (по имени, в алфавитном порядке),
@@ -1875,19 +1886,19 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_CMD_MKDIR_HELP_LONG
 Использование:
-  [color=green]md[reset] [color=cyan]КАТАЛОГ[reset]
-  [color=green]mkdir[reset] [color=cyan]КАТАЛОГ[reset]
+  [color=light-green]md[reset] [color=light-cyan]КАТАЛОГ[reset]
+  [color=light-green]mkdir[reset] [color=light-cyan]КАТАЛОГ[reset]
 
 Где:
-  [color=cyan]КАТАЛОГ[reset] - имя создаваемого каталога.
+  [color=light-cyan]КАТАЛОГ[reset] - имя создаваемого каталога.
 
 Примечания:
   - Каталог не должен существовать и должен содержать точное имя.
   - Вы можете указать путь, по которому каталог будет создан.
 
 Примеры:
-  [color=green]md[reset] [color=cyan]newdir[reset]
-  [color=green]md[reset] [color=cyan]c:\games\dir[reset]
+  [color=light-green]md[reset] [color=light-cyan]newdir[reset]
+  [color=light-green]md[reset] [color=light-cyan]c:\games\dir[reset]
 
 .
 :SHELL_CMD_RMDIR_HELP
@@ -1896,17 +1907,17 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_CMD_RMDIR_HELP_LONG
 Использование:
-  [color=green]rd[reset] [color=cyan]КАТАЛОГ[reset]
-  [color=green]rmdir[reset] [color=cyan]КАТАЛОГ[reset]
+  [color=light-green]rd[reset] [color=light-cyan]КАТАЛОГ[reset]
+  [color=light-green]rmdir[reset] [color=light-cyan]КАТАЛОГ[reset]
 
 Где:
-  [color=cyan]КАТАЛОГ[reset] - имя удаляемого каталога.
+  [color=light-cyan]КАТАЛОГ[reset] - имя удаляемого каталога.
 
 Примечания:
   Каталог должен быть пуст (не содержать файлов и подкаталогов).
 
 Примеры:
-  [color=green]rd[reset] [color=cyan]emptydir[reset]
+  [color=light-green]rd[reset] [color=light-cyan]emptydir[reset]
 
 .
 :SHELL_CMD_SET_HELP
@@ -1931,18 +1942,18 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_CMD_TYPE_HELP_LONG
 Использование:
-  [color=green]type[reset] [color=cyan]ФАЙЛ[reset]
+  [color=light-green]type[reset] [color=light-cyan]ФАЙЛ[reset]
 
 Где:
-  [color=cyan]ФАЙЛ[reset] - имя выводимого файла.
+  [color=light-cyan]ФАЙЛ[reset] - имя выводимого файла.
 
 Примечания:
   Файл должен быть точным именем файла, опционально с путём.
   Эта команда только для просмотра текстовых файлов, не двоичных файлов.
 
 Примеры:
-  [color=green]type[reset] [color=cyan]text.txt[reset]
-  [color=green]type[reset] [color=cyan]c:\dos\readme.txt[reset]
+  [color=light-green]type[reset] [color=light-cyan]text.txt[reset]
+  [color=light-green]type[reset] [color=light-cyan]c:\dos\readme.txt[reset]
 
 .
 :SHELL_CMD_REM_HELP
@@ -1951,17 +1962,17 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_CMD_REM_HELP_LONG
 Использование:
-  [color=green]rem[reset] [color=cyan]КОММЕНТАРИЙ[reset]
+  [color=light-green]rem[reset] [color=light-cyan]КОММЕНТАРИЙ[reset]
 
 Где:
-  [color=cyan]КОММЕНТАРИЙ[reset] - любой комментарий, что вы желаете добавить.
+  [color=light-cyan]КОММЕНТАРИЙ[reset] - любой комментарий, что вы желаете добавить.
 
 Примечания:
   Комментарии в пакетном файле могут сделать его проще для понимания.
   Также вы можете временно закомментировать команды с помощью этой команды.
 
 Примеры:
-  [color=green]rem[reset] [color=cyan]This is my test batch program.[reset]
+  [color=light-green]rem[reset] [color=light-cyan]This is my test batch program.[reset]
 
 .
 :SHELL_CMD_NO_WILD
@@ -1974,20 +1985,20 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_CMD_RENAME_HELP_LONG
 Использование:
-  [color=green]ren[reset] [color=white]ИСТОЧНИК[reset] [color=cyan]НАЗНАЧЕНИЕ[reset]
-  [color=green]rename[reset] [color=white]ИСТОЧНИК[reset] [color=cyan]НАЗНАЧЕНИЕ[reset]
+  [color=light-green]ren[reset] [color=white]ИСТОЧНИК[reset] [color=light-cyan]НАЗНАЧЕНИЕ[reset]
+  [color=light-green]rename[reset] [color=white]ИСТОЧНИК[reset] [color=light-cyan]НАЗНАЧЕНИЕ[reset]
 
 Где:
   [color=white]ИСТОЧНИК[reset]   - имя переименовываемого файла.
-  [color=cyan]НАЗНАЧЕНИЕ[reset] - новое имя файла.
+  [color=light-cyan]НАЗНАЧЕНИЕ[reset] - новое имя файла.
 
 Примечания:
   - Исходный файл должен быть точным именем файла, опционально с путём.
   - Назначение должно быть точным именем файла без пути.
 
 Примеры:
-  [color=green]ren[reset] [color=white]oldname[reset] [color=cyan]newname[reset]
-  [color=green]ren[reset] [color=white]c:\dos\file.txt[reset] [color=cyan]f.txt[reset]
+  [color=light-green]ren[reset] [color=white]oldname[reset] [color=light-cyan]newname[reset]
+  [color=light-green]ren[reset] [color=white]c:\dos\file.txt[reset] [color=light-cyan]f.txt[reset]
 
 .
 :SHELL_CMD_DELETE_HELP
@@ -2016,21 +2027,21 @@ GOTO: Метка %s не найдена.
 .
 :SHELL_CMD_LS_HELP_LONG
 Использование:
-  [color=green]ls[reset] [color=cyan]ШАБЛОН[reset]
-  [color=green]ls[reset] [color=cyan]ПУТЬ[reset]
+  [color=light-green]ls[reset] [color=light-cyan]ШАБЛОН[reset]
+  [color=light-green]ls[reset] [color=light-cyan]ПУТЬ[reset]
 
 Где:
-  [color=cyan]ШАБЛОН[reset] - может быть точным именем файла или именем файла с символами
+  [color=light-cyan]ШАБЛОН[reset] - может быть точным именем файла или именем файла с символами
          подстановки: звёздочкой (*) и знаком вопроса (?).
-  [color=cyan]ПУТЬ[reset]   - точный путь в смонтированном диске для показа содержимого.
+  [color=light-cyan]ПУТЬ[reset]   - точный путь в смонтированном диске для показа содержимого.
 
 Примечания:
-  Команда показывает каталоги [color=blue]синим[reset], исполняемые программы DOS
-  (*.com, *.exe, *.bat) [color=green]зелёным[reset], и остальные файлы обычным цветом.
+  Команда показывает каталоги [color=light-blue]синим[reset], исполняемые программы DOS
+  (*.com, *.exe, *.bat) [color=light-green]зелёным[reset], и остальные файлы обычным цветом.
 
 Примеры:
-  [color=green]ls[reset] [color=cyan]file.txt[reset]
-  [color=green]ls[reset] [color=cyan]c*.ba?[reset]
+  [color=light-green]ls[reset] [color=light-cyan]file.txt[reset]
+  [color=light-green]ls[reset] [color=light-cyan]c*.ba?[reset]
 
 .
 :SHELL_CMD_LS_PATH_ERR
@@ -2043,25 +2054,25 @@ ls: невозможно получить доступ к "%s": Нет тако�
 .
 :SHELL_CMD_CHOICE_HELP_LONG
 Использование:
-  [color=green]choice[reset] [color=cyan][ТЕКСТ][reset]
-  [color=green]choice[reset] /c[:][color=white]ВАРИАНТЫ[reset] /n /s /t[:][color=white]c[reset],[color=magenta]nn[reset] [color=cyan][ТЕКСТ][reset]
+  [color=light-green]choice[reset] [color=light-cyan][ТЕКСТ][reset]
+  [color=light-green]choice[reset] /c[:][color=white]ВАРИАНТЫ[reset] /n /s /t[:][color=white]c[reset],[color=light-magenta]nn[reset] [color=light-cyan][ТЕКСТ][reset]
 
 Где:
-  [color=cyan]ТЕКСТ[reset]         - текст, отображаемый в качестве подсказки.
+  [color=light-cyan]ТЕКСТ[reset]         - текст, отображаемый в качестве подсказки.
   /c[:][color=white]ВАРИАНТЫ[reset] Определяет допустимые клавиши, по умолчанию [color=white]yn[reset].
   /n            Не отображать варианты в конце запроса.
   /s            Включает регистрозависимый выбор.
-  /t[:][color=white]c[reset],[color=magenta]nn[reset]     Выбрать вариант [color=white]c[reset] по истечении [color=magenta]nn[reset] секунд.
+  /t[:][color=white]c[reset],[color=light-magenta]nn[reset]     Выбрать вариант [color=white]c[reset] по истечении [color=light-magenta]nn[reset] секунд.
 
 Примечания:
   Эта команда задаёт значение ERRORLEVEL, начиная с 1, согласно допустимым
   клавишам, заданных в опции /c. Пользовательский ввод впоследствии может быть
-  проверен командой [color=green]if[reset]. С опцией /n будет отображён только указанный текст,
+  проверен командой [color=light-green]if[reset]. С опцией /n будет отображён только указанный текст,
   без доступных вариантов в конце (по умолчанию [color=white][Y,N]?[reset]).
 
 Примеры:
-  [color=green]choice[reset] /t:[color=white]y[reset],[color=magenta]2[reset] [color=cyan]Продолжить?[reset]
-  [color=green]choice[reset] /c:[color=white]abc[reset] /s [color=cyan]Введите букву a, b или c[reset]
+  [color=light-green]choice[reset] /t:[color=white]y[reset],[color=light-magenta]2[reset] [color=light-cyan]Продолжить?[reset]
+  [color=light-green]choice[reset] /c:[color=white]abc[reset] /s [color=light-cyan]Введите букву a, b или c[reset]
 
 .
 :SHELL_CMD_ATTRIB_HELP
@@ -2078,21 +2089,21 @@ ls: невозможно получить доступ к "%s": Нет тако�
 .
 :SHELL_CMD_VER_HELP_LONG
 Использование:
-  [color=green]ver[reset]
-  [color=green]ver[reset] [color=white]set[reset] [color=cyan]ВЕРСИЯ[reset]
+  [color=light-green]ver[reset]
+  [color=light-green]ver[reset] [color=white]set[reset] [color=light-cyan]ВЕРСИЯ[reset]
 
 Где:
-  [color=cyan]ВЕРСИЯ[reset] может быть целым числом, например [color=cyan]5[reset], или десятичной дробью, например:
-         [color=cyan]6.22[reset], [color=cyan]7.01[reset] или [color=cyan]7.10[reset]. Десятичная дробь может разделяться пробелом,
-         например: [color=cyan]6 22[reset] или [color=cyan]7 01[reset], или [color=cyan]7 10[reset].
+  [color=light-cyan]ВЕРСИЯ[reset] может быть целым числом, например [color=light-cyan]5[reset], или десятичной дробью, например:
+         [color=light-cyan]6.22[reset], [color=light-cyan]7.01[reset] или [color=light-cyan]7.10[reset]. Десятичная дробь может разделяться пробелом,
+         например: [color=light-cyan]6 22[reset] или [color=light-cyan]7 01[reset], или [color=light-cyan]7 10[reset].
 
 Примечания:
   Версию DOS можно также задать в файле конфигурации в разделе [dos] с помощью
-  настройки "ver = [color=cyan]ВЕРСИЯ[reset]".
+  настройки "ver = [color=light-cyan]ВЕРСИЯ[reset]".
 
 Примеры:
-  [color=green]ver[reset] [color=white]set[reset] [color=cyan]6.22[reset]
-  [color=green]ver[reset] [color=white]set[reset] [color=cyan]7 10[reset]
+  [color=light-green]ver[reset] [color=white]set[reset] [color=light-cyan]6.22[reset]
+  [color=light-green]ver[reset] [color=white]set[reset] [color=light-cyan]7 10[reset]
 
 .
 :SHELL_CMD_VER_VER
@@ -2120,7 +2131,7 @@ ls: невозможно получить доступ к "%s": Нет тако�
 Отображает информацию о памяти DOS.
 
 Использование:
-  [color=green]mem[reset]
+  [color=light-green]mem[reset]
 
 Где:
   Эта команда не имеет параметров.
@@ -2131,66 +2142,66 @@ ls: невозможно получить доступ к "%s": Нет тако�
   и EMS (расширенную память).
 
 Примеры:
-  [color=green]mem[reset]
+  [color=light-green]mem[reset]
 
 .
 :PROGRAM_LOADFIX_HELP_LONG
 Загружает программу в определённую область памяти и запускает её.
 
 Использование:
-  [color=green]loadfix[reset] [color=cyan]ИГРА[reset] [color=white][ПАРАМЕТРЫ][reset]
-  [color=green]loadfix[reset] [/d] (или [/f])
+  [color=light-green]loadfix[reset] [color=light-cyan]ИГРА[reset] [color=white][ПАРАМЕТРЫ][reset]
+  [color=light-green]loadfix[reset] [/d] (или [/f])
 
 Где:
-  [color=cyan]ИГРА[reset] - загружаемая игра или программа, опционально с параметрами.
+  [color=light-cyan]ИГРА[reset] - загружаемая игра или программа, опционально с параметрами.
 
 Примечания:
   Обычно эта команда используется для исправления игр и программ, при запуске
   выводящих сообщение об ошибке "[color=white]Packed File Corrupt[reset]" или "[color=white]Not enough memory[reset]"
   (например, некоторые игры 1980-х как California Games II).
-  Вызов [color=green]loadfix[reset] без аргумента просто размечает память для запуска игры;
+  Вызов [color=light-green]loadfix[reset] без аргумента просто размечает память для запуска игры;
   вы можете освободить память с помощью опций /d или /f.
 
 Примеры:
-  [color=green]loadfix[reset] [color=cyan]mygame[reset] [color=white]args[reset]
-  [color=green]loadfix[reset] /d
+  [color=light-green]loadfix[reset] [color=light-cyan]mygame[reset] [color=white]args[reset]
+  [color=light-green]loadfix[reset] /d
 
 .
 :PROGRAM_AUTOTYPE_HELP_LONG
 Производит скриптовый клавиатурный ввод в запущенную DOS-игру.
 
 Использование:
-  [color=green]autotype[reset] -list
-  [color=green]autotype[reset] [-w [color=white]ЗАДЕРЖКА[reset]] [-p [color=white]ТЕМП[reset]] [color=cyan]КНОПКИ[reset]
+  [color=light-green]autotype[reset] -list
+  [color=light-green]autotype[reset] [-w [color=white]ЗАДЕРЖКА[reset]] [-p [color=white]ТЕМП[reset]] [color=light-cyan]КНОПКИ[reset]
 
 Где:
   [color=white]ЗАДЕРЖКА[reset] - число секунд ожидания перед началом ввода (макс. 30).
   [color=white]ТЕМП[reset]     - число секунд перед каждым нажатием (макс. 10).
-  [color=cyan]КНОПКИ[reset]   - одна или несколько кнопок, разделённых пробелом.
+  [color=light-cyan]КНОПКИ[reset]   - одна или несколько кнопок, разделённых пробелом.
 
 Примечания:
-  Приведённые в команде [color=cyan]КНОПКИ[reset] будут автоматически введены в DOS-игры
-  после их запуска. Автоввод начинается через [color=cyan]ЗАДЕРЖКА[reset] секунд, и каждая кнопка
-  вводится каждые [color=white]ТЕМП[reset] секунд. Символ [color=cyan],[reset] добавляет дополнительную задержку [color=white]ТЕМП[reset].
+  Приведённые в команде [color=light-cyan]КНОПКИ[reset] будут автоматически введены в DOS-игры
+  после их запуска. Автоввод начинается через [color=light-cyan]ЗАДЕРЖКА[reset] секунд, и каждая кнопка
+  вводится каждые [color=white]ТЕМП[reset] секунд. Символ [color=light-cyan],[reset] добавляет дополнительную задержку [color=white]ТЕМП[reset].
   [color=white]ЗАДЕРЖКА[reset] и [color=white]ТЕМП[reset] равняются 2 и 0.5 секунды соответственно, если не указаны.
   Список доступных имён кнопок можно получить с помощью опции -list.
 
 Примеры:
-  [color=green]autotype[reset] -list
-  [color=green]autotype[reset] -w [color=white]1[reset] -p [color=white]0.3[reset] [color=cyan]up enter , right enter[reset]
-  [color=green]autotype[reset] -p [color=white]0.2[reset] [color=cyan]f1 kp_8 , , enter[reset]
-  [color=green]autotype[reset] -w [color=white]1.3[reset] [color=cyan]esc enter , p l a y e r enter
+  [color=light-green]autotype[reset] -list
+  [color=light-green]autotype[reset] -w [color=white]1[reset] -p [color=white]0.3[reset] [color=light-cyan]up enter , right enter[reset]
+  [color=light-green]autotype[reset] -p [color=white]0.2[reset] [color=light-cyan]f1 kp_8 , , enter[reset]
+  [color=light-green]autotype[reset] -w [color=white]1.3[reset] [color=light-cyan]esc enter , p l a y e r enter
 [reset]
 .
 :SHELL_CMD_MIXER_HELP_LONG
 Показывает или изменяет настройки звукового микшера.
 
 Использование:
-  [color=green]mixer[reset] [color=cyan][КАНАЛ][reset] [color=white]КОМАНДЫ[reset] [/noshow]
-  [color=green]mixer[reset] [/listmidi]
+  [color=light-green]mixer[reset] [color=light-cyan][КАНАЛ][reset] [color=white]КОМАНДЫ[reset] [/noshow]
+  [color=light-green]mixer[reset] [/listmidi]
 
 Где:
-  [color=cyan]КАНАЛ[reset]   - звуковой канал для изменения настроек.
+  [color=light-cyan]КАНАЛ[reset]   - звуковой канал для изменения настроек.
   [color=white]КОМАНДЫ[reset] - одна или более следующих команд:
     Громкость: от [color=white]0[reset] до [color=white]100[reset], или число децибел с приставкой [color=white]d[reset] (например, [color=white]d-7.5[reset]);
                [color=white]Л:П[reset] для задания левой и правой сторон отдельно (например, [color=white]10:20[reset])
@@ -2198,174 +2209,174 @@ ls: невозможно получить доступ к "%s": Нет тако�
     Смешение:  от [color=white]x0[reset] до [color=white]x100[reset]    Реверб.: от [color=white]r0[reset] до [color=white]r100[reset]    Хор: от [color=white]c0[reset] до [color=white]c100[reset]
 
 Примечания:
-  Вызов [color=green]mixer[reset] без аргумента показывает текущие настройки микшера.
+  Вызов [color=light-green]mixer[reset] без аргумента показывает текущие настройки микшера.
   Вы можете изменить настройки нескольких каналов одной командой.
   Если канал не указан, можно задать смешение, реверберацию или хор глобально.
   Вы можете просмотреть список доступных устройств MIDI с опцией /listmidi.
   Опция /noshow применяет изменения без показа текущих настроек микшера.
 
 Примеры:
-  [color=green]mixer[reset] [color=cyan]cdda[reset] [color=white]50[reset] [color=cyan]sb[reset] [color=white]reverse[reset] /noshow
-  [color=green]mixer[reset] [color=white]x30[reset] [color=cyan]fm[reset] [color=white]150 r50 c30[reset] [color=cyan]sb[reset] [color=white]x10[reset]
+  [color=light-green]mixer[reset] [color=light-cyan]cdda[reset] [color=white]50[reset] [color=light-cyan]sb[reset] [color=white]reverse[reset] /noshow
+  [color=light-green]mixer[reset] [color=white]x30[reset] [color=light-cyan]fm[reset] [color=white]150 r50 c30[reset] [color=light-cyan]sb[reset] [color=white]x10[reset]
 .
 :PROGRAM_RESCAN_HELP_LONG
 Сканирует на наличие изменений в смонтированных дисках DOS.
 
 Использование:
-  [color=green]rescan[reset] [color=cyan]ДИСК[reset]
-  [color=green]rescan[reset] [/a]
+  [color=light-green]rescan[reset] [color=light-cyan]ДИСК[reset]
+  [color=light-green]rescan[reset] [/a]
 
 Где:
-  [color=cyan]ДИСК[reset] - диск для сканирования изменений.
+  [color=light-cyan]ДИСК[reset] - диск для сканирования изменений.
 
 Примечания:
-  - Вызов [color=green]rescan[reset] без аргумента сканирует изменения текущего диска.
+  - Вызов [color=light-green]rescan[reset] без аргумента сканирует изменения текущего диска.
   - Изменения, совершённые на этом диске в системе будут отражены внутри DOS.
   - Вы также можете просканировать все смонтированные диски с опцией /a.
 
 Примеры:
-  [color=green]rescan[reset] [color=cyan]c:[reset]
-  [color=green]rescan[reset] /a
+  [color=light-green]rescan[reset] [color=light-cyan]c:[reset]
+  [color=light-green]rescan[reset] /a
 
 .
 :PROGRAM_INTRO_CDROM_WINDOWS
-[erases=entire][color=green]Монтирование реального/виртуального привода CD-ROM в DOSBox Staging:[reset]
+[erases=entire][color=light-green]Монтирование реального/виртуального привода CD-ROM в DOSBox Staging:[reset]
 DOSBox Staging обеспечивает эмуляцию CD-ROM на двух уровнях.
 
-[color=light-yellow]Начальный[reset] уровень работает во всех обычных каталогах, устанавливается MSCDEX
+[color=brown]Начальный[reset] уровень работает во всех обычных каталогах, устанавливается MSCDEX
 и файлы помечаются как только для чтения. Обычно этого достаточно
 для большинства игр:
-[color=blue]mount D C:\example -t cdrom[reset]
+[color=light-blue]mount D C:\example -t cdrom[reset]
 Если это не сработает, вам может потребоваться указать метку CD-ROM:
-[color=blue]mount D C:\example -t cdrom -label МЕТКАДИСКА[reset]
+[color=light-blue]mount D C:\example -t cdrom -label МЕТКАДИСКА[reset]
 
-[color=light-yellow]Следующий[reset] уровень добавляет некоторую низкоуровневую поддержку.
+[color=brown]Следующий[reset] уровень добавляет некоторую низкоуровневую поддержку.
 Поэтому работает только с приводами CD-ROM:
-[color=blue]mount D [reset][color=light-red]D:\[color=blue] -t cdrom -usecd [color=yellow]0[reset]
+[color=light-blue]mount D [reset][color=red]D:\[color=light-blue] -t cdrom -usecd [color=yellow]0[reset]
 
-Замените [color=light-red]D:\[reset] на расположение вашего CD-ROM.
-Замените [color=yellow]0[reset] в [color=blue]-usecd [color=yellow]0[reset] на номер вашего CD-ROM, сообщённый командой:
-[color=blue]mount -listcd[reset]
+Замените [color=red]D:\[reset] на расположение вашего CD-ROM.
+Замените [color=yellow]0[reset] в [color=light-blue]-usecd [color=yellow]0[reset] на номер вашего CD-ROM, сообщённый командой:
+[color=light-blue]mount -listcd[reset]
 
 Также вы можете использовать imgmount для монтирования образов iso или cue/bin:
-[color=blue]imgmount D C:\cd.iso -t cdrom[reset]
-[color=blue]imgmount D C:\cd.cue -t cdrom[reset]
+[color=light-blue]imgmount D C:\cd.iso -t cdrom[reset]
+[color=light-blue]imgmount D C:\cd.cue -t cdrom[reset]
 
 .
 :PROGRAM_INTRO_CDROM_OTHER
-[erases=entire][color=green]Монтирование реального/виртуального привода CD-ROM в DOSBox Staging:[reset]
+[erases=entire][color=light-green]Монтирование реального/виртуального привода CD-ROM в DOSBox Staging:[reset]
 DOSBox Staging обеспечивает эмуляцию CD-ROM на двух уровнях.
 
-[color=light-yellow]Начальный[reset] уровень работает во всех обычных каталогах, устанавливается MSCDEX
+[color=brown]Начальный[reset] уровень работает во всех обычных каталогах, устанавливается MSCDEX
 и файлы помечаются как только для чтения. Обычно этого достаточно
 для большинства игр:
-[color=blue]mount D ~/example -t cdrom[reset]
+[color=light-blue]mount D ~/example -t cdrom[reset]
 Если это не сработает, вам может потребоваться указать метку CD-ROM:
-[color=blue]mount D ~/example -t cdrom -label МЕТКАДИСКА[reset]
+[color=light-blue]mount D ~/example -t cdrom -label МЕТКАДИСКА[reset]
 
-[color=light-yellow]Следующий[reset] уровень добавляет некоторую низкоуровневую поддержку.
+[color=brown]Следующий[reset] уровень добавляет некоторую низкоуровневую поддержку.
 Поэтому работает только с приводами CD-ROM:
-[color=blue]mount D [reset][color=light-red]~/example[color=blue] -t cdrom -usecd [color=yellow]0[reset]
+[color=light-blue]mount D [reset][color=red]~/example[color=light-blue] -t cdrom -usecd [color=yellow]0[reset]
 
-Замените [color=light-red]~/example[reset] на расположение вашего CD-ROM.
-Замените [color=yellow]0[reset] в [color=blue]-usecd [color=yellow]0[reset] на номер вашего CD-ROM, сообщённый командой:
-[color=blue]mount -listcd[reset]
+Замените [color=red]~/example[reset] на расположение вашего CD-ROM.
+Замените [color=yellow]0[reset] в [color=light-blue]-usecd [color=yellow]0[reset] на номер вашего CD-ROM, сообщённый командой:
+[color=light-blue]mount -listcd[reset]
 
 Также вы можете использовать imgmount для монтирования образов iso или cue/bin:
-[color=blue]imgmount D ~/cd.iso -t cdrom[reset]
-[color=blue]imgmount D ~/cd.cue -t cdrom[reset]
+[color=light-blue]imgmount D ~/cd.iso -t cdrom[reset]
+[color=light-blue]imgmount D ~/cd.cue -t cdrom[reset]
 
 .
 :PROGRAM_BOOT_HELP_LONG
 Загружает DOSBox Staging с привода или образа диска DOS.
 
 Использование:
-  [color=green]boot[reset] [color=white]ПРИВОД[reset]
-  [color=green]boot[reset] [color=cyan]ФАЙЛОБРАЗА[reset]
+  [color=light-green]boot[reset] [color=white]ПРИВОД[reset]
+  [color=light-green]boot[reset] [color=light-cyan]ФАЙЛОБРАЗА[reset]
 
 Где:
   [color=white]ПРИВОД[reset]     - загрузочный привод, должен быть [color=white]A:[reset], [color=white]C:[reset], или [color=white]D:[reset].
-  [color=cyan]ФАЙЛОБРАЗА[reset] - один или несколько образов дискет, разделённых пробелом.
+  [color=light-cyan]ФАЙЛОБРАЗА[reset] - один или несколько образов дискет, разделённых пробелом.
 
 Примечания:
-  Буква диска DOS должна быть смонтирована командой [color=green]imgmount[reset].
+  Буква диска DOS должна быть смонтирована командой [color=light-green]imgmount[reset].
   Диск DOS должен быть загрузочным, содержащим системные файлы DOS.
   Образы дисков можно переключать с помощью горячих клавиш.
 
 Примеры:
-  [color=green]boot[reset] [color=white]c:[reset]
-  [color=green]boot[reset] [color=cyan]disk1.ima disk2.ima[reset]
+  [color=light-green]boot[reset] [color=white]c:[reset]
+  [color=light-green]boot[reset] [color=light-cyan]disk1.ima disk2.ima[reset]
 
 .
 :PROGRAM_LOADROM_HELP_LONG
 Загружает образ ПЗУ BIOS видео или IBM BASIC.
 
 Использование:
-  [color=green]loadrom [color=cyan]ФАЙЛОБРАЗА[reset]
+  [color=light-green]loadrom [color=light-cyan]ФАЙЛОБРАЗА[reset]
 
 Где:
-  [color=cyan]ФАЙЛОБРАЗА[reset] - образ ПЗУ BIOS видео или IBM BASIC.
+  [color=light-cyan]ФАЙЛОБРАЗА[reset] - образ ПЗУ BIOS видео или IBM BASIC.
 
 Примечания:
    После загрузки образа ПЗУ IBM BASIC в эмулируемое ПЗУ вы можете запускать
    оригинальную программу-интерпретатор IBM BASIC в DOSBox Staging.
 
 Примеры:
-  [color=green]loadrom[reset] [color=cyan]bios.rom[reset]
+  [color=light-green]loadrom[reset] [color=light-cyan]bios.rom[reset]
 
 .
 :PROGRAM_KEYB_HELP_LONG
 Настраивает клавиатуру для конкретного языка.
 
 Использование:
-  [color=green]keyb[reset] [color=cyan][КОДЯЗЫКА][reset]
-  [color=green]keyb[reset] [color=cyan]КОДЯЗЫКА[reset] [color=white]КОДСТРАНИЦА[reset] [ФАЙЛКОДСТРАНИЦЫ]
+  [color=light-green]keyb[reset] [color=light-cyan][КОДЯЗЫКА][reset]
+  [color=light-green]keyb[reset] [color=light-cyan]КОДЯЗЫКА[reset] [color=white]КОДСТРАНИЦА[reset] [ФАЙЛКОДСТРАНИЦЫ]
 
 Где:
-  [color=cyan]КОДЯЗЫКА[reset]        - языковой код или ИД раскладки клавиатуры.
+  [color=light-cyan]КОДЯЗЫКА[reset]        - языковой код или ИД раскладки клавиатуры.
   [color=white]КОДСТРАНИЦА[reset]     - номер кодовой страницы, такой, как [color=white]437[reset] и [color=white]850[reset].
   ФАЙЛКОДСТРАНИЦЫ - файл, содержащий информацию для кодовой страницы.
 
 Примечания:
-  Вызов [color=green]keyb[reset] без аргументов показывает текущие раскладку и кодовую страницу.
-  Указание [color=cyan]КОДЯЗЫКА[reset] меняет раскладку, параметры [color=white]КОДСТРАНИЦА[reset] и ФАЙЛКОДСТРАНИЦЫ
+  Вызов [color=light-green]keyb[reset] без аргументов показывает текущие раскладку и кодовую страницу.
+  Указание [color=light-cyan]КОДЯЗЫКА[reset] меняет раскладку, параметры [color=white]КОДСТРАНИЦА[reset] и ФАЙЛКОДСТРАНИЦЫ
   загружают указанные номер и файл кодовой страницы. Команда особенно полезна
-  при использовании клавиатуры с отличной от US раскладкой, и [color=cyan]КОДЯЗЫКА[reset] также
+  при использовании клавиатуры с отличной от US раскладкой, и [color=light-cyan]КОДЯЗЫКА[reset] также
   может быть указан в файле конфигурации, в разделе [dos],
-  настройка "keyboardlayout = [color=cyan]КОДЯЗЫКА[reset]".
+  настройка "keyboardlayout = [color=light-cyan]КОДЯЗЫКА[reset]".
 
 Примеры:
-  [color=green]KEYB[reset]
-  [color=green]KEYB[reset] [color=cyan]uk[reset]
-  [color=green]KEYB[reset] [color=cyan]sp[reset] [color=white]850[reset]
-  [color=green]KEYB[reset] [color=cyan]de[reset] [color=white]858[reset] mycp.cpi
+  [color=light-green]KEYB[reset]
+  [color=light-green]KEYB[reset] [color=light-cyan]uk[reset]
+  [color=light-green]KEYB[reset] [color=light-cyan]sp[reset] [color=white]850[reset]
+  [color=light-green]KEYB[reset] [color=light-cyan]de[reset] [color=white]858[reset] mycp.cpi
 
 .
 :PROGRAM_SERIAL_HELP_LONG
 Управляет последовательными портами.
 
 Использование:
-  [color=green]serial[reset] [color=white][ПОРТ#][reset]              Список всех или указанных ([color=white]1[reset], [color=white]2[reset], [color=white]3[reset] или [color=white]4[reset]) портов.
-  [color=green]serial[reset] [color=white]ПОРТ#[reset] [color=cyan]УСТРОЙСТВО[reset] [настройки]  Подключить указанное устройство к порту.
+  [color=light-green]serial[reset] [color=white][ПОРТ#][reset]              Список всех или указанных ([color=white]1[reset], [color=white]2[reset], [color=white]3[reset] или [color=white]4[reset]) портов.
+  [color=light-green]serial[reset] [color=white]ПОРТ#[reset] [color=light-cyan]УСТРОЙСТВО[reset] [настройки]  Подключить указанное устройство к порту.
 
 Где:
-  [color=cyan]УСТРОЙСТВО[reset]   Одно из: [color=cyan]MODEM[reset], [color=cyan]NULLMODEM[reset], [color=cyan]MOUSE[reset], [color=cyan]DIRECT[reset], [color=cyan]DUMMY[reset] или [color=cyan]DISABLED[reset]
+  [color=light-cyan]УСТРОЙСТВО[reset]   Одно из: [color=light-cyan]MODEM[reset], [color=light-cyan]NULLMODEM[reset], [color=light-cyan]MOUSE[reset], [color=light-cyan]DIRECT[reset], [color=light-cyan]DUMMY[reset] или [color=light-cyan]DISABLED[reset]
 
-  Опциональные настройки для каждого [color=cyan]УСТРОЙСТВА[reset]:
-  Для [color=cyan]MODEM[reset]      : IRQ, LISTENPORT, SOCK
-  Для [color=cyan]NULLMODEM[reset]  : IRQ, SERVER, RXDELAY, TXDELAY, TELNET, USEDTR, TRANSPARENT,
+  Опциональные настройки для каждого [color=light-cyan]УСТРОЙСТВА[reset]:
+  Для [color=light-cyan]MODEM[reset]      : IRQ, LISTENPORT, SOCK
+  Для [color=light-cyan]NULLMODEM[reset]  : IRQ, SERVER, RXDELAY, TXDELAY, TELNET, USEDTR, TRANSPARENT,
                    PORT, INHSOCKET, SOCK
-  Для [color=cyan]MOUSE[reset]      : IRQ, RATE (NORMAL или SMOOTH), TYPE (2BTN, 3BTN, WHEEL, MSM,
+  Для [color=light-cyan]MOUSE[reset]      : IRQ, RATE (NORMAL или SMOOTH), TYPE (2BTN, 3BTN, WHEEL, MSM,
                    2BTN+MSM, 3BTN+MSM или WHEEL+MSM)
-  Для [color=cyan]DIRECT[reset]     : IRQ, REALPORT (необходим), RXDELAY
-  Для [color=cyan]DUMMY[reset]      : IRQ
+  Для [color=light-cyan]DIRECT[reset]     : IRQ, REALPORT (необходим), RXDELAY
+  Для [color=light-cyan]DUMMY[reset]      : IRQ
 
 Примеры:
-  [color=green]SERIAL[reset] [color=white]1[reset] [color=cyan]NULLMODEM[reset] PORT:1250                 : Слушать на TCP:1250
-  [color=green]SERIAL[reset] [color=white]2[reset] [color=cyan]NULLMODEM[reset] SERVER:10.0.0.6 PORT:1250 : Присоединиться к TCP:1250
-  [color=green]SERIAL[reset] [color=white]3[reset] [color=cyan]MODEM[reset] LISTENPORT:5000 SOCK:1        : Слушать на UDP:5000
-  [color=green]SERIAL[reset] [color=white]4[reset] [color=cyan]DIRECT[reset] REALPORT:ttyUSB0             : Исп. физический порт в Linux
-  [color=green]SERIAL[reset] [color=white]1[reset] [color=cyan]MOUSE[reset] TYPE:MSM                      : Мышь Mouse Systems
+  [color=light-green]SERIAL[reset] [color=white]1[reset] [color=light-cyan]NULLMODEM[reset] PORT:1250                 : Слушать на TCP:1250
+  [color=light-green]SERIAL[reset] [color=white]2[reset] [color=light-cyan]NULLMODEM[reset] SERVER:10.0.0.6 PORT:1250 : Присоединиться к TCP:1250
+  [color=light-green]SERIAL[reset] [color=white]3[reset] [color=light-cyan]MODEM[reset] LISTENPORT:5000 SOCK:1        : Слушать на UDP:5000
+  [color=light-green]SERIAL[reset] [color=white]4[reset] [color=light-cyan]DIRECT[reset] REALPORT:ttyUSB0             : Исп. физический порт в Linux
+  [color=light-green]SERIAL[reset] [color=white]1[reset] [color=light-cyan]MOUSE[reset] TYPE:MSM                      : Мышь Mouse Systems
 
 .
 :PROGRAM_SERIAL_SHOW_PORT
@@ -2394,23 +2405,23 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 Запускает командную оболочку DOSBox Staging.
 
 Использование:
-  [color=green]command[reset]
-  [color=green]command[reset] /c (или /init) [color=cyan]КОМАНДА[reset]
+  [color=light-green]command[reset]
+  [color=light-green]command[reset] /c (или /init) [color=light-cyan]КОМАНДА[reset]
 
 Где:
-  [color=cyan]КОМАНДА[reset] - команда DOS, игра или программа для запуска.
+  [color=light-cyan]КОМАНДА[reset] - команда DOS, игра или программа для запуска.
 
 Примечания:
   DOSBox Staging автоматически запускает командную оболочку DOS вызовом этой
   команды с опцией /init при запуске, что показывает приветственный экран.
-  Вы можете загрузить новую копию командной оболочки вызовом [color=green]command[reset].
-  Добавление опции /c вместе с [color=cyan]КОМАНДОЙ[reset] позволяет этой команде вызвать
+  Вы можете загрузить новую копию командной оболочки вызовом [color=light-green]command[reset].
+  Добавление опции /c вместе с [color=light-cyan]КОМАНДОЙ[reset] позволяет этой команде вызвать
   указанную команду (опционально с параметрами) и затем автоматически выйти.
 
 Примеры:
-  [color=green]command[reset]
-  [color=green]command[reset] /c [color=cyan]echo[reset] [color=white]Hello world![reset]
-  [color=green]command[reset] /init [color=cyan]dir[reset]
+  [color=light-green]command[reset]
+  [color=light-green]command[reset] /c [color=light-cyan]echo[reset] [color=white]Hello world![reset]
+  [color=light-green]command[reset] /init [color=light-cyan]dir[reset]
 
 .
 :SHELL_CMD_TIME_ERROR
@@ -2423,7 +2434,7 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 .
 :SHELL_CMD_PAUSE_HELP_LONG
 Использование:
-  [color=green]pause[reset]
+  [color=light-green]pause[reset]
 
 Где:
   Эта команда не имеет параметров.
@@ -2435,55 +2446,55 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
   для продолжения.
 
 Примеры:
-  [color=green]pause[reset]
+  [color=light-green]pause[reset]
 
 .
 :SHELL_CMD_CLS_HELP_LONG
 Использование:
-  [color=green]cls[reset]
+  [color=light-green]cls[reset]
 
 Где:
   Эта команда не имеет параметров.
 
 Примечания:
-  Вызов [color=green]cls[reset] очищает весь текст на экране DOS, за исключением командной строки
+  Вызов [color=light-green]cls[reset] очищает весь текст на экране DOS, за исключением командной строки
   (например, [color=white]Z:\>[reset] или [color=white]C:\GAMES>[reset]) в левом верхнем углу экрана.
 
 Примеры:
-  [color=green]cls[reset]
+  [color=light-green]cls[reset]
 
 .
 :SHELL_CMD_ECHO_HELP_LONG
 Использование:
-  [color=green]echo[reset] [color=cyan][on|off][reset]
-  [color=green]echo[reset] [color=cyan][СООБЩЕНИЕ][reset]
+  [color=light-green]echo[reset] [color=light-cyan][on|off][reset]
+  [color=light-green]echo[reset] [color=light-cyan][СООБЩЕНИЕ][reset]
 
 Где:
-  [color=cyan]on|off[reset]    Включает/выключает вывод команд.
-  [color=cyan]СООБЩЕНИЕ[reset] Сообщение для вывода.
+  [color=light-cyan]on|off[reset]    Включает/выключает вывод команд.
+  [color=light-cyan]СООБЩЕНИЕ[reset] Сообщение для вывода.
 
 Примечания:
-  - Вызов [color=green]echo[reset] без аргумента отображает текущее состояние вывода команд.
+  - Вызов [color=light-green]echo[reset] без аргумента отображает текущее состояние вывода команд.
   - Echo особенно полезен при написании и отладке пакетных файлов.
 
 Примеры:
-  [color=green]echo[reset] [color=cyan]off[reset]
-  [color=green]echo[reset] [color=cyan]Hello world![reset]
+  [color=light-green]echo[reset] [color=light-cyan]off[reset]
+  [color=light-green]echo[reset] [color=light-cyan]Hello world![reset]
 
 .
 :SHELL_CMD_EXIT_HELP_LONG
 Использование:
-  [color=green]exit[reset]
+  [color=light-green]exit[reset]
 
 Где:
   Эта команда не имеет параметров.
 
 Примечания:
-  Если оболочка DOS запущенна из программы, вызов [color=green]exit[reset] возвращает в программу.
+  Если оболочка DOS запущенна из программы, вызов [color=light-green]exit[reset] возвращает в программу.
   Если нет запущенных программ DOS, команда выходит из DOSBox Staging.
 
 Примеры:
-  [color=green]exit[reset]
+  [color=light-green]exit[reset]
 
 .
 :SHELL_CMD_EXIT_TOO_SOON
@@ -2492,21 +2503,21 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 .
 :SHELL_CMD_HELP_HELP_LONG
 Использование:
-  [color=green]help[reset]
-  [color=green]help[reset] /a[ll]
-  [color=green]help[reset] [color=cyan]КОМАНДА[reset]
+  [color=light-green]help[reset]
+  [color=light-green]help[reset] /a[ll]
+  [color=light-green]help[reset] [color=light-cyan]КОМАНДА[reset]
 
 Где:
-  [color=cyan]КОМАНДА[reset] - имя внутренней команды DOS, такой, как [color=cyan]dir[reset].
+  [color=light-cyan]КОМАНДА[reset] - имя внутренней команды DOS, такой, как [color=light-cyan]dir[reset].
 
 Примечания:
-  - Вызов [color=green]echo[reset] без аргумента показывает список команд DOS.
+  - Вызов [color=light-green]echo[reset] без аргумента показывает список команд DOS.
   - Полный список внутренних команд доступен с опциями /a или /all.
-  - Вместо [color=green]help[reset] [color=cyan]КОМАНДА[reset], вы также можете получить справку, введя [color=cyan]КОМАНДА[reset] /?.
+  - Вместо [color=light-green]help[reset] [color=light-cyan]КОМАНДА[reset], вы также можете получить справку, введя [color=light-cyan]КОМАНДА[reset] /?.
 
 Примеры:
-  [color=green]help[reset] [color=cyan]dir[reset]
-  [color=green]help[reset] /all
+  [color=light-green]help[reset] [color=light-cyan]dir[reset]
+  [color=light-green]help[reset] /all
 
 .
 :PROGRAM_INTRO_HELP
@@ -2515,45 +2526,45 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 .
 :PROGRAM_INTRO_HELP_LONG
 Использование:
-  [color=green]intro[reset]
-  [color=green]intro[reset] [color=white]СТРАНИЦА[reset]
+  [color=light-green]intro[reset]
+  [color=light-green]intro[reset] [color=white]СТРАНИЦА[reset]
 
 Где:
   [color=white]СТРАНИЦА[reset] - имя страницы для показа, включая [color=white]cdrom[reset], [color=white]mount[reset] и [color=white]special[reset].
 
 Примечания:
-  Запуск [color=green]intro[reset] без аргумента показывает информационные страницы поочерёдно;
+  Запуск [color=light-green]intro[reset] без аргумента показывает информационные страницы поочерёдно;
   нажмите любую клавишу для перехода к следующей странице. Если задано имя
   страницы, то указанная страница будет показана сразу.
 
 Примеры:
-  [color=green]intro[reset]
-  [color=green]intro[reset] [color=white]cdrom[reset]
+  [color=light-green]intro[reset]
+  [color=light-green]intro[reset] [color=white]cdrom[reset]
 
 .
 :SHELL_CMD_SET_HELP_LONG
 Использование:
-  [color=green]set[reset]
-  [color=green]set[reset] [color=white]ПЕРЕМЕННАЯ[reset]=[color=cyan][СТРОКА][reset]
+  [color=light-green]set[reset]
+  [color=light-green]set[reset] [color=white]ПЕРЕМЕННАЯ[reset]=[color=light-cyan][СТРОКА][reset]
 
 Где:
   [color=white]ПЕРЕМЕННАЯ[reset] Имя переменной окружения.
-  [color=cyan]СТРОКА[reset]     Набор символов для назначения переменной.
+  [color=light-cyan]СТРОКА[reset]     Набор символов для назначения переменной.
 
 Примечания:
   - Назначение переменной пустой строки удаляет переменную.
   - Команда без параметра отображает текущие переменные окружения.
 
 Примеры:
-  [color=green]set[reset]
-  [color=green]set[reset] [color=white]name[reset]=[color=cyan]value[reset]
+  [color=light-green]set[reset]
+  [color=light-green]set[reset] [color=white]name[reset]=[color=light-cyan]value[reset]
 
 .
 :SHELL_CMD_IF_HELP_LONG
 Использование:
-  [color=green]if[reset] [color=magenta][not][reset] [color=cyan]errorlevel[reset] [color=white]ЧИСЛО[reset] КОМАНДА
-  [color=green]if[reset] [color=magenta][not][reset] [color=white]СТР1==СТР2[reset] КОМАНДА
-  [color=green]if[reset] [color=magenta][not][reset] [color=cyan]exist[reset] [color=white]ФАЙЛ[reset] КОМАНДА
+  [color=light-green]if[reset] [color=light-magenta][not][reset] [color=light-cyan]errorlevel[reset] [color=white]ЧИСЛО[reset] КОМАНДА
+  [color=light-green]if[reset] [color=light-magenta][not][reset] [color=white]СТР1==СТР2[reset] КОМАНДА
+  [color=light-green]if[reset] [color=light-magenta][not][reset] [color=light-cyan]exist[reset] [color=white]ФАЙЛ[reset] КОМАНДА
 
 Где:
   [color=white]ЧИСЛО[reset]      - положительное целое число меньшее или равное желаемому значению.
@@ -2563,130 +2574,130 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 
 Примечания:
   КОМАНДА вызывается при выполнении любого из трёх условий.
-  Если указано [color=magenta]not[reset], команда вызывается только с отрицательным условием.
-  Условие [color=cyan]errorlevel[reset] полезно для проверки корректного исполнения программы.
+  Если указано [color=light-magenta]not[reset], команда вызывается только с отрицательным условием.
+  Условие [color=light-cyan]errorlevel[reset] полезно для проверки корректного исполнения программы.
   Если [color=white]СТР1[reset] или [color=white]СТР2[reset] могут быть пустыми, вы можете заключить их в кавычки (").
 
 Примеры:
-  [color=green]if[reset] [color=cyan]errorlevel[reset] [color=white]2[reset] dir
-  [color=green]if[reset] [color=white]"%%myvar%%"=="mystring"[reset] echo Hello world!
-  [color=green]if[reset] [color=magenta]not[reset] [color=cyan]exist[reset] [color=white]file.txt[reset] exit
+  [color=light-green]if[reset] [color=light-cyan]errorlevel[reset] [color=white]2[reset] dir
+  [color=light-green]if[reset] [color=white]"%%myvar%%"=="mystring"[reset] echo Hello world!
+  [color=light-green]if[reset] [color=light-magenta]not[reset] [color=light-cyan]exist[reset] [color=white]file.txt[reset] exit
 
 .
 :SHELL_CMD_GOTO_HELP_LONG
 Использование:
-  [color=green]goto[reset] [color=cyan]МЕТКА[reset]
+  [color=light-green]goto[reset] [color=light-cyan]МЕТКА[reset]
 
 Где:
-  [color=cyan]МЕТКА[reset] - текстовая строка, используемая в пакетном файле в качестве метки.
+  [color=light-cyan]МЕТКА[reset] - текстовая строка, используемая в пакетном файле в качестве метки.
 
 Примечания:
   Метка находится на отдельной строке, начинающейся с двоеточия (:).
   Метка должна быть уникальной и может быть в любом месте пакетного файла.
 
 Примеры:
-  [color=green]goto[reset] [color=cyan]mylabel[reset]
+  [color=light-green]goto[reset] [color=light-cyan]mylabel[reset]
 
 .
 :SHELL_CMD_SHIFT_HELP_LONG
 Использование:
-  [color=green]shift[reset]
+  [color=light-green]shift[reset]
 
 Где:
   Эта команда не имеет параметров.
 
 Примечания:
   Эта команда позволяет пакетному файлу DOS принимать более девяти параметров.
-  Вызов [color=green]shift[reset] смещает влево переменные %%1 в %%0, %%2 в %%1 и т.д.
+  Вызов [color=light-green]shift[reset] смещает влево переменные %%1 в %%0, %%2 в %%1 и т.д.
 
 Примеры:
-  [color=green]shift[reset]
+  [color=light-green]shift[reset]
 
 .
 :SHELL_CMD_DELETE_HELP_LONG
 Использование:
-  [color=green]del[reset] [color=cyan]ШАБЛОН[reset]
-  [color=green]erase[reset] [color=cyan]ШАБЛОН[reset]
+  [color=light-green]del[reset] [color=light-cyan]ШАБЛОН[reset]
+  [color=light-green]erase[reset] [color=light-cyan]ШАБЛОН[reset]
 
 Где:
-  [color=cyan]ШАБЛОН[reset] может быть точным именем файла (как [color=cyan]файл.txt[reset]) либо именем файла
+  [color=light-cyan]ШАБЛОН[reset] может быть точным именем файла (как [color=light-cyan]файл.txt[reset]) либо именем файла
          с символами подстановки: звёздочкой (*), представляющей любую
          последовательность из одного или нескольких символов, и
          знаком вопроса (?), представляющим любой одиночный символ, к примеру:
-         [color=cyan]*.bat[reset] и [color=cyan]c?.txt[reset].
+         [color=light-cyan]*.bat[reset] и [color=light-cyan]c?.txt[reset].
 
 Предупреждение:
   Будьте осторожны при использовании шаблонов с символами подстановки, особенно
-  [color=cyan]*.*[reset], поскольку все соответствующие шаблону файлы будут удалены.
+  [color=light-cyan]*.*[reset], поскольку все соответствующие шаблону файлы будут удалены.
 
 Примеры:
-  [color=green]del[reset] [color=cyan]тест.bat[reset]
-  [color=green]del[reset] [color=cyan]c*.*[reset]
-  [color=green]del[reset] [color=cyan]a?b.c*[reset]
+  [color=light-green]del[reset] [color=light-cyan]тест.bat[reset]
+  [color=light-green]del[reset] [color=light-cyan]c*.*[reset]
+  [color=light-green]del[reset] [color=light-cyan]a?b.c*[reset]
 
 .
 :SHELL_CMD_COPY_HELP_LONG
 Использование:
-  [color=green]copy[reset] [color=white]ИСТОЧНИК[reset] [color=cyan][НАЗНАЧЕНИЕ][reset]
-  [color=green]copy[reset] [color=white]ИСТОЧНИК1+ИСТОЧНИК2[+...][reset] [color=cyan][НАЗНАЧЕНИЕ][reset]
+  [color=light-green]copy[reset] [color=white]ИСТОЧНИК[reset] [color=light-cyan][НАЗНАЧЕНИЕ][reset]
+  [color=light-green]copy[reset] [color=white]ИСТОЧНИК1+ИСТОЧНИК2[+...][reset] [color=light-cyan][НАЗНАЧЕНИЕ][reset]
 
 Где:
   [color=white]ИСТОЧНИК[reset]   Может быть точным именем файла либо именем файла
              с символами подстановки: звёздочка (*) и знак вопроса (?).
-  [color=cyan]НАЗНАЧЕНИЕ[reset] Точное имя файла или каталога, без символов подстановки.
+  [color=light-cyan]НАЗНАЧЕНИЕ[reset] Точное имя файла или каталога, без символов подстановки.
 
 Примечания:
   Оператор [color=white]+[reset] объединяет множество указанных исходных файлов в один файл.
   Назначение опционально: если нет, файлы копируются в текущее расположение.
 
 Примеры:
-  [color=green]copy[reset] [color=white]исходный.bat[reset] [color=cyan]новый.bat[reset]
-  [color=green]copy[reset] [color=white]файл1.txt+файл2.txt[reset] [color=cyan]файл3.txt[reset]
-  [color=green]copy[reset] [color=white]..\c*.*[reset]
+  [color=light-green]copy[reset] [color=white]исходный.bat[reset] [color=light-cyan]новый.bat[reset]
+  [color=light-green]copy[reset] [color=white]файл1.txt+файл2.txt[reset] [color=light-cyan]файл3.txt[reset]
+  [color=light-green]copy[reset] [color=white]..\c*.*[reset]
 
 .
 :SHELL_CMD_CALL_HELP_LONG
 Использование:
-  [color=green]call[reset] [color=white]ПАКЕТ[reset] [color=cyan][ПАРАМЕТРЫ][reset]
+  [color=light-green]call[reset] [color=white]ПАКЕТ[reset] [color=light-cyan][ПАРАМЕТРЫ][reset]
 
 Где:
   [color=white]ПАКЕТ[reset]     - пакетный файл для запуска.
-  [color=cyan]ПАРАМЕТРЫ[reset] - опциональные параметры для пакетного файла.
+  [color=light-cyan]ПАРАМЕТРЫ[reset] - опциональные параметры для пакетного файла.
 
 Примечания:
   Пакетный файл продолжит исполнение после того, как вызванный пакетный файл
   завершит работу.
 
 Примеры:
-  [color=green]call[reset] [color=white]mybatch.bat[reset]
-  [color=green]call[reset] [color=white]file.bat[reset] [color=cyan]Hello world![reset]
+  [color=light-green]call[reset] [color=white]mybatch.bat[reset]
+  [color=light-green]call[reset] [color=white]file.bat[reset] [color=light-cyan]Hello world![reset]
 
 .
 :SHELL_CMD_SUBST_HELP_LONG
 Использование:
-  [color=green]subst[reset] [color=white]ДИСК[reset] [color=cyan]ПУТЬ[reset]
-  [color=green]subst[reset] [color=white]ДИСК[reset] /d
+  [color=light-green]subst[reset] [color=white]ДИСК[reset] [color=light-cyan]ПУТЬ[reset]
+  [color=light-green]subst[reset] [color=white]ДИСК[reset] /d
 
 Где:
   [color=white]ДИСК[reset] - диск, к которому будет назначен путь.
-  [color=cyan]ПУТЬ[reset] - смонтированный путь в DOS, который будет назначен.
+  [color=light-cyan]ПУТЬ[reset] - смонтированный путь в DOS, который будет назначен.
 
 Примечания:
-  Путь должен находится на диске, смонтированном командой [color=green]mount[reset].
+  Путь должен находится на диске, смонтированном командой [color=light-green]mount[reset].
   Вы можете убрать назначенный диск опцией /d.
 
 Примеры:
-  [color=green]subst[reset] [color=white]d:[reset] [color=cyan]c:\games[reset]
-  [color=green]subst[reset] [color=white]e:[reset] [color=cyan]/d[reset]
+  [color=light-green]subst[reset] [color=white]d:[reset] [color=light-cyan]c:\games[reset]
+  [color=light-green]subst[reset] [color=white]e:[reset] [color=light-cyan]/d[reset]
 
 .
 :SHELL_CMD_LOADHIGH_HELP_LONG
 Использование:
-  [color=green]lh[reset] [color=cyan]ПРОГРАММА[reset] [color=white][ПАРАМЕТРЫ][reset]
-  [color=green]loadhigh[reset] [color=cyan]ПРОГРАММА[reset] [color=white][ПАРАМЕТРЫ][reset]
+  [color=light-green]lh[reset] [color=light-cyan]ПРОГРАММА[reset] [color=white][ПАРАМЕТРЫ][reset]
+  [color=light-green]loadhigh[reset] [color=light-cyan]ПРОГРАММА[reset] [color=white][ПАРАМЕТРЫ][reset]
 
 Где:
-  [color=cyan]ПРОГРАММА[reset] - резидентная программа для загрузки, опционально с параметрами.
+  [color=light-cyan]ПРОГРАММА[reset] - резидентная программа для загрузки, опционально с параметрами.
 
 Примечания:
   Эта команда рассчитана на сохранение основной памяти за счёт загрузки
@@ -2696,25 +2707,25 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
   программы могут быть загружены в верхнюю память с помощью этой команды.
 
 Примеры:
-  [color=green]lh[reset] [color=cyan]tsrapp[reset] [color=white]args[reset]
+  [color=light-green]lh[reset] [color=light-cyan]tsrapp[reset] [color=white]args[reset]
 
 .
 :SHELL_CMD_PATH_HELP_LONG
 Использование:
-  [color=green]path[reset]
-  [color=green]path[reset] [color=cyan][[диск:]путь[;...][reset]
+  [color=light-green]path[reset]
+  [color=light-green]path[reset] [color=light-cyan][[диск:]путь[;...][reset]
 
 Где:
-  [color=cyan][[диск:]путь[;...][reset] - путь, содержащий диск и каталог.
+  [color=light-cyan][[диск:]путь[;...][reset] - путь, содержащий диск и каталог.
   Можно указать несколько путей, разделённых точкой с запятой (;).
 
 Примечания:
   Параметр только с точкой с запятой (;) очищает все настройки путей поиска.
-  Path также может быть задан командой [color=green]set[reset], например: [color=green]set[reset] [color=white]path[reset]=[color=cyan]Z:\[reset]
+  Path также может быть задан командой [color=light-green]set[reset], например: [color=light-green]set[reset] [color=white]path[reset]=[color=light-cyan]Z:\[reset]
 
 Примеры:
-  [color=green]path[reset]
-  [color=green]path[reset] [color=cyan]Z:\;C:\DOS[reset]
+  [color=light-green]path[reset]
+  [color=light-green]path[reset] [color=light-cyan]Z:\;C:\DOS[reset]
 
 .
 :MIDI_DEVICE_LIST_NOT_SUPPORTED
@@ -2724,19 +2735,19 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 устройство не настроено
 .
 :MOUNT_TYPE_LOCAL_DIRECTORY
-локальный каталог
+Локальный каталог
 .
 :MOUNT_TYPE_CDROM
-привод CD-ROM
+Привод CD-ROM
 .
 :MOUNT_TYPE_FAT
-привод FAT
+Образ FAT
 .
 :MOUNT_TYPE_ISO
-привод ISO
+Образ ISO
 .
 :MOUNT_TYPE_VIRTUAL
-внутренний виртуальный привод
+Внутренний виртуальный привод
 .
 :MOUNT_TYPE_UNKNOWN
 неизвестный привод
@@ -2770,10 +2781,6 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 :SHELL_CMD_MIXER_CHANNEL_MONO
 Моно
 .
-:SHELL_CMD_FILE_ACCESS_DENIED
-Отказ в доступе - %s
-
-.
 :SHELL_CMD_DUPLICATE_REDIRECTION
 Дублированное перенаправление - %s
 
@@ -2784,24 +2791,16 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 Проверьте переменную %%TEMP%%.
 
 .
-:SHELL_CMD_FILE_CREATE_ERROR
-Ошибка создания файла - %s
-
-.
-:SHELL_CMD_FILE_OPEN_ERROR
-Ошибка открытия файла - %s
-
-.
 :SHELL_CMD_ATTRIB_HELP_LONG
 Использование:
-  [color=green]attrib[reset] [color=white][АТТРИБУТЫ][reset] [color=cyan]ШАБЛОН[reset] [/S]
+  [color=light-green]attrib[reset] [color=white][АТТРИБУТЫ][reset] [color=light-cyan]ШАБЛОН[reset] [/S]
 
 Где:
   [color=white]АТТРИБУТЫ[reset] - применяемые аттрибуты, включая следующие:
             [color=white]+R[reset], [color=white]-R[reset], [color=white]+A[reset], [color=white]-A[reset], [color=white]+S[reset], [color=white]-S[reset], [color=white]+H[reset], [color=white]-H[reset]
             Где: R = только для чтения, A = архивный,
                  S = системный,         H = скрытый
-  [color=cyan]ШАБЛОН[reset]    - может быть точным именем файла или именем файла с символами
+  [color=light-cyan]ШАБЛОН[reset]    - может быть точным именем файла или именем файла с символами
             подстановки: звёздочка (*) и знак вопроса (?); или точным
             именем каталога.
 
@@ -2810,8 +2809,8 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
   Если не указано, команда отображает текущие аттрибуты файла/каталога.
 
 Примеры:
-  [color=green]attrib[reset] [color=cyan]file.txt[reset]
-  [color=green]attrib[reset] [color=white]+R[reset] [color=white]-A[reset] [color=cyan]*.txt[reset]
+  [color=light-green]attrib[reset] [color=light-cyan]file.txt[reset]
+  [color=light-green]attrib[reset] [color=white]+R[reset] [color=white]-A[reset] [color=light-cyan]*.txt[reset]
 
 .
 :SHELL_CMD_ATTRIB_GET_ERROR
@@ -2824,7 +2823,7 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 .
 :SHELL_CMD_CHOICE_EOF
 
-[color=red]Выбор не удался[reset]: входной поток завершился без допустимого выбора.
+[color=light-red]Выбор не удался[reset]: входной поток завершился без допустимого выбора.
 
 .
 :SHELL_CMD_CHOICE_ABORTED
@@ -2851,8 +2850,8 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 Загружает или выгружает встроенный драйвер ReelMagic Full Motion Player.
 
 Использование:
-  [color=green]fmpdrv[reset]    (загружает драйвер)
-  [color=green]fmpdrv[reset] /u (выгружает драйвер)
+  [color=light-green]fmpdrv[reset]    (загружает драйвер)
+  [color=light-green]fmpdrv[reset] /u (выгружает драйвер)
 
 Примечание:
   Настройка "reelmagic = on" загружает драйвер при запуске
@@ -2864,41 +2863,41 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 
 .
 :PROGRAM_FMPDRV_LOADED
-[reset][color=light-yellow]Загружен в прерывании %xh[reset]
+[reset][color=brown]Загружен в прерывании %xh[reset]
 
 .
 :PROGRAM_FMPDRV_LOAD_FAILED_ALREADY_LOADED
-[reset][color=light-yellow]Уже загружен в прерывании %xh[reset]
+[reset][color=brown]Уже загружен в прерывании %xh[reset]
 
 .
 :PROGRAM_FMPDRV_LOAD_FAILED_INT_CONFLICT
-[reset][color=red]Не загружен: Нет свободных прерываний![reset]
+[reset][color=light-red]Не загружен: Нет свободных прерываний![reset]
 
 .
 :PROGRAM_FMPDRV_UNLOADED
-[reset][color=light-yellow]Драйвер выгружен[reset]
+[reset][color=brown]Драйвер выгружен[reset]
 
 .
 :PROGRAM_FMPDRV_UNLOAD_FAILED_NOT_LOADED
-[reset][color=light-yellow]Драйвер не был загружен[reset]
+[reset][color=brown]Драйвер не был загружен[reset]
 
 .
 :PROGRAM_FMPDRV_UNLOAD_FAILED_BLOCKED
-[reset][color=light-yellow]Драйвер не выгружен: настроен оставаться резидентным[reset]
+[reset][color=brown]Драйвер не выгружен: настроен оставаться резидентным[reset]
 
 .
 :PROGRAM_MORE_HELP_LONG
 Поэкранно отображает вывод команды или текстовый файл.
 
 Использование:
-  [color=cyan]КОМАНДА[reset] | [color=green]more[reset] [/t[color=white]n[reset]]
-  [color=green]more[reset] [/t[color=white]n[reset]] < [color=cyan]ФАЙЛ[reset]
-  [color=green]more[reset] [/t[color=white]n[reset]] [color=cyan]ШАБЛОН[reset] [[color=cyan]ШАБЛОН[reset] ...]
+  [color=light-cyan]КОМАНДА[reset] | [color=light-green]more[reset] [/t[color=white]n[reset]]
+  [color=light-green]more[reset] [/t[color=white]n[reset]] < [color=light-cyan]ФАЙЛ[reset]
+  [color=light-green]more[reset] [/t[color=white]n[reset]] [color=light-cyan]ШАБЛОН[reset] [[color=light-cyan]ШАБЛОН[reset] ...]
 
 Где:
-  [color=cyan]КОМАНДА[reset] - команда, вывод которой будет отображён.
-  [color=cyan]ФАЙЛ[reset]    - точное имя отображаемого файла, опционально с путём.
-  [color=cyan]ШАБЛОН[reset]  - путь к одиночному файлу или путь с символами подстановки,
+  [color=light-cyan]КОМАНДА[reset] - команда, вывод которой будет отображён.
+  [color=light-cyan]ФАЙЛ[reset]    - точное имя отображаемого файла, опционально с путём.
+  [color=light-cyan]ШАБЛОН[reset]  - путь к одиночному файлу или путь с символами подстановки,
           звёздочкой (*) и знаком вопроса (?).
   [color=white]n[reset]       - размер табуляции, 1-9, по умолчанию 8.
 
@@ -2906,52 +2905,52 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
   Эта команда предназначена только для просмотра текстовых файлов.
 
 Примеры:
-  [color=cyan]dir /on[reset] | [color=green]more[reset]           ; поэкранно выводит отсортированный каталог
-  [color=green]more[reset] /t[color=white]4[reset] < [color=cyan]A:\MANUAL.TXT[reset] ; показывает содержимое файла с размером табуляции 4
+  [color=light-cyan]dir /on[reset] | [color=light-green]more[reset]           ; поэкранно выводит отсортированный каталог
+  [color=light-green]more[reset] /t[color=white]4[reset] < [color=light-cyan]A:\MANUAL.TXT[reset] ; показывает содержимое файла с размером табуляции 4
 
 .
 :PROGRAM_MORE_NO_FILE
 Входной файл не найден.
 .
 :PROGRAM_MORE_END
-[reset][color=light-yellow]--- конец ввода ---[reset]
+[reset][color=brown]--- конец ввода ---[reset]
 .
 :PROGRAM_MORE_NEW_FILE
-[reset][color=light-yellow]--- файл %s ---[reset]
+[reset][color=brown]--- файл %s ---[reset]
 .
 :PROGRAM_MORE_NEW_DEVICE
-[reset][color=light-yellow]--- устройство %s ---[reset]
+[reset][color=brown]--- устройство %s ---[reset]
 .
 :PROGRAM_MORE_PROMPT_SINGLE
-[reset][color=light-yellow]--- нажмите ПРОБЕЛ для продолжения ---[reset]
+[reset][color=brown]--- нажмите ПРОБЕЛ для продолжения ---[reset]
 .
 :PROGRAM_MORE_PROMPT_MULTI
-[reset][color=light-yellow]--- нажмите ПРОБЕЛ для продолжения, N для следующего файла ---[reset]
+[reset][color=brown]--- нажмите ПРОБЕЛ для продолжения, N для следующего файла ---[reset]
 .
 :PROGRAM_MORE_OPEN_ERROR
-[reset][color=red]--- не удалось открыть %s ---[reset]
+[reset][color=light-red]--- не удалось открыть %s ---[reset]
 .
 :PROGRAM_MORE_TERMINATE
-[reset][color=light-yellow](прервано)[reset]
+[reset][color=brown](прервано)[reset]
 .
 :PROGRAM_MORE_NEXT_FILE
-[reset][color=light-yellow](следующий файл)[reset]
+[reset][color=brown](следующий файл)[reset]
 .
 :PROGRAM_MOUSECTL_HELP_LONG
 Управляет физическими и логическими мышками.
 
 Использование:
-  [color=green]mousectl[reset] [-all]
-  [color=green]mousectl[reset] [color=white]ИНТЕРФЕЙС[reset] -map [color=cyan]ИМЯ[reset]
-  [color=green]mousectl[reset] [color=white]ИНТЕРФЕЙС[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -map
-  [color=green]mousectl[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -unmap | -on | -off | -reset
-  [color=green]mousectl[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -s | -sx | -sy [sensitivity]
-  [color=green]mousectl[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -s sensitivity_x sensitivity_y
-  [color=green]mousectl[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -r [min_rate]
+  [color=light-green]mousectl[reset] [-all]
+  [color=light-green]mousectl[reset] [color=white]ИНТЕРФЕЙС[reset] -map [color=light-cyan]ИМЯ[reset]
+  [color=light-green]mousectl[reset] [color=white]ИНТЕРФЕЙС[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -map
+  [color=light-green]mousectl[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -unmap | -on | -off | -reset
+  [color=light-green]mousectl[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -s | -sx | -sy [sensitivity]
+  [color=light-green]mousectl[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -s sensitivity_x sensitivity_y
+  [color=light-green]mousectl[reset] [[color=white]ИНТЕРФЕЙС[reset] ...] -r [min_rate]
 
 Где:
   [color=white]ИНТЕРФЕЙС[reset]      один из [color=white]DOS[reset], [color=white]PS/2[reset], [color=white]COM1[reset], [color=white]COM2[reset], [color=white]COM3[reset], [color=white]COM4[reset]
-  -map -unmap    сопоставляет физическую мышь, допускает спецсимволы в [color=cyan]ИМЕНИ[reset]
+  -map -unmap    сопоставляет физическую мышь, допускает спецсимволы в [color=light-cyan]ИМЕНИ[reset]
   -s -sx -sy     задаёт чувствительность / по оси X / по оси Y, от -999 до +999
   -r             задаёт минимальную частоту опроса мыши
   -on -off       включает или выключает мышь на заданном интерфейсе
@@ -2961,50 +2960,56 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
   Если чувствительность или частота не указана, она будет сброшена.
 
 Примеры:
-  [color=green]mousectl[reset] [color=white]DOS[reset] [color=white]COM1[reset] -map    ; просит пользователя выбрать мышь для игры вдвоём
-.
-:PROGRAM_MOUSECTL_SYNTAX
-Неверный синтаксис команды.
+  [color=light-green]mousectl[reset] [color=white]DOS[reset] [color=white]COM1[reset] -map    ; просит пользователя выбрать мышь для игры вдвоём
 .
 :PROGRAM_MOUSECTL_SYNTAX_PATTERN
 Неверный синтаксис, в шаблоне допускаются только символы ASCII.
+
 .
 :PROGRAM_MOUSECTL_SYNTAX_SENSITIVITY
 Неверный синтаксис, чувствительность должна быть в пределах от -999 до +999.
+
 .
 :PROGRAM_MOUSECTL_SYNTAX_DUPLICATED
 Неверный синтаксис, дублированные интерфейсы мыши.
+
 .
 :PROGRAM_MOUSECTL_SYNTAX_MIN_RATE
 Неверный синтаксис, частота опроса должна быть одной из:
 %s
+
 .
 :PROGRAM_MOUSECTL_MAPPING_NO_MOUSE
 Сопоставление недоступно в режиме без мыши.
+
 .
 :PROGRAM_MOUSECTL_NO_INTERFACES
 Нет доступных интерфейсов мыши.
+
 .
 :PROGRAM_MOUSECTL_MISSING_INTERFACES
 Интерфейс мыши недоступен.
+
 .
 :PROGRAM_MOUSECTL_NO_PHYSICAL_MICE
 Не обнаружены физические мыши.
+
 .
 :PROGRAM_MOUSECTL_NO_MATCH
 Не найдены соответствующие шаблону доступные мыши.
+
 .
 :PROGRAM_MOUSECTL_TABLE_HEADER1
 [color=white]Интерфейс  Чувствительность  Частота (Гц)  Состояние[reset]
 .
 :PROGRAM_MOUSECTL_TABLE_LAYOUT1
-[color=cyan]%-4s[reset]        X:%+.3d Y:%+.3d       %1s %3s      %s
+[color=light-cyan]%-4s[reset]        X:%+.3d Y:%+.3d       %1s %3s      %s
 .
 :PROGRAM_MOUSECTL_TABLE_HEADER2
 [color=white]Интерфейс          Имя мыши[reset]
 .
 :PROGRAM_MOUSECTL_TABLE_LAYOUT2
-[color=cyan]%-4s[reset]               %s
+[color=light-cyan]%-4s[reset]               %s
 .
 :PROGRAM_MOUSECTL_TABLE_LAYOUT2_UNMAPPED
 не сопоставлена    %s
@@ -3016,13 +3021,13 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 сопоставлена физическая мышь
 .
 :PROGRAM_MOUSECTL_TABLE_STATUS_DISCONNECTED
-[color=red]сопоставленная мышь отсоединена[reset]
+[color=light-red]сопоставленная мышь отсоединена[reset]
 .
 :PROGRAM_MOUSECTL_TABLE_STATUS_DISABLED
 отключена
 .
 :PROGRAM_MOUSECTL_TABLE_HINT_RATE_COM
-Частоты опроса мыши на [color=cyan]COM[reset]-интерфейсах являются приблизительными.
+Частоты опроса мыши на [color=light-cyan]COM[reset]-интерфейсах являются приблизительными.
 .
 :PROGRAM_MOUSECTL_TABLE_HINT_RATE_MIN
 Частоты опроса с заданным минимальным значением помечены '*'.
@@ -3041,4 +3046,7 @@ https://github.com/dosbox-staging/dosbox-staging/wiki
 .
 :SHELL_CMD_MIXER_CHANNEL_REVERSE
 Реверс
+.
+:CONJUNCTION_AND
+и
 .

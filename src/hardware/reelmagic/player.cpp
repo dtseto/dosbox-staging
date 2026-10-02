@@ -31,6 +31,7 @@
 #include <string>
 #include <vector>
 
+#include "channel_names.h"
 #include "dos_system.h"
 #include "logging.h"
 #include "mixer.h"
@@ -68,8 +69,8 @@ struct RMException : ::std::exception {
 		va_end(vl);
 		LOG(LOG_REELMAGIC, LOG_ERROR)("%s", _msg.c_str());
 	}
-	virtual ~RMException() throw() {}
-	virtual const char* what() const throw()
+	~RMException() noexcept override = default;
+	const char* what() const noexcept override
 	{
 		return _msg.c_str();
 	}
@@ -452,7 +453,7 @@ public:
 			}
 		}
 	}
-	virtual ~ReelMagic_MediaPlayerImplementation()
+	~ReelMagic_MediaPlayerImplementation() override
 	{
 		LOG(LOG_REELMAGIC, LOG_NORMAL)
 		("Destroying Media Player #%u with file %s", GetBaseHandle(), _file->GetFileName());
@@ -467,7 +468,7 @@ public:
 	//
 	// ReelMagic_VideoMixerMPEGProvider implementation here...
 	//
-	void OnVerticalRefresh(void* const outputBuffer, const float fps)
+	void OnVerticalRefresh(void* const outputBuffer, const float fps) override
 	{
 		if (fps != _vgaFps) {
 			_vgaFps                = fps;
@@ -499,7 +500,7 @@ public:
 		}
 	}
 
-	const ReelMagic_PlayerConfiguration& GetConfig() const
+	const ReelMagic_PlayerConfiguration& GetConfig() const override
 	{
 		return _config;
 	}
@@ -509,27 +510,27 @@ public:
 	//
 	// ReelMagic_MediaPlayer implementation here...
 	//
-	ReelMagic_PlayerConfiguration& Config()
+	ReelMagic_PlayerConfiguration& Config() override
 	{
 		return _config;
 	}
-	const ReelMagic_PlayerAttributes& GetAttrs() const
+	const ReelMagic_PlayerAttributes& GetAttrs() const override
 	{
 		return _attrs;
 	}
-	bool HasDemux() const
+	bool HasDemux() const override
 	{
 		return _plm && _plm->demux->buffer != _plm->video_decoder->buffer;
 	}
-	bool HasVideo() const
+	bool HasVideo() const override
 	{
 		return _plm && plm_get_video_enabled(_plm);
 	}
-	bool HasAudio() const
+	bool HasAudio() const override
 	{
 		return _plm && plm_get_audio_enabled(_plm);
 	}
-	bool IsPlaying() const
+	bool IsPlaying() const override
 	{
 		return _playing;
 	}
@@ -569,7 +570,7 @@ public:
 		return has_audio;
 	}
 
-	Bitu GetBytesDecoded() const
+	Bitu GetBytesDecoded() const override
 	{
 		if (!_plm) {
 			return 0;
@@ -585,7 +586,7 @@ public:
 		return rv;
 	}
 
-	void Play(const PlayMode playMode)
+	void Play(const PlayMode playMode) override
 	{
 		if (!_plm) {
 			return;
@@ -599,17 +600,17 @@ public:
 		ActivatePlayerAudioFifo(audio_fifo);
 		_vgaFps = 0.0f; // force drawing of next frame and timing reset
 	}
-	void Pause()
+	void Pause() override
 	{
 		_playing = false;
 	}
-	void Stop()
+	void Stop() override
 	{
 		_playing = false;
 		if (ReelMagic_GetVideoMixerMPEGProvider() == this)
 			ReelMagic_ClearVideoMixerMPEGProvider();
 	}
-	void SeekToByteOffset(const uint32_t offset)
+	void SeekToByteOffset(const uint32_t offset) override
 	{
 		plm_rewind(_plm);
 		plm_buffer_seek(_plm->demux->buffer, (size_t)offset);
@@ -623,7 +624,7 @@ public:
 
 		advanceNextFrame();
 	}
-	void NotifyConfigChange()
+	void NotifyConfigChange() override
 	{
 		if (ReelMagic_GetVideoMixerMPEGProvider() == this)
 			ReelMagic_SetVideoMixerMPEGProvider(this);
@@ -788,7 +789,7 @@ void ReelMagic_EnableAudioChannel(const bool should_enable)
 
 	mixer_channel = MIXER_AddChannel(&RMMixerChannelCallback,
 	                                 use_mixer_rate,
-	                                 reelmagic_channel_name,
+	                                 ChannelName::ReelMagic,
 	                                 {// ChannelFeature::Sleep,
 	                                  ChannelFeature::Stereo,
 	                                  // ChannelFeature::ReverbSend,
@@ -799,7 +800,7 @@ void ReelMagic_EnableAudioChannel(const bool should_enable)
 	// The decoded MP2 frame contains samples ranging from [-1.0f, +1.0f],
 	// so to hit 0 dB 16-bit signed, we need to multiply up from unity to
 	// the maximum magnitude (32k).
-	constexpr float mpeg1_db0_volume_scalar = {MAX_AUDIO};
+	constexpr float mpeg1_db0_volume_scalar = {Max16BitSampleValue};
 	mixer_channel->Set0dbScalar(mpeg1_db0_volume_scalar);
 }
 

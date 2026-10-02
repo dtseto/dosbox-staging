@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,8 @@
 
 #include "bit_view.h"
 #include "mixer.h"
-#include "../libs/YM7128B_emu/YM7128B_emu.h"
+
+#include "YM7128B_emu/YM7128B_emu.h"
 
 class SurroundProcessor {
 public:
@@ -33,12 +34,12 @@ public:
 	~SurroundProcessor();
 
 	void ControlWrite(const uint8_t val);
-	AudioFrame Process(const AudioFrame &frame);
+	AudioFrame Process(const AudioFrame frame);
 
 	// prevent copying
-	SurroundProcessor(const SurroundProcessor &) = delete;
+	SurroundProcessor(const SurroundProcessor&) = delete;
 	// prevent assignment
-	SurroundProcessor &operator=(const SurroundProcessor &) = delete;
+	SurroundProcessor& operator=(const SurroundProcessor&) = delete;
 
 private:
 	YM7128B_ChipIdeal chip = {};
@@ -90,15 +91,15 @@ public:
 
 	void Reset();
 	void ControlWrite(const StereoProcessorControlReg, const uint8_t data);
-	AudioFrame Process(const AudioFrame &frame);
+	AudioFrame Process(const AudioFrame frame);
 
 	void SetLowShelfGain(const double gain_db);
 	void SetHighShelfGain(const double gain_db);
 
 	// prevent copying
-	StereoProcessor(const StereoProcessor &) = delete;
+	StereoProcessor(const StereoProcessor&) = delete;
 	// prevent assignment
-	StereoProcessor &operator=(const StereoProcessor &) = delete;
+	StereoProcessor& operator=(const StereoProcessor&) = delete;
 
 private:
 	uint16_t sample_rate = 0;
@@ -115,9 +116,9 @@ private:
 	// All-pass filter for pseudo-stereo processing
 	Iir::RBJ::AllPass allpass = {};
 
-	AudioFrame ProcessSourceSelection(const AudioFrame &frame);
-	AudioFrame ProcessShelvingFilters(const AudioFrame &frame);
-	AudioFrame ProcessStereoProcessing(const AudioFrame &frame);
+	AudioFrame ProcessSourceSelection(const AudioFrame frame);
+	AudioFrame ProcessShelvingFilters(const AudioFrame frame);
+	AudioFrame ProcessStereoProcessing(const AudioFrame frame);
 };
 
 class AdlibGold {
@@ -129,7 +130,7 @@ public:
 	void StereoControlWrite(const StereoProcessorControlReg reg,
 	                        const uint8_t data);
 
-	void Process(const int16_t *in, const uint32_t frames, float *out);
+	void Process(const int16_t* in, const uint32_t frames, float* out);
 
 private:
 	std::unique_ptr<SurroundProcessor> surround_processor = {};

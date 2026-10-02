@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ void Covox::BindToPort(const io_port_t lpt_port)
 	const auto read_status = std::bind(&Covox::ReadStatus, this, _1, _2);
 	const auto write_control = std::bind(&Covox::WriteControl, this, _1, _2, _3);
 	BindHandlers(lpt_port, write_data, read_status, write_control);
-	LOG_MSG("LPT_DAC: Initialized Covox Speech Thing on LPT port %03xh", lpt_port);
+	LOG_MSG("LPT_DAC: Initialised Covox Speech Thing on LPT port %03xh", lpt_port);
 }
 
 void Covox::ConfigureFilters(const FilterState state)

@@ -35,21 +35,29 @@
 
 int fileInfoCounter = 0;
 
-bool SortByName(DOS_Drive_Cache::CFileInfo* const &a, DOS_Drive_Cache::CFileInfo* const &b) {
-	return strcmp(a->shortname,b->shortname)<0;
+bool SortByName(DOS_Drive_Cache::CFileInfo* const a,
+                DOS_Drive_Cache::CFileInfo* const b)
+{
+	return strcmp(a->shortname, b->shortname) < 0;
 }
 
-bool SortByNameRev(DOS_Drive_Cache::CFileInfo* const &a, DOS_Drive_Cache::CFileInfo* const &b) {
-	return strcmp(a->shortname,b->shortname)>0;
+bool SortByNameRev(DOS_Drive_Cache::CFileInfo* const a,
+                   DOS_Drive_Cache::CFileInfo* const b)
+{
+	return strcmp(a->shortname, b->shortname) > 0;
 }
 
-bool SortByDirName(DOS_Drive_Cache::CFileInfo* const &a, DOS_Drive_Cache::CFileInfo* const &b) {
+bool SortByDirName(DOS_Drive_Cache::CFileInfo* const a,
+                   DOS_Drive_Cache::CFileInfo* const b)
+{
 	// Directories first...
 	if (a->isDir!=b->isDir) return (a->isDir>b->isDir);	
 	return strcmp(a->shortname,b->shortname)<0;
 }
 
-bool SortByDirNameRev(DOS_Drive_Cache::CFileInfo* const &a, DOS_Drive_Cache::CFileInfo* const &b) {
+bool SortByDirNameRev(DOS_Drive_Cache::CFileInfo* const a,
+                      DOS_Drive_Cache::CFileInfo* const b)
+{
 	// Directories first...
 	if (a->isDir!=b->isDir) return (a->isDir>b->isDir);	
 	return strcmp(a->shortname,b->shortname)>0;
@@ -146,14 +154,13 @@ void DOS_Drive_Cache::SetBaseDir(const char *baseDir)
 		return;
 
 	// Guard if source and destination are the same
-	if (basePath == baseDir) {
-		return;
+	if (basePath != baseDir) {
+		safe_strcpy(basePath, baseDir);
 	}
 
-	safe_strcpy(basePath, baseDir);
 	static uint16_t id = 0;
 	if (OpenDir(baseDir,id)) {
-		char* result = 0;
+		char* result = nullptr;
 		ReadDir(id,result);
 	}
 	// Get Volume Label
@@ -162,7 +169,7 @@ void DOS_Drive_Cache::SetBaseDir(const char *baseDir)
 	char labellocal[256]={ 0 };
 	char drive[4] = "C:\\";
 	drive[0] = basePath[0];
-	if (GetVolumeInformation(drive,labellocal,256,NULL,NULL,NULL,NULL,0)) {
+	if (GetVolumeInformation(drive,labellocal,256,nullptr,nullptr,nullptr,nullptr,0)) {
 	UINT test = GetDriveType(drive);
 	if(test == DRIVE_CDROM) cdrom = true;
 		/* Set label and allow being updated */
@@ -171,11 +178,13 @@ void DOS_Drive_Cache::SetBaseDir(const char *baseDir)
 #endif
 }
 
-void DOS_Drive_Cache::ExpandName(char* path) {
-	safe_strncpy(path, GetExpandName(path), CROSS_LEN);
+void DOS_Drive_Cache::ExpandNameAndNormaliseCase(char* path)
+{
+	safe_strncpy(path, GetExpandNameAndNormaliseCase(path), CROSS_LEN);
 }
 
-char* DOS_Drive_Cache::GetExpandName(const char* path) {
+char* DOS_Drive_Cache::GetExpandNameAndNormaliseCase(const char* path)
+{
 	static char work [CROSS_LEN] = { 0 };
 	char dir [CROSS_LEN];
 
@@ -224,13 +233,18 @@ void DOS_Drive_Cache::AddEntry(const char* path, bool checkExists) {
 
 		CreateEntry(dir,file,false);
 
-		Bits index = GetLongName(dir, file, sizeof(file));
-		if (index>=0) {
+		if (const auto rcode = GetLongName(dir, file, sizeof(file));
+		    rcode >= 0) {
+			// if the function succeeded, the return value is the index
+			const auto index = static_cast<size_t>(rcode);
+
 			uint32_t i;
 			// Check if there are any open search dir that are affected by this...
 			for (i=0; i<MAX_OPENDIRS; i++) {
-				if ((dirSearch[i]==dir) && ((uint32_t)index<=dirSearch[i]->nextEntry)) 
+				if ((dirSearch[i] == dir) &&
+				    (index <= dirSearch[i]->nextEntry)) {
 					dirSearch[i]->nextEntry++;
+				}
 			}
 		}
 		//		LOG_DEBUG("DIR: Added Entry %s",path);
@@ -282,15 +296,19 @@ void DOS_Drive_Cache::AddEntryDirOverlay(const char* path, bool checkExists) {
 		}
 
 		CreateEntry(dir,file,true);
-		
 
-		Bits index = GetLongName(dir, file, sizeof(file));
-		if (index>=0) {
+		if (const auto rcode = GetLongName(dir, file, sizeof(file));
+		    rcode >= 0) {
+			// if the function succeeded, the return value is the index
+			const auto index = static_cast<size_t>(rcode);
+
 			uint32_t i;
 			// Check if there are any open search dir that are affected by this...
 			for (i=0; i<MAX_OPENDIRS; i++) {
-				if ((dirSearch[i]==dir) && ((uint32_t)index<=dirSearch[i]->nextEntry)) 
+				if ((dirSearch[i] == dir) &&
+				    (index <= dirSearch[i]->nextEntry)) {
 					dirSearch[i]->nextEntry++;
+				}
 			}
 
 			dir = dir->fileList[index];
@@ -390,7 +408,7 @@ bool DOS_Drive_Cache::GetShortName(const char* fullname, char* shortname) {
 }
 
 int DOS_Drive_Cache::CompareShortname(const char* compareName, const char* shortName) {
-	char const* cpos = strchr(shortName,'~');
+	const char* cpos = strchr(shortName, '~');
 	if (cpos) {
 /* the following code is replaced as it's not safe when char* is 64 bits */
 /*		Bits compareCount1	= (int)cpos - (int)shortName;
@@ -511,7 +529,7 @@ static Bits wine_hash_short_file_name( char* name, char* buffer )
 	hash = (hash<<3) ^ (hash>>5) ^ tolower(*p); // Last character
 
 	// Find last dot for start of the extension
-	for (p = name + 1, ext = NULL; p < end - 1; p++) if (*p == '.') ext = p;
+	for (p = name + 1, ext = nullptr; p < end - 1; p++) if (*p == '.') ext = p;
 
 	// Copy first 4 chars, replacing invalid chars with '_'
 	for (i = 4, p = name, dst = buffer; i > 0; i--, p++)
@@ -724,7 +742,7 @@ DOS_Drive_Cache::CFileInfo* DOS_Drive_Cache::FindDirInfo(const char* path, char*
 		safe_strcpy(work, basePath);
 		if (OpenDir(curDir,work,id)) {
 			char buffer[CROSS_LEN];
-			char* result = 0;
+			char* result = nullptr;
 			safe_strcpy(buffer, dirPath);
 			ReadDir(id,result);
 			safe_strcpy(dirPath, buffer);
@@ -761,7 +779,7 @@ DOS_Drive_Cache::CFileInfo* DOS_Drive_Cache::FindDirInfo(const char* path, char*
 			if (!IsCachedIn(curDir)) {
 				if (OpenDir(curDir,expandedPath,id)) {
 					char buffer[CROSS_LEN];
-					char* result = 0;
+					char* result = nullptr;
 					safe_strcpy(buffer, dirPath);
 					ReadDir(id,result);
 					safe_strcpy(dirPath, buffer);
@@ -801,10 +819,10 @@ bool DOS_Drive_Cache::OpenDir(CFileInfo* dir, const char* expand, uint16_t& id) 
 	dirSearch[id] = dir;
 	char expandcopy [CROSS_LEN];
 	safe_strcpy(expandcopy, expand);
-	// Add "/"
-	char end[2]={CROSS_FILESPLIT,0};
 	const size_t expandcopylen = safe_strlen(expandcopy);
 	if (expandcopylen > 0 && expandcopy[expandcopylen - 1] != CROSS_FILESPLIT) {
+		// Add "/"
+		constexpr char end[] = {CROSS_FILESPLIT, 0};
 		safe_strcat(expandcopy, end);
 	}
 	// open dir

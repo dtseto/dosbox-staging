@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,14 +41,17 @@ void PCSPEAKER_Init(Section *section)
 	const auto prop = static_cast<Section_prop *>(section);
 
 	// Get the user's PC Speaker model choice
-	const auto model_choice = std::string_view(prop->Get_string("pcspeaker"));
-	if (model_choice == "none" || model_choice == "off")
+	const std::string model_choice = prop->Get_string("pcspeaker");
+
+	const auto model_choice_has_bool = parse_bool_setting(model_choice);
+
+	if (model_choice_has_bool && *model_choice_has_bool == false) {
 		return;
-	else if (model_choice == "discrete")
+	} else if (model_choice == "discrete") {
 		pc_speaker = std::make_unique<PcSpeakerDiscrete>();
-	else if (model_choice == "impulse")
+	} else if (model_choice == "impulse") {
 		pc_speaker = std::make_unique<PcSpeakerImpulse>();
-	else {
+	} else {
 		LOG_ERR("PCSPEAKER: Invalid PC Speaker model: %s",
 		        model_choice.data());
 		return;
@@ -60,18 +63,20 @@ void PCSPEAKER_Init(Section *section)
 	assert(pc_speaker);
 
 	if (!pc_speaker->TryParseAndSetCustomFilter(filter_choice)) {
-		if (filter_choice == "on") {
-			pc_speaker->SetFilterState(FilterState::On);
-		} else {
-			if (filter_choice != "off") {
-				LOG_WARNING("PCSPEAKER: Invalid 'pcspeaker_filter' value: '%s', using 'off'",
-				            filter_choice.data());
+		const auto filter_choice_has_bool = parse_bool_setting(filter_choice);
+		if (filter_choice_has_bool) {
+			if (*filter_choice_has_bool) {
+				pc_speaker->SetFilterState(FilterState::On);
 			}
+		} else {
+			LOG_WARNING("PCSPEAKER: Invalid 'pcspeaker_filter' setting: '%s', using 'off'",
+			            filter_choice.data());
 			pc_speaker->SetFilterState(FilterState::Off);
 		}
 	}
 
-	section->AddDestroyFunction(&PCSPEAKER_ShutDown, true);
+	constexpr auto changeable_at_runtime = true;
+	section->AddDestroyFunction(&PCSPEAKER_ShutDown, changeable_at_runtime);
 }
 
 // PC Speaker external API, used by the PIT timer and keyboard

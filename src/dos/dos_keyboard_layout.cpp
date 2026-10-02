@@ -25,20 +25,18 @@
 using sv = std::string_view;
 
 #include "../ints/int10.h"
+#include "autoexec.h"
 #include "bios.h"
 #include "bios_disk.h"
 #include "callback.h"
 #include "dos_inc.h"
+#include "dos_locale.h"
 #include "drives.h"
 #include "mapper.h"
 #include "math_utils.h"
 #include "regs.h"
 #include "setup.h"
 #include "string_utils.h"
-
-// The default codepage for DOS
-constexpr uint16_t default_cp_437 = 437;
-constexpr auto default_country    = Country::United_States;
 
 // A common pattern in the keyboard layout file is to try opening the requested
 // file first within DOS, then from the local path, and finally from builtin
@@ -52,7 +50,7 @@ static FILE_unique_ptr open_layout_file(const char *name, const char *resource_d
 	char fullname[DOS_PATHLENGTH] = {};
 	if (DOS_MakeName(name, fullname, &drive)) try {
 		// try to open file on mounted drive first
-		const auto ldp = dynamic_cast<localDrive *>(Drives[drive]);
+		const auto ldp = dynamic_cast<localDrive*>(Drives[drive]);
 		if (ldp) {
 			if (const auto fp = ldp->GetSystemFilePtr(fullname, file_perms); fp) {
 				return FILE_unique_ptr(fp);
@@ -187,6 +185,12 @@ void KeyboardLayout::ReadKeyboardFile(const int32_t specific_layout)
 		                 dos.loaded_codepage);
 }
 
+static void log_layout_read_error()
+{
+	LOG_WARNING("DOS: Error reading keyboard layout file: '%s'",
+	            strerror(errno));
+}
+
 static uint32_t read_kcl_file(const FILE_unique_ptr &kcl_file, const char *layout_id, bool first_id_only)
 {
 	assert(kcl_file);
@@ -201,7 +205,7 @@ static uint32_t read_kcl_file(const FILE_unique_ptr &kcl_file, const char *layou
 
 	const auto seek_pos = 7 + rbuf[6];
 	if (fseek(kcl_file.get(), seek_pos, SEEK_SET) != 0) {
-		LOG_WARNING("LAYOUT: could not seek to byte %d in keyboard layout file: %s", seek_pos, strerror(errno));
+		log_layout_read_error();
 		return 0;
 	}
 
@@ -220,10 +224,7 @@ static uint32_t read_kcl_file(const FILE_unique_ptr &kcl_file, const char *layou
 
 		constexpr int8_t lang_codes_offset = -2;
 		if (fseek(kcl_file.get(), lang_codes_offset, SEEK_CUR) != 0) {
-			LOG_ERR("LAYOUT: could not seek to the language codes "
-			        "at byte %d in keyboard layout: %s",
-			        check_cast<int>(cur_pos) + lang_codes_offset,
-			        strerror(errno));
+			log_layout_read_error();
 			return 0;
 		}
 
@@ -258,9 +259,7 @@ static uint32_t read_kcl_file(const FILE_unique_ptr &kcl_file, const char *layou
 			}
 		}
 		if (fseek(kcl_file.get(), cur_pos + 3 + len, SEEK_SET) != 0) {
-			LOG_ERR("LAYOUT: could not seek to byte %d in keyboard layout file: %s",
-			        check_cast<int>(cur_pos) + 3 + len,
-			        strerror(errno));
+			log_layout_read_error();
 			return 0;
 		}
 	}
@@ -325,8 +324,7 @@ KeyboardErrorCode KeyboardLayout::ReadKeyboardFile(const char *keyboard_file_nam
 		if (tempfile) {
 			const auto seek_pos = start_pos + 2;
 			if (fseek(tempfile.get(), seek_pos, SEEK_SET) != 0) {
-				LOG_WARNING("LAYOUT: could not seek to byte %d in keyboard layout file '%s': %s",
-				            seek_pos, keyboard_file_name, strerror(errno));
+				log_layout_read_error();
 				return KEYB_INVALIDFILE;
 			}
 			read_buf_size = (uint32_t)fread(read_buf, sizeof(uint8_t),
@@ -661,8 +659,9 @@ bool KeyboardLayout::SetMapKey(const uint8_t key, const uint16_t layouted_key,
 
 uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 {
-	if (!strcmp(keyboard_file_name, "none"))
-		return default_cp_437;
+	if (!strcmp(keyboard_file_name, "none")) {
+		return DefaultCodePage437;
+	}
 
 	size_t read_buf_size = 0;
 	static uint8_t read_buf[65535];
@@ -676,7 +675,7 @@ uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 		if (!load_builtin_keyboard_layouts(keyboard_file_name, tempfile, start_pos)) {
 			LOG(LOG_BIOS, LOG_ERROR)
 			("Keyboard layout file %s not found", keyboard_file_name);
-			return default_cp_437;
+			return DefaultCodePage437;
 		}
 		if (tempfile) {
 			fseek(tempfile.get(), start_pos + 2, SEEK_SET);
@@ -690,7 +689,7 @@ uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 		if ((dr<4) || (read_buf[0]!=0x4b) || (read_buf[1]!=0x4c) || (read_buf[2]!=0x46)) {
 			LOG(LOG_BIOS, LOG_ERROR)
 			("Invalid keyboard layout file %s", keyboard_file_name);
-			return default_cp_437;
+			return DefaultCodePage437;
 		}
 
 		fseek(tempfile.get(), 0, SEEK_SET);
@@ -698,7 +697,7 @@ uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 	}
 	if (read_buf_size == 0) {
 		LOG_WARNING("CODEPAGE: Could not read data from layout file %s", keyboard_file_name);
-		return default_cp_437;
+		return DefaultCodePage437;
 	}
 
 	auto data_len = read_buf[start_pos++];
@@ -713,7 +712,7 @@ uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 	if (submappings >= ceil_udivide(sizeof(read_buf) - start_pos - 0x14, 8u)) {
 		LOG(LOG_BIOS, LOG_ERROR)
 		("Keyboard layout file %s is corrupt", keyboard_file_name);
-		return default_cp_437;
+		return DefaultCodePage437;
 	}
 
 	// check all submappings and use them if general submapping or same
@@ -726,111 +725,7 @@ uint16_t KeyboardLayout::ExtractCodePage(const char *keyboard_file_name)
 
 		if (submap_cp!=0) return submap_cp;
 	}
-	return default_cp_437;
-}
-
-const char *get_builtin_cp_filename(const int codepage_id)
-{
-	// reference:
-	// https://gitlab.com/FreeDOS/base/cpidos/-/blob/master/DOC/CPIDOS/CODEPAGE.TXT
-	switch (codepage_id) {
-	case 437:
-	case 850:
-	case 852:
-	case 853:
-	case 857:
-	case 858: return "EGA.CPX";
-	case 775:
-	case 859:
-	case 1116:
-	case 1117:
-	case 1118:
-	case 1119: return "EGA2.CPX";
-	case 771:
-	case 772:
-	case 808:
-	case 855:
-	case 866:
-	case 872: return "EGA3.CPX";
-	case 848:
-	case 849:
-	case 1125:
-	case 1131:
-	case 3012:
-	case 30010: return "EGA4.CPX";
-	case 113:
-	case 737:
-	case 851:
-	case 869: return "EGA5.CPX";
-	case 899:
-	case 30008:
-	case 58210:
-	case 59829:
-	case 60258:
-	case 60853: return "EGA6.CPX";
-	case 30011:
-	case 30013:
-	case 30014:
-	case 30017:
-	case 30018:
-	case 30019: return "EGA7.CPX";
-	case 770:
-	case 773:
-	case 774:
-	case 777:
-	case 778: return "EGA8.CPX";
-	case 860:
-	case 861:
-	case 863:
-	case 865:
-	case 867: return "EGA9.CPX";
-	case 667:
-	case 668:
-	case 790:
-	case 991:
-	case 3845: return "EGA10.CPX";
-	case 30000:
-	case 30001:
-	case 30004:
-	case 30007:
-	case 30009: return "EGA11.CPX";
-	case 30003:
-	case 30029:
-	case 30030:
-	case 58335: return "EGA12.CPX";
-	case 895:
-	case 30002:
-	case 58152:
-	case 59234:
-	case 62306: return "EGA13.CPX";
-	case 30006:
-	case 30012:
-	case 30015:
-	case 30016:
-	case 30020:
-	case 30021: return "EGA14.CPX";
-	case 30023:
-	case 30024:
-	case 30025:
-	case 30026:
-	case 30027:
-	case 30028: return "EGA15.CPX";
-	case 3021:
-	case 30005:
-	case 30022:
-	case 30031:
-	case 30032: return "EGA16.CPX";
-	case 862:
-	case 864:
-	case 30034:
-	case 30033:
-	case 30039:
-	case 30040: return "EGA17.CPX";
-	case 856:
-	case 3846:
-	case 3848: return "EGA18.CPI";
-	default: return ""; // none
-	}
+	return DefaultCodePage437;
 }
 
 KeyboardErrorCode KeyboardLayout::ReadCodePageFile(const char *requested_cp_filename, const int32_t codepage_id)
@@ -842,7 +737,7 @@ KeyboardErrorCode KeyboardLayout::ReadCodePageFile(const char *requested_cp_file
 		return KEYB_NOERROR;
 
 	if (cp_filename == "auto") {
-		cp_filename = get_builtin_cp_filename(codepage_id);
+		cp_filename = DOS_GetBundledCodePageFileName(codepage_id);
 		if (cp_filename.empty()) {
 			LOG_WARNING("CODEPAGE: Could not find a file for codepage ID %d", codepage_id);
 			return KEYB_INVALIDCPFILE;
@@ -1033,29 +928,29 @@ KeyboardErrorCode KeyboardLayout::ReadCodePageFile(const char *requested_cp_file
 				font_data_start += 6;
 				if (font_height == 0x10) {
 					// 16x8 font
-					const auto font16pt = Real2Phys(int10.rom.font_16);
+					const auto font16pt = RealToPhysical(int10.rom.font_16);
 					for (uint16_t i = 0; i < 256 * 16; ++i) {
 						phys_writeb(font16pt + i, cpi_buf.at(font_data_start + i));
 					}
 					// terminate alternate list to prevent loading
-					phys_writeb(Real2Phys(int10.rom.font_16_alternate),0);
+					phys_writeb(RealToPhysical(int10.rom.font_16_alternate),0);
 					font_changed=true;
 				} else if (font_height == 0x0e) {
 					// 14x8 font
-					const auto font14pt = Real2Phys(int10.rom.font_14);
+					const auto font14pt = RealToPhysical(int10.rom.font_14);
 					for (uint16_t i = 0; i < 256 * 14; ++i) {
 						phys_writeb(font14pt + i, cpi_buf.at(font_data_start + i));
 					}
 					// terminate alternate list to prevent loading
-					phys_writeb(Real2Phys(int10.rom.font_14_alternate),0);
+					phys_writeb(RealToPhysical(int10.rom.font_14_alternate),0);
 					font_changed=true;
 				} else if (font_height == 0x08) {
 					// 8x8 fonts
-					auto font8pt = Real2Phys(int10.rom.font_8_first);
+					auto font8pt = RealToPhysical(int10.rom.font_8_first);
 					for (uint16_t i = 0; i < 128 * 8; ++i) {
 						phys_writeb(font8pt + i, cpi_buf.at(font_data_start + i));
 					}
-					font8pt=Real2Phys(int10.rom.font_8_second);
+					font8pt=RealToPhysical(int10.rom.font_8_second);
 					for (uint16_t i = 0; i < 128 * 8; ++i) {
 						phys_writeb(font8pt + i,
 						            cpi_buf.at(font_data_start + i + 128 * 8));
@@ -1075,6 +970,11 @@ KeyboardErrorCode KeyboardLayout::ReadCodePageFile(const char *requested_cp_file
 				INT10_ReloadFont();
 			}
 			INT10_SetupRomMemoryChecksum();
+
+			// re-create country information and [autoexec] section
+			// to match new code page
+			DOS_RefreshCountryInfo();
+			AUTOEXEC_NotifyNewCodePage();
 
 			return KEYB_NOERROR;
 		}
@@ -1212,7 +1112,9 @@ bool DOS_LayoutKey(const uint8_t key, const uint8_t flags1,
 		return false;
 }
 
-KeyboardErrorCode DOS_LoadKeyboardLayout(const char *layoutname, const int32_t codepage, const char *codepagefile)
+static KeyboardErrorCode load_keyboard_layout(const char* layoutname,
+                                              const int32_t codepage,
+                                              const char* codepagefile)
 {
 	auto temp_layout = std::make_unique<KeyboardLayout>();
 
@@ -1231,7 +1133,19 @@ KeyboardErrorCode DOS_LoadKeyboardLayout(const char *layoutname, const int32_t c
 	return KEYB_NOERROR;
 }
 
-KeyboardErrorCode DOS_SwitchKeyboardLayout(const char *new_layout, int32_t &tried_cp)
+KeyboardErrorCode DOS_LoadKeyboardLayout(const char* layoutname,
+                                         const int32_t codepage,
+                                         const char* codepagefile)
+{
+	const auto result = load_keyboard_layout(layoutname, codepage, codepagefile);
+	if (!result) {
+		LOG_MSG("DOS: Loaded codepage %d", codepage); // success!
+	}
+
+	return result;
+}
+
+KeyboardErrorCode DOS_SwitchKeyboardLayout(const char* new_layout, int32_t& tried_cp)
 {
 	if (loaded_layout) {
 		KeyboardLayout *changed_layout = nullptr;
@@ -1246,7 +1160,8 @@ KeyboardErrorCode DOS_SwitchKeyboardLayout(const char *new_layout, int32_t &trie
 }
 
 // get currently loaded layout name (nullptr if no layout is loaded)
-const char* DOS_GetLoadedLayout(void) {
+const char* DOS_GetLoadedLayout()
+{
 	if (loaded_layout) {
 		return loaded_layout->GetLayoutName();
 	}
@@ -1718,73 +1633,92 @@ KeyboardErrorCode DOS_LoadKeyboardLayoutFromLanguage(const char * language_pref)
 
 	// If a specific language wasn't provided, get it from setup
 	std::string language = language_pref;
-	if (language == "auto")
-		language = SETUP_GetLanguage();
+	if (language == "auto") {
+		language = control->GetLanguage();
+	}
+
+	// TODO: This code mixes language code with keyboard layout; this should
+	//       be cleaned up eventually, possibly we should use
+	//       'use get_language_from_os()' from 'cross.h'
 
 	// Does the language have a country associate with it?
-	auto country       = default_country;
-	bool found_country = lookup_country_from_code(language.c_str(), country);
+	auto country       = DOS_GetDefaultCountry();
+	bool found_country = DOS_GetCountryFromLayout(language, country);
 
 	// If we can't find a country for the language, try from the host
 	if (!found_country) {
-		language      = get_lang_from_host_layout();
-		found_country = lookup_country_from_code(language.c_str(), country);
+		language      = DOS_GetLayoutFromHost();
+		found_country = DOS_GetCountryFromLayout(language, country);
 	}
 	// Inform the user if we couldn't find a valid country
 	if (!language.empty() && !found_country) {
-		LOG_WARNING("LAYOUT: A country could not be found for the language: %s",
+		LOG_WARNING("DOS: A country could not be found for the language: %s",
 		            language.c_str());
 	}
+
 	// Regardless of the above, carry on with setting up the layout
-	const auto codepage = lookup_codepage_from_country(country);
-	const auto layout = lookup_language_to_layout_exception(language.c_str());
-	const auto result = DOS_LoadKeyboardLayout(layout, codepage, "auto");
+	const auto codepage = DOS_GetCodePageFromCountry(country);
+	const auto layout   = DOS_CheckLanguageToLayoutException(language);
+	const auto result   = load_keyboard_layout(layout.c_str(), codepage, "auto");
 
 	if (result == KEYB_NOERROR) {
-		LOG_MSG("LAYOUT: Loaded codepage %d for detected language %s", codepage, language.c_str());
-	} else if (country != default_country) {
-		LOG_WARNING("LAYOUT: Failed loading codepage %d for detected language %s", codepage, language.c_str());
+		LOG_MSG("DOS: Loaded codepage %d for detected language '%s'",
+		        codepage,
+		        language.c_str());
+	} else if (country != DOS_GetDefaultCountry()) {
+		LOG_WARNING("DOS: Failed loading codepage %d for detected language '%s'",
+		            codepage,
+		            language.c_str());
 	}
 	return result;
 }
 
 class DOS_KeyboardLayout final : public Module_base {
 public:
-	DOS_KeyboardLayout(Section* configuration):Module_base(configuration){
-		Section_prop * section=static_cast<Section_prop *>(configuration);
+	DOS_KeyboardLayout(Section* configuration) : Module_base(configuration)
+	{
+		Section_prop* section = static_cast<Section_prop*>(configuration);
+		assert(section);
 
-		dos.loaded_codepage = default_cp_437; // US codepage already initialized
+		// US codepage already initialized
+		dos.loaded_codepage = DefaultCodePage437;
 
 		loaded_layout = std::make_unique<KeyboardLayout>();
 
-		const char * layoutname=section->Get_string("keyboardlayout");
+		std::string layoutname = section->Get_string("keyboardlayout");
 		// BOXER-HOOK: macos-preferred-keyboard-layout - Resolve the auto
 		// setting through Boxer's current macOS keyboard layout.
-		if (!strncmp(layoutname, "auto", 4)) {
+		if (layoutname.compare(0, 4, "auto") == 0) {
 			if (const char *preferred_layout = boxer_preferredKeyboardLayout())
 				layoutname = preferred_layout;
 		}
 
 		// If the use only provided a single value (language), then try using it
+		constexpr bool reason_keyboard_layout = true;
 		const auto layout_is_one_value = sv(layoutname).find(' ') == std::string::npos;
 		if (layout_is_one_value) {
-			if (!DOS_LoadKeyboardLayoutFromLanguage(layoutname)) {
-				return; // success
+			if (!DOS_LoadKeyboardLayoutFromLanguage(layoutname.c_str())) {
+				// Success - re-create country information to
+				// match new keyboard layout
+				DOS_RefreshCountryInfo(reason_keyboard_layout);
+				return;
 			}
 		}
 		// Otherwise use the layout to get the codepage
-		const auto req_codepage = loaded_layout->ExtractCodePage(layoutname);
+		const auto req_codepage = loaded_layout->ExtractCodePage(layoutname.c_str());
 		loaded_layout->ReadCodePageFile("auto", req_codepage);
 
-		if (loaded_layout->ReadKeyboardFile(layoutname, dos.loaded_codepage)) {
-			if (strncmp(layoutname, "auto", 4)) {
-				LOG_ERR("LAYOUT: Failed to load keyboard layout %s",
-				        layoutname);
+		if (loaded_layout->ReadKeyboardFile(layoutname.c_str(), dos.loaded_codepage)) {
+			if (strncmp(layoutname.c_str(), "auto", 4)) {
+				LOG_ERR("DOS: Failed to load keyboard layout '%s'",
+				        layoutname.c_str());
 			}
 		} else {
 			const char *lcode = loaded_layout->GetMainLanguageCode();
 			if (lcode) {
-				LOG_MSG("LAYOUT: DOS keyboard layout loaded with main language code %s for layout %s",lcode,layoutname);
+				LOG_MSG("DOS: Loaded keyboard layout '%s' with main language code '%s'",
+				        layoutname.c_str(),
+				        lcode);
 			}
 		}
 		// BOXER-HOOK: us-layout-remap-fix - US layouts must not leave foreign
@@ -1792,12 +1726,19 @@ public:
 		if (loaded_layout->is_US_layout() &&
 		    loaded_layout->foreign_layout_active())
 			loaded_layout->SwitchForeignLayout();
+
+		// Re-create country information and [autoexec] section
+		// to match new code page and keyboard layout
+		DOS_RefreshCountryInfo(reason_keyboard_layout);
+		AUTOEXEC_NotifyNewCodePage();
 	}
 
-	~DOS_KeyboardLayout(){
-		if ((dos.loaded_codepage != default_cp_437) && (CurMode->type == M_TEXT)) {
+	~DOS_KeyboardLayout()
+	{
+		if ((dos.loaded_codepage != DefaultCodePage437) &&
+		    (CurMode->type == M_TEXT)) {
 			INT10_ReloadRomFonts();
-			dos.loaded_codepage = default_cp_437; // US codepage
+			dos.loaded_codepage = DefaultCodePage437; // US codepage
 		}
 		if (loaded_layout) {
 			loaded_layout.reset();
@@ -1811,31 +1752,6 @@ void DOS_KeyboardLayout_ShutDown(Section* /*sec*/) {
 	KeyboardLayout.reset();
 }
 
-const char *DOS_GetLoadedLayout();
-
-void DOS_SetCountry(uint16_t countryNo);
-
-static void set_country_from_pref(const int country_pref)
-{
-	// default to the US
-	auto country_number = static_cast<uint16_t>(default_country);
-
-	// If the country preference is valid, use it
-	if (country_pref > 0 && country_number_exists(country_pref)) {
-		country_number = static_cast<uint16_t>(country_pref);
-	} else if (const auto country_code = DOS_GetLoadedLayout(); country_code) {
-		if (Country c; lookup_country_from_code(country_code, c)) {
-			country_number = static_cast<uint16_t>(c);
-		} else {
-			LOG_ERR("LANGUAGE: The layout's country code: '%s' does not have a corresponding country",
-			        country_code);
-		}
-	}
-	// At this point, the country number is expected to be valid
-	assert(country_number_exists(country_number));
-	DOS_SetCountry(country_number);
-}
-
 void DOS_KeyboardLayout_Init(Section *sec)
 {
 	assert(sec);
@@ -1843,7 +1759,4 @@ void DOS_KeyboardLayout_Init(Section *sec)
 
 	constexpr auto changeable_at_runtime = true;
 	sec->AddDestroyFunction(&DOS_KeyboardLayout_ShutDown, changeable_at_runtime);
-
-	const auto settings = static_cast<const Section_prop *>(sec);
-	set_country_from_pref(settings->Get_int("country"));
 }

@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
 
@@ -40,11 +40,9 @@ jobs:
             os: ubuntu-20.04
         conf:
           - configure_flags:  -Duse_slirp=false
-          - configure_flags:  -Duse_sdl2_image=false
           - configure_flags:  -Duse_sdl2_net=false
           - configure_flags:  -Duse_opengl=false         # TODO opengl is always disabled on msys2
           - configure_flags:  -Duse_fluidsynth=false
-          - configure_flags:  -Duse_png=false
           - configure_flags:  -Denable_debugger=normal
           - configure_flags:  -Denable_debugger=heavy
           - configure_flags:  -Ddynamic_core=dyn-x86
@@ -56,7 +54,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
 
@@ -70,7 +68,11 @@ jobs:
         shell: bash
         run:   echo "date=$(date +%Y-%W)" >> $GITHUB_OUTPUT
 
+<<<<<<< HEAD
       - uses:  actions/cache@v3.2.2
+=======
+      - uses:  actions/cache@v3.3.2
+>>>>>>> v0.81.0
         id:    cache-msys2
         if:    matrix.system.name == 'Windows'
         with:
@@ -104,10 +106,20 @@ jobs:
         run: |
           brew install $(cat packages/macos-12-brew.txt)
 
-      # Workaround frequent HTTPS-based connectivity issues
-      # https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/407
-      - name:  Fetch the libffi subproject for Glib
-        run: ./scripts/fetch-libffi-subproject.sh
+      - name: Cache subprojects
+        id:   cache-subprojects
+        uses: actions/cache@v3.3.2
+        with:
+          path: subprojects.tar
+          key: subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
+          enableCrossOsArchive: true
+
+      - if:   steps.cache-subprojects.outputs.cache-hit != 'true'
+        name: Generate subprojects cache
+        run:  scripts/fetch-and-tar-subprojects.sh
+
+      - name: Extract subprojects cache
+        run:  scripts/extract-subprojects-tar.sh
 
       - name:  Build ${{ matrix.conf.configure_flags }} (Windows)
         if:    matrix.system.name == 'Windows'

@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -50,14 +51,16 @@ public:
 		ext.strategy = real_readw(seg, off + 6);
 		ext.interrupt = real_readw(seg, off + 8);
 	}
-	virtual bool Read(uint8_t *data, uint16_t *size);
-	virtual bool Write(uint8_t *data, uint16_t *size);
-	virtual bool Seek(uint32_t *pos, uint32_t type);
-	virtual bool Close();
-	virtual uint16_t GetInformation();
-	virtual bool ReadFromControlChannel(PhysPt bufptr, uint16_t size, uint16_t *retcode);
-	virtual bool WriteToControlChannel(PhysPt bufptr, uint16_t size, uint16_t *retcode);
-	virtual uint8_t GetStatus(bool input_flag);
+	bool Read(uint8_t* data, uint16_t* size) override;
+	bool Write(uint8_t* data, uint16_t* size) override;
+	bool Seek(uint32_t* pos, uint32_t type) override;
+	bool Close() override;
+	uint16_t GetInformation() override;
+	bool ReadFromControlChannel(PhysPt bufptr, uint16_t size,
+	                            uint16_t* retcode) override;
+	bool WriteToControlChannel(PhysPt bufptr, uint16_t size,
+	                           uint16_t* retcode) override;
+	uint8_t GetStatus(bool input_flag) override;
 	bool CheckSameDevice(uint16_t seg, uint16_t s_off, uint16_t i_off);
 
 private:
@@ -192,54 +195,65 @@ uint8_t DOS_ExtDevice::GetStatus(bool input_flag)
 	return 0x00;
 }
 
-uint32_t DOS_CheckExtDevice(const char *name, bool already_flag)
+// Walk the DOS devices and return the real pointer to the device matching the
+// given name, provided it's not an existing driver (if indicated).
+RealPt DOS_CheckExtDevice(const std::string_view name, const bool skip_existing_drivers)
 {
-	uint32_t addr = dos_infoblock.GetDeviceChain();
-	uint16_t seg, off;
-	uint16_t next_seg, next_off;
-	uint16_t no;
-	char devname[8 + 1];
+	// Helper lambda's to check various device properties
+	//
+	auto is_a_driver = [](const RealPt rp) {
+		constexpr uint16_t driver_flag = (1 << 15);
+		return DOS_DeviceHasAttributes(rp, driver_flag);
+	};
 
-	seg = addr >> 16;
-	off = addr & 0xffff;
-	while (1) {
-		no = real_readw(seg, off + 4);
-		next_seg = real_readw(seg, off + 2);
-		next_off = real_readw(seg, off);
-		if (next_seg == 0xffff && next_off == 0xffff) {
-			break;
-		}
-		if (no & 0x8000) {
-			for (no = 0; no < 8; no++) {
-				if ((devname[no] = real_readb(seg, off + 10 + no)) <= 0x20) {
-					devname[no] = 0;
-					break;
-				}
+	auto is_con_or_nul = [](const RealPt rp) {
+		constexpr uint16_t con_strategy  = 0;
+		constexpr uint16_t con_interrupt = 0;
+
+		constexpr uint16_t nul_strategy  = 0xffff;
+		constexpr uint16_t nul_interrupt = 0xffff;
+
+		const auto strategy  = DOS_GetDeviceStrategy(rp);
+		const auto interrupt = DOS_GetDeviceInterrupt(rp);
+
+		return (strategy == con_strategy && interrupt == con_interrupt) ||
+		       (strategy == nul_strategy && interrupt == nul_interrupt);
+	};
+
+	auto is_existing_driver = [](const RealPt rp) {
+		for (const auto& dev : Devices) {
+			if (!dev || (dev->GetInformation() & EXT_DEVICE_BIT) == 0) {
+				continue;
 			}
-			devname[8] = 0;
-			if (!strcmp(name, devname)) {
-				if (already_flag) {
-					for (no = 0; no < DOS_DEVICES; no++) {
-						if (Devices[no]) {
-							if (Devices[no]->GetInformation() & EXT_DEVICE_BIT) {
-								if (((DOS_ExtDevice *)Devices[no])
-								            ->CheckSameDevice(seg, real_readw(seg, off + 6),
-								                              real_readw(seg, off + 8))) {
-									return 0;
-								}
-							}
-						}
-					}
-				}
-				// Exclude the default CON and NUL
-				if (real_readd(seg, off + 6) == 0 || real_readd(seg, off + 6) == 0xffffffff) {
-					return 0;
-				}
-				return (uint32_t)seg << 16 | (uint32_t)off;
+			const auto ext_dev = dynamic_cast<DOS_ExtDevice*>(dev);
+			if (ext_dev &&
+			    ext_dev->CheckSameDevice(RealSegment(rp),
+			                             DOS_GetDeviceStrategy(rp),
+			                             DOS_GetDeviceInterrupt(rp))) {
+				return true;
 			}
 		}
-		seg = next_seg;
-		off = next_off;
+		return false;
+	};
+
+	// start walking the device chain of real pointers
+	auto rp = dos_infoblock.GetDeviceChain();
+
+	while (!DOS_IsEndPointer(rp)) {
+		if (!is_a_driver(rp) || !DOS_DeviceHasName(rp, name)) {
+			rp = DOS_GetNextDevice(rp);
+			continue;
+		}
+		if (is_con_or_nul(rp)) {
+			return 0;
+		}
+		if (skip_existing_drivers && is_existing_driver(rp)) {
+			return 0;
+		}
+		// The device at the real pointer is a driver, has a name
+		// matching the given name, is neither the CON nor NUL devices,
+		// and (if requested) is not an existing device driver.
+		return rp;
 	}
 	return 0;
 }
@@ -256,35 +270,62 @@ static void DOS_CheckOpenExtDevice(const char *name)
 
 class device_NUL : public DOS_Device {
 public:
-	device_NUL() { SetName("NUL"); }
+	device_NUL()
+	{
+		SetName("NUL");
+	}
 
-	virtual bool Read(uint8_t * /*data*/,uint16_t * size) {
-		*size = 0; //Return success and no data read. 
-		LOG(LOG_IOCTL,LOG_NORMAL)("%s:READ",GetName());
+	bool Read(uint8_t* /*data*/, uint16_t* size) override
+	{
+		*size = 0; // Return success and no data read.
+		LOG(LOG_IOCTL, LOG_NORMAL)("%s:READ", GetName());
 		return true;
 	}
-	virtual bool Write(uint8_t * /*data*/,uint16_t * /*size*/) {
-		LOG(LOG_IOCTL,LOG_NORMAL)("%s:WRITE",GetName());
+	bool Write(uint8_t* /*data*/, uint16_t* /*size*/) override
+	{
+		LOG(LOG_IOCTL, LOG_NORMAL)("%s:WRITE", GetName());
 		return true;
 	}
-	virtual bool Seek(uint32_t * /*pos*/,uint32_t /*type*/) {
-		LOG(LOG_IOCTL,LOG_NORMAL)("%s:SEEK",GetName());
+	bool Seek(uint32_t* /*pos*/, uint32_t /*type*/) override
+	{
+		LOG(LOG_IOCTL, LOG_NORMAL)("%s:SEEK", GetName());
 		return true;
 	}
-	virtual bool Close() { return true; }
-	virtual uint16_t GetInformation() { return 0x8084; }
-	virtual bool ReadFromControlChannel(PhysPt /*bufptr*/,uint16_t /*size*/,uint16_t * /*retcode*/){return false;}
-	virtual bool WriteToControlChannel(PhysPt /*bufptr*/,uint16_t /*size*/,uint16_t * /*retcode*/){return false;}
+	bool Close() override
+	{
+		return true;
+	}
+	uint16_t GetInformation() override
+	{
+		return 0x8084;
+	}
+	bool ReadFromControlChannel(PhysPt /*bufptr*/, uint16_t /*size*/,
+	                            uint16_t* /*retcode*/) override
+	{
+		return false;
+	}
+	bool WriteToControlChannel(PhysPt /*bufptr*/, uint16_t /*size*/,
+	                           uint16_t* /*retcode*/) override
+	{
+		return false;
+	}
 };
 
 class device_LPT1 final : public device_NUL {
 public:
-   	device_LPT1() { SetName("LPT1");}
-	uint16_t GetInformation() { return 0x80A0; }
-	bool Read(uint8_t* /*data*/,uint16_t * /*size*/){
+	device_LPT1()
+	{
+		SetName("LPT1");
+	}
+	uint16_t GetInformation() override
+	{
+		return 0x80A0;
+	}
+	bool Read(uint8_t* /*data*/, uint16_t* /*size*/) override
+	{
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
-	}	
+	}
 };
 
 class device_PRN : public DOS_Device {
@@ -373,7 +414,8 @@ DOS_File &DOS_File::operator=(const DOS_File &orig)
 	return *this;
 }
 
-uint8_t DOS_FindDevice(char const * name) {
+uint8_t DOS_FindDevice(const char* name)
+{
 	/* should only check for the names before the dot and spacepadded */
 	char fullname[DOS_PATHLENGTH];uint8_t drive;
 //	if(!name || !(*name)) return DOS_DEVICES; //important, but makename does it
@@ -383,7 +425,7 @@ uint8_t DOS_FindDevice(char const * name) {
 	if(name_part) {
 		*name_part++ = 0;
 		// Check validity of leading directory.
-		//  if(!Drives[drive]->TestDir(fullname))
+		//  if(!Drives.at(drive)->TestDir(fullname))
 		//      return DOS_DEVICES; //can be invalid
 	} else
 		name_part = fullname;
@@ -400,7 +442,7 @@ uint8_t DOS_FindDevice(char const * name) {
 						return index;
 					} else {
 						delete Devices[index];
-						Devices[index] = 0;
+						Devices[index] = nullptr;
 						break;
 					}
 				}
@@ -430,7 +472,6 @@ uint8_t DOS_FindDevice(char const * name) {
 	return DOS_DEVICES;
 }
 
-
 void DOS_AddDevice(DOS_Device * adddev) {
 //Caller creates the device. We store a pointer to it
 //TODO Give the Device a real handler in low memory that responds to calls
@@ -450,10 +491,112 @@ void DOS_DelDevice(DOS_Device * dev) {
 	for (Bitu i = 0; i <DOS_DEVICES;i++) {
 		if (Devices[i] && !strcasecmp(Devices[i]->GetName(), dev->GetName())) {
 			delete Devices[i];
-			Devices[i] = 0;
+			Devices[i] = nullptr;
 			return;
 		}
 	}
+}
+
+// Structure of internal DOS tables, Device Driver
+//
+// Property   Offset  Type      Description
+// ~~~~~~~~   ~~~~~~  ~~~~~     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// next_rpt   00h     DWord --> Next driver in chain (x:FFFF means end)
+// attributes 04h     Word      Device attributes.
+// strategy   06h     Word      Device strategy routine offset.
+// interrupt  08h     Word      Device interrupt routine offset.
+// name       0Ah     8 Bytes   Device name padded with spaces.
+//
+// Ref: https://www.infradead.org/devload/DOSTables.html, Appendix 2
+//
+namespace DeviceDriverInfo {
+constexpr uint8_t next_rpt_offset = 0x00;   // DWORD, points to next driver in
+                                            // chain (x:FFFF means end)
+constexpr uint8_t attributes_offset = 0x04; // WORD, device attributes offset
+constexpr uint8_t strategy_offset   = 0x06; // WORD, device strategy routine
+                                            // offset.
+constexpr uint8_t interrupt_offset = 0x08;  // WORD, device interrupt
+                                            // routine offset.
+constexpr uint8_t name_offset = 0x0a;       // 8 bytes, device name padded with
+                                            // spaces.
+constexpr size_t name_length = 8;
+} // namespace DeviceDriverInfo
+
+// Special pointer value indicating the end of the DOS device linked list
+bool DOS_IsEndPointer(const RealPt rp)
+{
+	constexpr uint16_t last_offset_marker = 0xffff;
+	return RealOffset(rp) == last_offset_marker;
+}
+
+// From the given real pointer, get the next device driver's real pointer
+RealPt DOS_GetNextDevice(const RealPt rp)
+{
+	return real_readd(RealSegment(rp),
+	                  RealOffset(rp) + DeviceDriverInfo::next_rpt_offset);
+}
+
+// Get the tail real pointer from the DOS device driver linked list
+RealPt DOS_GetLastDevice()
+{
+	RealPt current = dos_infoblock.GetDeviceChain();
+	RealPt next = current;
+
+	while (!DOS_IsEndPointer(next)) {
+		current = next;
+		next = DOS_GetNextDevice(current);
+	}
+
+	return current;
+}
+
+// Append the device at the given address to the end of the DOS device linked list
+void DOS_AppendDevice(const uint16_t segment, const uint16_t offset)
+{
+	const auto new_rp  = RealMake(segment, offset);
+	const auto tail_rp = DOS_GetLastDevice();
+	real_writed(RealSegment(tail_rp), RealOffset(tail_rp), new_rp);
+}
+
+bool DOS_DeviceHasAttributes(const RealPt rp, const uint16_t req_attributes)
+{
+	const auto attributes = real_readw(
+	        RealSegment(rp), RealOffset(rp) + DeviceDriverInfo::attributes_offset);
+
+	return (attributes & req_attributes) == req_attributes;
+}
+
+uint16_t DOS_GetDeviceStrategy(const RealPt rp)
+{
+	return real_readw(RealSegment(rp),
+	                  RealOffset(rp) + DeviceDriverInfo::strategy_offset);
+}
+
+uint16_t DOS_GetDeviceInterrupt(const RealPt rp)
+{
+	return real_readw(RealSegment(rp),
+	                  RealOffset(rp) + DeviceDriverInfo::interrupt_offset);
+}
+
+bool DOS_DeviceHasName(const RealPt rp, const std::string_view req_name)
+{
+	const auto segment    = RealSegment(rp);
+	const auto offset     = RealOffset(rp) + DeviceDriverInfo::name_offset;
+
+	std::string device_name = {};
+	for (size_t i = 0; i < DeviceDriverInfo::name_length; ++i) {
+		const char c = static_cast<char>(real_readb(segment, check_cast<uint16_t>(offset + i)));
+
+		// Device name should be padded with spaces if it is less than name length (8 characters)
+		// Also stop reading upon encountering a null termination or control codes to be safe
+		if (c <= 0x20) {
+			break;
+		}
+
+		device_name.push_back(c);
+	}
+
+	return device_name == req_name;
 }
 
 void DOS_SetupDevices() {

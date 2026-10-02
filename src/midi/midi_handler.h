@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2020  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,44 +27,54 @@
 #include <cstdint>
 
 enum class MIDI_RC : int {
-	OK = 0,
-	ERR_DEVICE_NOT_CONFIGURED = -1,
+	OK                            = 0,
+	ERR_DEVICE_NOT_CONFIGURED     = -1,
 	ERR_DEVICE_LIST_NOT_SUPPORTED = -2,
 };
 
+enum class MidiDeviceType { BuiltIn, External };
+
 class MidiHandler {
 public:
-	MidiHandler();
-
-	MidiHandler(const MidiHandler &) = delete;            // prevent copying
-	MidiHandler &operator=(const MidiHandler &) = delete; // prevent assignment
+	MidiHandler() {}
+	MidiHandler(const MidiHandler&) = delete;            // prevent copying
+	MidiHandler& operator=(const MidiHandler&) = delete; // prevent assignment
 
 	virtual ~MidiHandler() = default;
 
-	virtual const char *GetName() const { return "none"; }
+	virtual std::string_view GetName() const = 0;
 
-	virtual bool Open([[maybe_unused]] const char *conf)
+	virtual MidiDeviceType GetDeviceType() const
 	{
-		LOG_MSG("MIDI: No working MIDI device found/selected.");
+		return MidiDeviceType::External;
+	}
+
+	virtual bool Open([[maybe_unused]] const char* conf)
+	{
+		LOG_WARNING("MIDI: No working MIDI device found/selected.");
 		return true;
 	}
 
+	virtual void Reset();
+
 	virtual void Close()
 	{
-		HaltSequence();
+		Reset();
 	}
-	virtual void PlayMsg([[maybe_unused]] const uint8_t *msg) {}
-	virtual void PlaySysex([[maybe_unused]] uint8_t *sysex, [[maybe_unused]] size_t len) {}
 
-	virtual MIDI_RC ListAll(Program *)
+	virtual void PlayMsg([[maybe_unused]] const MidiMessage& msg) {}
+	virtual void PlaySysex([[maybe_unused]] uint8_t* sysex,
+	                       [[maybe_unused]] size_t len)
+	{}
+
+	virtual MIDI_RC ListAll(Program*)
 	{
 		return MIDI_RC::ERR_DEVICE_LIST_NOT_SUPPORTED;
 	}
-
-	void HaltSequence();
-	void ResumeSequence();
-
-	MidiHandler *next = nullptr;
 };
+
+void MIDI_RegisterHandler(std::unique_ptr<MidiHandler> handler);
+MidiHandler* MIDI_GetHandler(const std::string_view name);
+void MIDI_DeregisterHandler(const std::string_view name);
 
 #endif

@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2019-2022  The DOSBox Staging Team
+ *  Copyright (C) 2019-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2017  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -21,9 +21,12 @@
 
 #include "gameblaster.h"
 
-#include "setup.h"
+#include "channel_names.h"
 #include "pic.h"
+#include "setup.h"
 
+// The Game Blaster is nothing else than a rebranding of Creative's first PC
+// sound card, the Creative Music System (C/MS).
 void GameBlaster::Open(const int port_choice, const std::string &card_choice,
                        const std::string &filter_choice)
 {
@@ -41,15 +44,16 @@ void GameBlaster::Open(const int port_choice, const std::string &card_choice,
 	base_port = check_cast<io_port_t>(port_choice);
 	assert(contains(valid_ports, base_port));
 
-	// Create the SAA1099 devices
+	// Create the two SAA1099 devices
 	for (auto &d : devices) {
-		d = std::make_unique<saa1099_device>(machine_config(), "", nullptr, chip_clock, render_divisor);
+		d = std::make_unique<saa1099_device>("", nullptr, chip_clock, render_divisor);
 		d->device_start();
 	}
 
-	// Creative included CMS chips on several Sound Blaster cards, which
-	// games could use (in addition to the SB features), so we always setup
-	// those handlers - even if the card type isn't a GameBlaster.
+	// The Sound Blaster 1.0 included the SAA-1099 chips on-board for C/MS
+	// compatibility, and the Sound Blaster 2.0 had sockets for them as
+	// optional add-ons. Therefore, we always set up these handlers, even if
+	// the card type isn't a Game Blaster.
 	using namespace std::placeholders;
 	const auto data_to_left = std::bind(&GameBlaster::WriteDataToLeftDevice, this, _1, _2, _3);
 	const auto control_to_left = std::bind(&GameBlaster::WriteControlToLeftDevice, this, _1, _2, _3);
@@ -61,9 +65,10 @@ void GameBlaster::Open(const int port_choice, const std::string &card_choice,
 	write_handlers[2].Install(base_port + 2, data_to_right, io_width_t::byte);
 	write_handlers[3].Install(base_port + 3, control_to_right, io_width_t::byte);
 
-	// However, standalone GameBlaster cards came with a dedicated chip on
-	// it that could be used for detection. So we setup those handlers for
-	// this chip only if the card-type is a GameBlaster:
+	// However, the Creative Music System (C/MS) / Game Blaster cards came
+	// with a dedicated chip on them that could be used for detection. So we
+	// set up those handlers for this chip only if the card type is a Game
+	// Blaster:
 	if (is_standalone_gameblaster) {
 		const auto read_from_detection_port = std::bind(&GameBlaster::ReadFromDetectionPort, this, _1, _2);
 		const auto write_to_detection_port = std::bind(&GameBlaster::WriteToDetectionPort, this, _1, _2, _3);
@@ -75,12 +80,12 @@ void GameBlaster::Open(const int port_choice, const std::string &card_choice,
 		                                    12);
 	}
 
-	// Setup the mixer and level controls
+	// Set up the mixer and level controls
 	const auto audio_callback = std::bind(&GameBlaster::AudioCallback, this, _1);
 
 	channel = MIXER_AddChannel(audio_callback,
 	                           use_mixer_rate,
-	                           CardName(),
+	                           ChannelName::Cms,
 	                           {ChannelFeature::Sleep,
 	                            ChannelFeature::Stereo,
 	                            ChannelFeature::ReverbSend,
@@ -90,17 +95,18 @@ void GameBlaster::Open(const int port_choice, const std::string &card_choice,
 	// The filter parameters have been tweaked by analysing real hardware
 	// recordings. The results are virtually indistinguishable from the
 	// real thing by ear only.
-	if (filter_choice == "on") {
+	const auto filter_choice_has_bool = parse_bool_setting(filter_choice);
+	if (filter_choice_has_bool && *filter_choice_has_bool == true) {
 		constexpr auto order       = 1;
 		constexpr auto cutoff_freq = 6000;
 		channel->ConfigureLowPassFilter(order, cutoff_freq);
 		channel->SetLowPassFilter(FilterState::On);
 
 	} else if (!channel->TryParseAndSetCustomFilter(filter_choice)) {
-		if (filter_choice != "off")
-			LOG_WARNING("%s: Invalid 'cms_filter' value: '%s', using 'off'",
-			            CardName(),
+		if (!filter_choice_has_bool) {
+			LOG_WARNING("CMS: Invalid 'cms_filter' setting: '%s', using 'off'",
 			            filter_choice.c_str());
+		}
 
 		channel->SetLowPassFilter(FilterState::Off);
 	}
@@ -108,13 +114,12 @@ void GameBlaster::Open(const int port_choice, const std::string &card_choice,
 	// Calculate rates and ratio based on the mixer's rate
 	const auto frame_rate_hz = channel->GetSampleRate();
 
-	// Setup the resampler to convert from the render rate to the mixer's frame rate
+	// Set up the resampler to convert from the render rate to the mixer's frame rate
 	const auto max_freq = std::max(frame_rate_hz * 0.9 / 2, 8000.0);
 	for (auto &r : resamplers)
 		r.reset(reSIDfp::TwoPassSincResampler::create(render_rate_hz, frame_rate_hz, max_freq));
 
-	LOG_MSG("%s: Running on port %xh with two %0.3f MHz Phillips SAA-1099 chips",
-	        CardName(),
+	LOG_MSG("CMS: Running on port %xh with two %0.3f MHz Phillips SAA-1099 chips",
 	        base_port,
 	        chip_clock / 1e6);
 
@@ -129,17 +134,17 @@ void GameBlaster::Open(const int port_choice, const std::string &card_choice,
 
 bool GameBlaster::MaybeRenderFrame(AudioFrame &frame)
 {
-	// Static containers setup once and reused
+	// Static containers set up once and reused
 	static std::array<int16_t, 2> buf = {}; // left and right
 	static int16_t *p_buf[]           = {&buf[0], &buf[1]};
 	static device_sound_interface::sound_stream stream;
 
 	// Accumulate the samples from both SAA-1099 devices
-	devices[0]->sound_stream_update(stream, 0, p_buf, 1);
+	devices[0]->sound_stream_update(stream, nullptr, p_buf, 1);
 	int left_accum = buf[0];
 	int right_accum = buf[1];
 
-	devices[1]->sound_stream_update(stream, 0, p_buf, 1);
+	devices[1]->sound_stream_update(stream, nullptr, p_buf, 1);
 	left_accum += buf[0];
 	right_accum += buf[1];
 
@@ -207,7 +212,7 @@ void GameBlaster::AudioCallback(const uint16_t requested_frames)
 	assert(channel);
 
 	//if (fifo.size())
-	//	LOG_MSG("%s: Queued %2lu cycle-accurate frames", CardName(), fifo.size());
+	//	LOG_MSG("CMS: Queued %2lu cycle-accurate frames", fifo.size());
 
 	auto frames_remaining = requested_frames;
 
@@ -250,17 +255,12 @@ uint8_t GameBlaster::ReadFromDetectionPort(io_port_t port, io_width_t) const
 	return retval;
 }
 
-const char *GameBlaster::CardName() const
-{
-	return is_standalone_gameblaster ? "GAMEBLASTER" : "CMS";
-}
-
 void GameBlaster::Close()
 {
 	if (!is_open)
 		return;
 
-	LOG_INFO("%s: Shutting down", CardName());
+	LOG_INFO("CMS: Shutting down");
 
 	// Drop access to the IO ports
 	for (auto &w : write_handlers)
@@ -288,17 +288,20 @@ void GameBlaster::Close()
 
 GameBlaster gameblaster;
 
-void CMS_ShutDown([[maybe_unused]] Section* configuration)
+void CMS_ShutDown([[maybe_unused]] Section* conf)
 {
 	gameblaster.Close();
 }
 
-void CMS_Init(Section* configuration)
+void CMS_Init(Section* conf)
 {
-	Section_prop *section = static_cast<Section_prop *>(configuration);
+	assert(conf);
+
+	Section_prop* section = static_cast<Section_prop*>(conf);
 	gameblaster.Open(section->Get_hex("sbbase"),
 	                 section->Get_string("sbtype"),
 	                 section->Get_string("cms_filter"));
 
-	section->AddDestroyFunction(&CMS_ShutDown, true);
+	constexpr auto changeable_at_runtime = true;
+	section->AddDestroyFunction(&CMS_ShutDown, changeable_at_runtime);
 }

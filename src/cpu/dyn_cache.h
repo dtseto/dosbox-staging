@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -21,8 +21,8 @@
 
 #include <cassert>
 #include <cerrno>
-#include <memory>
 #include <new>
+#include <type_traits>
 
 #include "mem_unaligned.h"
 #include "paging.h"
@@ -50,6 +50,15 @@ class CodePageHandler;
 // basic cache block representation
 class CacheBlock {
 public:
+	CacheBlock() = default;
+	~CacheBlock();
+
+	// Prevent copy and move construction and assignment
+	CacheBlock(const CacheBlock&) = delete;
+	CacheBlock(CacheBlock&&) = delete;
+	CacheBlock& operator=(const CacheBlock&) = delete;
+	CacheBlock& operator=(CacheBlock&&) = delete;
+
 	void Clear();
 
 	// link this cache block to another block, index specifies the code
@@ -62,38 +71,43 @@ public:
 		toblock->link[index].from = this; // remember who links me
 	}
 
-	struct {
+	struct Page {
 		uint16_t start = 0;
 		uint16_t end   = 0; // where in the page is the original code
 
 		CodePageHandler* handler = {}; // page containing this code
 	} page = {};
 
-	struct {
-		// TODO field start used to be a normal pointer, but upstream
-		// changed it to const pointer in r4424 (perhaps by mistake or
-		// as WIP change). Once transition to W^X will be done, decide
-		// if this should be const pointer or not and remove this comment.
-		//
-		// uint8_t *start; // where in the cache are we
+	struct Cache {
 		const uint8_t* start = {}; // where in the cache are we
 
 		Bitu size        = 0;
 		CacheBlock* next = {};
 		// writemap masking maskpointer/start/length to allow holes in
 		// the writemap
-		std::unique_ptr<uint8_t[]> wmapmask = {};
+		uint8_t* wmapmask = {};
 		uint16_t maskstart = 0;
 		uint16_t masklen   = 0;
+
+		// Manage the write mask
+		void DeleteWriteMask();
+		inline void AddByteToWriteMaskAt(const size_t page_index);
+		inline void AddWordToWriteMaskAt(const size_t page_index);
+		inline void AddDwordToWriteMaskAt(const size_t page_index);
+
+	private:
+		inline void GrowWriteMask(const uint16_t new_mask_len);
+		size_t GrowMaskForTypeAt(const uint8_t type_size,
+		                         const size_t page_index);
 	} cache = {};
 
-	struct {
+	struct Hash {
 		Bitu index = 0;
 
 		CacheBlock* next = {};
 	} hash = {};
 
-	struct {
+	struct Link {
 		CacheBlock* to = {}; // this block can transfer control to the
 		                     // to-block
 		CacheBlock* next = {};
@@ -103,6 +117,12 @@ public:
 
 	CacheBlock* crossblock = {};
 };
+
+static_assert(std::is_standard_layout_v<CacheBlock::Page>, "standard-layout is required for offsetof");
+static_assert(std::is_standard_layout_v<CacheBlock::Cache>, "standard-layout is required for offsetof");
+static_assert(std::is_standard_layout_v<CacheBlock::Hash>, "standard-layout is required for offsetof");
+static_assert(std::is_standard_layout_v<CacheBlock::Link>, "standard-layout is required for offsetof");
+static_assert(std::is_standard_layout_v<CacheBlock>, "standard-layout is required for offsetof");
 
 static struct {
 	struct {
@@ -443,8 +463,7 @@ public:
 					}
 				}
 			}
-			block->cache.wmapmask = {};
-			block->cache.masklen  = 0;
+			block->cache.DeleteWriteMask();
 		} else {
 			for (Bitu i = block->page.start; i <= block->page.end; i++) {
 				if (write_map[i]) {
@@ -476,7 +495,7 @@ public:
 		Bitu count=active_blocks;
 		CacheBlock **map=hash_map;
 		for (CacheBlock * block=*map;count;count--) {
-			while (block==NULL)
+			while (block==nullptr)
 				block=*++map;
 			CacheBlock * nextblock=block->hash.next;
 			block->page.handler=nullptr;			// no need, full clear
@@ -495,7 +514,7 @@ public:
 				return block; // found
 			block=block->hash.next;
 		}
-		return 0; // none found
+		return nullptr; // none found
 	}
 
 	HostPt GetHostReadPt(Bitu phys_page) override
@@ -549,6 +568,83 @@ static CacheBlock *cache_getblock()
 	return ret;
 }
 
+CacheBlock::~CacheBlock() {
+	cache.DeleteWriteMask();
+}
+
+void CacheBlock::Cache::DeleteWriteMask()
+{
+	delete[] wmapmask;
+	wmapmask = {};
+	masklen  = 0;
+}
+
+inline void CacheBlock::Cache::GrowWriteMask(const uint16_t new_mask_len)
+{
+	// This function is only called to increase the mask
+	assert(new_mask_len > masklen);
+
+	// Allocate the new mask
+	auto new_mask = new uint8_t[new_mask_len];
+	memset(new_mask, 0, new_mask_len);
+
+	// Copy the current into the new
+	std::copy(wmapmask, wmapmask + masklen, new_mask);
+
+	// Update the current
+	delete[] wmapmask;
+	wmapmask = new_mask;
+
+	masklen = new_mask_len;
+}
+
+// Grow the mask to accomodate the given type size at the give page index.
+// Returns the offset into the write mask for incoming index.
+size_t CacheBlock::Cache::GrowMaskForTypeAt(const uint8_t type_size,
+                                            const size_t page_index)
+{
+	size_t map_offset = 0;
+
+	// Make the map mask if needed
+	if (GCC_UNLIKELY(!wmapmask)) {
+		constexpr uint8_t initial_mask_len = 64;
+		GrowWriteMask(initial_mask_len);
+		maskstart = check_cast<uint16_t>(page_index);
+	}
+	// Do we need a larger mask to accomodate the added type?
+	else {
+		map_offset = page_index - maskstart;
+		const size_t map_offset_end = map_offset + type_size;
+		if (GCC_UNLIKELY(map_offset_end >= masklen)) {
+			size_t new_mask_len = masklen * 4;
+			if (new_mask_len < map_offset_end) {
+				new_mask_len = ((map_offset_end) & ~3) * 2;
+			}
+			GrowWriteMask(check_cast<uint16_t>(new_mask_len));
+		}
+	}
+	assert(map_offset + type_size < masklen);
+	return map_offset;
+}
+
+inline void CacheBlock::Cache::AddByteToWriteMaskAt(const size_t page_index)
+{
+	const auto map_offset = GrowMaskForTypeAt(sizeof(uint8_t), page_index);
+	wmapmask[map_offset] += 0x01;
+}
+
+inline void CacheBlock::Cache::AddWordToWriteMaskAt(const size_t page_index)
+{
+	const auto map_offset = GrowMaskForTypeAt(sizeof(uint16_t), page_index);
+	add_to_unaligned_uint16(wmapmask + map_offset, 0x0101);
+}
+
+inline void CacheBlock::Cache::AddDwordToWriteMaskAt(const size_t page_index)
+{
+	const auto map_offset = GrowMaskForTypeAt(sizeof(uint32_t), page_index);
+	add_to_unaligned_uint32(wmapmask + map_offset, 0x01010101);
+}
+
 void CacheBlock::Clear()
 {
 	Bitu ind;
@@ -592,10 +688,7 @@ void CacheBlock::Clear()
 		page.handler->DelCacheBlock(this);
 		page.handler=nullptr;
 	}
-	if (cache.wmapmask) {
-		cache.wmapmask = {};
-		cache.masklen  = 0;
-	}
+	cache.DeleteWriteMask();
 }
 
 static CacheBlock *cache_openblock()
@@ -672,7 +765,7 @@ static void cache_closeblock()
 	                            (block->cache.next->cache.start > limit));
 #endif
 	if (cache_is_full) {
-		// DEBUG_LOG_MSG("Cache full; restarting");
+		// LOG_DEBUG("Cache full; restarting");
 		cache.block.active=cache.block.first;
 	} else {
 		cache.block.active=block->cache.next;
@@ -744,6 +837,7 @@ static inline void cache_addq(uint64_t val)
 #if (C_DYNAMIC_X86)
 static void gen_return(BlockReturn retcode);
 #elif (C_DYNREC)
+BlockReturn generate_run_code(const uint8_t* code);
 static void dyn_return(BlockReturn retcode, bool ret_exception);
 static void dyn_run_code();
 static void cache_block_before_close();
@@ -755,12 +849,31 @@ constexpr bool is_64bit_platform = sizeof(void *) == 8;
 
 static inline void dyn_mem_adjust(void *&ptr, size_t &size)
 {
+#if (PAGESIZE == 65536)
+	// Use different code on 64K page systems (currently just ppc64le).
+	// The other code will sometimes underrun our pointer into unmapped
+	// memory and mprotect() will then fail.
+	const uintptr_t p = reinterpret_cast<uintptr_t>(ptr);
+	const auto align_adjust = p % host_pagesize;
+	const auto p_aligned = p - align_adjust;
+	assert((p_aligned % host_pagesize) == 0);
+
+	const auto new_size = size + align_adjust;
+	const auto new_size_adjust = new_size % host_pagesize;
+	if (new_size <= host_pagesize) {
+		size = host_pagesize;
+	} else if (new_size_adjust) {
+		size = (new_size - new_size_adjust) + host_pagesize;
+		assert((size % host_pagesize) == 0);
+	}
+#else
 	// Align to page boundary and adjust size. The -1/+1 voodoo
 	// is required to avoid segfaults on 32-bit builds.
 	const auto p = reinterpret_cast<uintptr_t>(ptr) - 1;
 	const auto align_adjust = p % host_pagesize;
 	const auto p_aligned = p - align_adjust;
 	size += align_adjust + 1;
+#endif
 	ptr = reinterpret_cast<void *>(p_aligned);
 }
 
@@ -796,34 +909,46 @@ static inline void dyn_mem_set_access([[maybe_unused]] void *ptr,
 
 static inline void dyn_mem_execute(void *ptr, size_t size)
 {
+#if defined(C_PER_PAGE_W_OR_X)
 	dyn_mem_set_access(ptr, size, true);
+#else
+	// Skip per-page execute-flagging
+#endif
 }
 
 static inline void dyn_mem_write(void *ptr, size_t size)
 {
+#if defined(C_PER_PAGE_W_OR_X)
 	dyn_mem_set_access(ptr, size, false);
+#else
+	// Skip per-page write-flagging
+#endif
 }
 
 static inline void dyn_cache_invalidate([[maybe_unused]] void *ptr,
                                         [[maybe_unused]] size_t size)
 {
-#if defined(HAVE_BUILTIN_CLEAR_CACHE)
-	const auto start = static_cast<char *>(ptr);
+#if defined(C_PER_PAGE_W_OR_X)
+#	if defined(HAVE_BUILTIN_CLEAR_CACHE)
+	const auto start     = static_cast<char*>(ptr);
 	const auto start_val = reinterpret_cast<uintptr_t>(start);
 	const auto end_val = start_val + size;
 	const auto end = reinterpret_cast<char *>(end_val);
 	__builtin___clear_cache(start, end);
 #elif defined(HAVE_SYS_ICACHE_INVALIDATE)
 #if defined(HAVE_BUILTIN_AVAILABLE)
-	if (__builtin_available(macOS 11.0, *))
+	        if (__builtin_available(macOS 11.0, *))
 #endif
 		sys_icache_invalidate(ptr, size);
 #elif defined(WIN32)
-	if (CPU_UseRwxMemProtect)
+	        if (CPU_UseRwxMemProtect)
 		return;
 	FlushInstructionCache(GetCurrentProcess(), ptr, size);
 #else
 #error "Don't know how to clear the cache on this platform: please report this"
+#endif
+#else
+	// Skip per-page invalidation
 #endif
 }
 
@@ -866,18 +991,18 @@ static void cache_init(bool enable) {
 #endif
 			cache_code_start_ptr=static_cast<uint8_t *>(mmap(nullptr, cache_code_size, prot_flags, map_flags, -1, 0));
 			if (cache_code_start_ptr == MAP_FAILED) {
-				E_Exit("Allocating dynamic core cache memory failed with errno %d", errno);
+				E_Exit("DYNCACHE: Failed memory-mapping cache memory because: %s", strerror(errno));
 			}
 #else
 			cache_code_start_ptr=static_cast<uint8_t *>(malloc(cache_code_size));
 			if (!cache_code_start_ptr) {
-				E_Exit("Allocating dynamic core cache memory failed");
+				E_Exit("DYNCACHE: Failed allocating cache memory because: %s", strerror(errno));
 			}
 #endif
 			// align the cache at a page boundary
 			cache_code = reinterpret_cast<uint8_t *>(
 			    (reinterpret_cast<uintptr_t>(cache_code_start_ptr) +
-			    host_pagesize - 1) & ~(host_pagesize - 1));
+			    static_cast<size_t>(host_pagesize) - 1) & ~(static_cast<size_t>(host_pagesize) - 1));
 
 			cache_code_link_blocks=cache_code;
 			cache_code=cache_code+host_pagesize;
@@ -888,27 +1013,46 @@ static void cache_init(bool enable) {
 			block->cache.size=CACHE_TOTAL;
 			block->cache.next = nullptr; // last block in the list
 		}
-		// setup the default blocks for block linkage returns
-		cache.pos=&cache_code_link_blocks[0];
-		link_blocks[0].cache.start=cache.pos;
 
 		auto cache_addr = static_cast<void *>(cache_code);
 		constexpr size_t cache_bytes = CACHE_MAXSIZE;
 
 		dyn_mem_write(cache_addr, cache_bytes);
-		// link code that returns with a special return code
-		dyn_return(BR_Link1,false);
-		cache.pos=&cache_code_link_blocks[32];
-		link_blocks[1].cache.start=cache.pos;
-		// link code that returns with a special return code
-		dyn_return(BR_Link2,false);
 
-#if (C_DYNREC)
-		cache.pos=&cache_code_link_blocks[64];
-		core_dynrec.runcode=(BlockReturn (*)(const uint8_t*))cache.pos;
-//		link_blocks[1].cache.start=cache.pos;
-		dyn_run_code();
+		auto close_link_block_num_at_code_pos = [&](const uint8_t block_num,
+		                                            const uint16_t code_pos) {
+			// setup the default blocks for block linkage returns
+			cache.pos = &cache_code_link_blocks[code_pos];
+			link_blocks[block_num].cache.start = cache.pos;
+			// link code that returns with a special return code
+			// must be less than 32 bytes
+			dyn_return(block_num == 0 ? BR_Link1 : BR_Link2, false);
+#if C_DYNREC
+			cache_block_before_close();
+			cache_block_closing(link_blocks[block_num].cache.start,
+			                    cache.pos -
+			                            link_blocks[block_num].cache.start);
 #endif
+		};
+
+#if C_DYNAMIC_X86
+		close_link_block_num_at_code_pos(0, 0);
+		close_link_block_num_at_code_pos(1, 32);
+
+#elif C_DYNREC
+		cache.pos = &cache_code_link_blocks[0];
+		using generate_run_code_f = decltype(&generate_run_code);
+		core_dynrec.runcode = (generate_run_code_f)cache.pos;
+		dyn_run_code(); // writes up to host_pagesize - 64 bytes
+
+		cache_block_before_close();
+		cache_block_closing(cache_code_link_blocks,
+		                    cache.pos - cache_code_link_blocks);
+
+		close_link_block_num_at_code_pos(0, host_pagesize - 64);
+		close_link_block_num_at_code_pos(1, host_pagesize - 32);
+#endif
+
 		dyn_mem_execute(cache_addr, cache_bytes);
 		dyn_cache_invalidate(cache_addr, cache_bytes);
 
@@ -917,8 +1061,11 @@ static void cache_init(bool enable) {
 		cache.used_pages=nullptr;
 		// setup the code pages
 		for (int i=0;i<CACHE_PAGES;i++) {
-			CodePageHandler *newpage = new CodePageHandler();
-			newpage->next=cache.free_pages;
+			auto newpage = new (std::nothrow) CodePageHandler();
+			if (GCC_UNLIKELY(!newpage)) {
+				E_Exit("DYN_CACHE: Failed to allocate code-page handler");
+			}
+			newpage->next = cache.free_pages;
 			cache.free_pages=newpage;
 		}
 	}

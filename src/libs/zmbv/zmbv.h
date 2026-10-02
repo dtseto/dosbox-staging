@@ -22,7 +22,21 @@
 #include <cstdint>
 #include <vector>
 
+#include "config.h"
+
+#if defined(C_SYSTEM_ZLIB_NG)
+#include <zlib-ng.h>
+#define deflateInit2 zng_deflateInit2
+#define deflateReset zng_deflateReset
+#define deflate zng_deflate
+#define deflateEnd zng_deflateEnd
+#define inflateInit zng_inflateInit
+#define inflateReset zng_inflateReset
+#define inflate zng_inflate
+#define z_stream zng_stream
+#else
 #include <zlib.h>
+#endif
 
 #define CODEC_4CC "ZMBV"
 
@@ -128,12 +142,14 @@ public:
 	ZMBV_FORMAT BPPFormat(int bpp);
 	int NeededSize(int _width, int _height, ZMBV_FORMAT _format);
 
-	void CompressLines(int lineCount, uint8_t *lineData[]);
-	bool PrepareCompressFrame(int flags, ZMBV_FORMAT _format, uint8_t *pal, uint8_t *writeBuf, uint32_t writeSize);
+	void CompressLines(const int lineCount, const uint8_t *lineData[]);
+	bool PrepareCompressFrame(int flags, ZMBV_FORMAT _format, const uint8_t *pal, uint8_t *writeBuf, uint32_t writeSize);
 	int FinishCompressFrame();
 	void FinishVideo();
 	bool DecompressFrame(uint8_t *framedata, int size);
 	void Output_UpsideDown_24(uint8_t *output);
 };
+
+uint8_t ZMBV_ToBytesPerPixel(const ZMBV_FORMAT format);
 
 #endif

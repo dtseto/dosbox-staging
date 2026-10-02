@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2019-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -152,41 +153,41 @@ public:
 	uint16_t GetNumDrives() const { return numDrives; }
 	uint16_t GetFirstDrive() const { return dinfo[0].drive; }
 
-	uint8_t		GetSubUnit			(uint16_t _drive);
-	bool		GetUPC				(uint8_t subUnit, uint8_t& attr, char* upc);
+	uint8_t		GetSubUnit		(uint16_t _drive);
+	bool		GetUPC			(uint8_t subUnit, uint8_t& attr, char* upc);
 
 	void		InitNewMedia		(uint8_t subUnit);
 	bool		PlayAudioSector		(uint8_t subUnit, uint32_t start, uint32_t length);
 	bool		PlayAudioMSF		(uint8_t subUnit, uint32_t start, uint32_t length);
-	bool		StopAudio			(uint8_t subUnit);
+	bool		StopAudio		(uint8_t subUnit);
 	bool		GetAudioStatus		(uint8_t subUnit, bool& playing, bool& pause, TMSF& start, TMSF& end);
 
 	bool		GetSubChannelData	(uint8_t subUnit, uint8_t& attr, uint8_t& track, uint8_t &index, TMSF& rel, TMSF& abs);
 
-	int			RemoveDrive			(uint16_t _drive);
-	int			AddDrive			(uint16_t _drive, char* physicalPath, uint8_t& subUnit);
-	bool 		HasDrive			(uint16_t drive);
+	int		RemoveDrive		(uint16_t _drive);
+	int		AddDrive		(uint16_t _drive, const char* physicalPath, uint8_t& subUnit);
+	bool 		HasDrive		(uint16_t drive);
 	void		ReplaceDrive		(CDROM_Interface* newCdrom, uint8_t subUnit);
-	void		GetDrives			(PhysPt data);
+	void		GetDrives		(PhysPt data);
 	void		GetDriverInfo		(PhysPt data);
 	bool		GetVolumeName		(uint8_t subUnit, char* name);
-	bool		GetFileName			(uint16_t drive, uint16_t pos, PhysPt data);	
+	bool		GetFileName		(uint16_t drive, uint16_t pos, PhysPt data);	
 	bool		GetDirectoryEntry	(uint16_t drive, bool copyFlag, PhysPt pathname, PhysPt buffer, uint16_t& error);
-	bool		ReadVTOC			(uint16_t drive, uint16_t volume, PhysPt data, uint16_t& offset, uint16_t& error);
-	bool		ReadSectors			(uint16_t drive, uint32_t sector, uint16_t num, PhysPt data);
-	bool		ReadSectors			(uint8_t subUnit, bool raw, uint32_t sector, uint16_t num, PhysPt data);
+	bool		ReadVTOC		(uint16_t drive, uint16_t volume, PhysPt data, uint16_t& offset, uint16_t& error);
+	bool		ReadSectors		(uint16_t drive, uint32_t sector, uint16_t num, PhysPt data);
+	bool		ReadSectors		(uint8_t subUnit, bool raw, uint32_t sector, uint16_t num, PhysPt data);
 	bool		ReadSectorsMSF		(uint8_t subUnit, bool raw, uint32_t sector, uint16_t num, PhysPt data);
 	bool		SendDriverRequest	(uint16_t drive, PhysPt data);
 	bool		IsValidDrive		(uint16_t drive);
-	bool		GetCDInfo			(uint8_t subUnit, uint8_t& tr1, uint8_t& tr2, TMSF& leadOut);
-	uint32_t		GetVolumeSize		(uint8_t subUnit);
+	bool		GetCDInfo		(uint8_t subUnit, uint8_t& tr1, uint8_t& tr2, TMSF& leadOut);
+	uint32_t	GetVolumeSize		(uint8_t subUnit);
 	bool		GetTrackInfo		(uint8_t subUnit, uint8_t track, uint8_t& attr, TMSF& start);
-	uint16_t		GetStatusWord		(uint8_t subUnit,uint16_t status);
+	uint16_t	GetStatusWord		(uint8_t subUnit,uint16_t status);
 	bool		GetCurrentPos		(uint8_t subUnit, TMSF& pos);
-	uint32_t		GetDeviceStatus		(uint8_t subUnit);
+	uint32_t	GetDeviceStatus		(uint8_t subUnit);
 	bool		GetMediaStatus		(uint8_t subUnit, uint8_t& status);
 	bool		LoadUnloadMedia		(uint8_t subUnit, bool unload);
-	bool		ResumeAudio			(uint8_t subUnit);
+	bool		ResumeAudio		(uint8_t subUnit);
 	bool		GetMediaStatus		(uint8_t subUnit, bool& media, bool& changed, bool& trayOpen);
 
 private:
@@ -233,7 +234,7 @@ CMscdex::~CMscdex()
 {
 	for (size_t i = 0; i < GetNumDrives(); i++) {
 		delete cdrom[i];
-		cdrom[i] = 0;
+		cdrom[i] = nullptr;
 	}
 }
 
@@ -271,7 +272,7 @@ int CMscdex::RemoveDrive(uint16_t _drive)
 	if (idx==0) {
 		for (uint16_t i=0; i<GetNumDrives(); i++) {
 			if (i == MSCDEX_MAX_DRIVES-1) {
-				cdrom[i] = 0;
+				cdrom[i] = nullptr;
 				memset(&dinfo[i],0,sizeof(TDriveInfo));
 			} else {
 				dinfo[i] = dinfo[i+1];
@@ -279,25 +280,25 @@ int CMscdex::RemoveDrive(uint16_t _drive)
 			}
 		}
 	} else {
-		cdrom[idx] = 0;
+		cdrom[idx] = nullptr;
 		memset(&dinfo[idx],0,sizeof(TDriveInfo));
 	}
 	numDrives--;
 
 	if (GetNumDrives() == 0) {
-		DOS_DeviceHeader devHeader(PhysMake(rootDriverHeaderSeg,0));
+		DOS_DeviceHeader devHeader(PhysicalMake(rootDriverHeaderSeg,0));
 		uint16_t off = sizeof(DOS_DeviceHeader::sDeviceHeader);
 		devHeader.SetStrategy(off+4);		// point to the RETF (To deactivate MSCDEX)
 		devHeader.SetInterrupt(off+4);		// point to the RETF (To deactivate MSCDEX)
 		devHeader.SetDriveLetter(0);
 	} else if (idx==0) {
-		DOS_DeviceHeader devHeader(PhysMake(rootDriverHeaderSeg,0));
+		DOS_DeviceHeader devHeader(PhysicalMake(rootDriverHeaderSeg,0));
 		devHeader.SetDriveLetter(GetFirstDrive()+1);
 	}
 	return 1;
 }
 
-int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
+int CMscdex::AddDrive(uint16_t _drive, const char* physicalPath, uint8_t& subUnit)
 {
 	subUnit = 0;
 	if ((Bitu)GetNumDrives()+1>=MSCDEX_MAX_DRIVES) return 4;
@@ -343,7 +344,7 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 		// Create Device Header
 		static_assert((driverSize % 16) == 0, "should always be zero");
 		uint16_t seg = DOS_GetMemory(driverSize / 16);
-		DOS_DeviceHeader devHeader(PhysMake(seg,0));
+		DOS_DeviceHeader devHeader(PhysicalMake(seg,0));
 		devHeader.SetNextDeviceHeader	(0xFFFFFFFF);
 		devHeader.SetAttribute(0xc800);
 		devHeader.SetDriveLetter		(_drive+1);
@@ -351,15 +352,7 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 		devHeader.SetName				("MSCD001 ");
 
 		//Link it in the device chain
-		uint32_t start = dos_infoblock.GetDeviceChain();
-		uint16_t segm  = (uint16_t)(start>>16);
-		uint16_t offm  = (uint16_t)(start&0xFFFF);
-		while(start != 0xFFFFFFFF) {
-			segm  = (uint16_t)(start>>16);
-			offm  = (uint16_t)(start&0xFFFF);
-			start = real_readd(segm,offm);
-		}
-		real_writed(segm,offm,seg<<16);
+		DOS_AppendDevice(seg);
 
 		// Create Callback Strategy
 		uint16_t off = sizeof(DOS_DeviceHeader::sDeviceHeader);
@@ -384,7 +377,7 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 		rootDriverHeaderSeg = seg;
 	
 	} else if (GetNumDrives() == 0) {
-		DOS_DeviceHeader devHeader(PhysMake(rootDriverHeaderSeg,0));
+		DOS_DeviceHeader devHeader(PhysicalMake(rootDriverHeaderSeg,0));
 		uint16_t off = sizeof(DOS_DeviceHeader::sDeviceHeader);
 		devHeader.SetDriveLetter(_drive+1);
 		devHeader.SetStrategy(off);
@@ -392,7 +385,7 @@ int CMscdex::AddDrive(uint16_t _drive, char* physicalPath, uint8_t& subUnit)
 	}
 
 	// Set drive
-	DOS_DeviceHeader devHeader(PhysMake(rootDriverHeaderSeg,0));
+	DOS_DeviceHeader devHeader(PhysicalMake(rootDriverHeaderSeg,0));
 	devHeader.SetNumSubUnits(devHeader.GetNumSubUnits()+1);
 
 	if (dinfo[0].drive-1==_drive) {
@@ -429,7 +422,7 @@ bool CMscdex::HasDrive(uint16_t drive) {
 }
 
 void CMscdex::ReplaceDrive(CDROM_Interface* newCdrom, uint8_t subUnit) {
-	if (cdrom[subUnit] != NULL) {
+	if (cdrom[subUnit] != nullptr) {
 		StopAudio(subUnit);
 		delete cdrom[subUnit];
 	}
@@ -441,7 +434,7 @@ PhysPt CMscdex::GetDefaultBuffer(void) {
 		uint16_t size = (2352*2+15)/16;
 		defaultBufSeg = DOS_GetMemory(size);
 	};
-	return PhysMake(defaultBufSeg,2352);
+	return PhysicalMake(defaultBufSeg,2352);
 }
 
 PhysPt CMscdex::GetTempBuffer(void) {
@@ -449,7 +442,7 @@ PhysPt CMscdex::GetTempBuffer(void) {
 		uint16_t size = (2352*2+15)/16;
 		defaultBufSeg = DOS_GetMemory(size);
 	};
-	return PhysMake(defaultBufSeg,0);
+	return PhysicalMake(defaultBufSeg,0);
 }
 
 void CMscdex::GetDriverInfo	(PhysPt data) {
@@ -700,7 +693,7 @@ bool CMscdex::GetDirectoryEntry(uint16_t drive, bool copyFlag, PhysPt pathname, 
 	bool	foundComplete = false;
 	bool	foundName;
 	bool	nextPart = true;
-	char*	useName = 0;
+	char*	useName = nullptr;
 	Bitu	entryLength,nameLength;
 	// clear error
 	error = 0;
@@ -922,19 +915,19 @@ bool CMscdex::GetChannelControl(uint8_t subUnit, TCtrl& ctrl) {
 	return true;
 }
 
-static CMscdex* mscdex = 0;
+static CMscdex* mscdex = nullptr;
 static PhysPt curReqheaderPtr = 0;
 
 bool GetMSCDEXDrive(unsigned char drive_letter,CDROM_Interface **_cdrom) {
 	Bitu i;
 
-	if (mscdex == NULL) {
-		if (_cdrom) *_cdrom = NULL;
+	if (mscdex == nullptr) {
+		if (_cdrom) *_cdrom = nullptr;
 		return false;
 	}
 
 	for (i=0;i < MSCDEX_MAX_DRIVES;i++) {
-		if (mscdex->cdrom[i] == NULL) continue;
+		if (mscdex->cdrom[i] == nullptr) continue;
 		if (mscdex->dinfo[i].drive == drive_letter) {
 			if (_cdrom) *_cdrom = mscdex->cdrom[i];
 			return true;
@@ -1112,7 +1105,7 @@ static uint16_t MSCDEX_IOCTL_Optput(PhysPt buffer,uint8_t drive_unit) {
 
 static MountType MSCDEX_GetMountType(const char *path)
 {
-	assert(path != NULL);
+	assert(path != nullptr);
 	std::string path_string = path;
 	upcase(path_string);
 
@@ -1139,7 +1132,7 @@ static MountType MSCDEX_GetMountType(const char *path)
 }
 
 static Bitu MSCDEX_Strategy_Handler(void) {
-	curReqheaderPtr = PhysMake(SegValue(es),reg_bx);
+	curReqheaderPtr = PhysicalMake(SegValue(es),reg_bx);
 //	MSCDEX_LOG("MSCDEX: Device Strategy Routine called, request header at %x",curReqheaderPtr);
 	return CBRET_NONE;
 }
@@ -1157,7 +1150,7 @@ static Bitu MSCDEX_Interrupt_Handler(void) {
 	MSCDEX_LOG("MSCDEX: Driver Function %02X",funcNr);
 
 	if ((funcNr==0x03) || (funcNr==0x0c) || (funcNr==0x80) || (funcNr==0x82)) {
-		buffer = PhysMake(mem_readw(curReqheaderPtr+0x10),mem_readw(curReqheaderPtr+0x0E));
+		buffer = PhysicalMake(mem_readw(curReqheaderPtr+0x10),mem_readw(curReqheaderPtr+0x0E));
 	}
 
  	switch (funcNr) {
@@ -1230,7 +1223,7 @@ static bool MSCDEX_Handler(void) {
 	if (reg_ah!=0x15) return false;		// not handled here, continue chain
 	if (mscdex->rootDriverHeaderSeg==0) return false;	// not handled if MSCDEX not installed
 
-	PhysPt data = PhysMake(SegValue(es),reg_bx);
+	PhysPt data = PhysicalMake(SegValue(es),reg_bx);
 	MSCDEX_LOG("MSCDEX: INT 2F %04X BX= %04X CX=%04X",reg_ax,reg_bx,reg_cx);
 	CALLBACK_SCF(false); // carry flag cleared for all functions (undocumented); only set on error
 	switch (reg_ax) {
@@ -1310,7 +1303,7 @@ static bool MSCDEX_Handler(void) {
 						break;
 		case 0x150F: {	// Get directory entry
 						uint16_t error;
-						bool success = mscdex->GetDirectoryEntry(reg_cl,reg_ch&1,data,PhysMake(reg_si,reg_di),error);
+						bool success = mscdex->GetDirectoryEntry(reg_cl,reg_ch&1,data,PhysicalMake(reg_si,reg_di),error);
 						reg_ax = error;
 						if (!success) CALLBACK_SCF(true);
 					 }
@@ -1331,19 +1324,38 @@ static bool MSCDEX_Handler(void) {
 
 class device_MSCDEX final : public DOS_Device {
 public:
-	device_MSCDEX() { SetName("MSCD001"); }
-	bool Read (uint8_t * /*data*/,uint16_t * /*size*/) { return false;}
-	bool Write(uint8_t * /*data*/,uint16_t * /*size*/) { 
-		LOG(LOG_ALL,LOG_NORMAL)("Write to mscdex device");	
+	device_MSCDEX()
+	{
+		SetName("MSCD001");
+	}
+	bool Read(uint8_t* /*data*/, uint16_t* /*size*/) override
+	{
 		return false;
 	}
-	bool Seek(uint32_t * /*pos*/,uint32_t /*type*/){return false;}
-	bool Close(){return false;}
-	uint16_t GetInformation(void){return 0xc880;}
-	bool ReadFromControlChannel(PhysPt bufptr,uint16_t size,uint16_t * retcode);
-	bool WriteToControlChannel(PhysPt bufptr,uint16_t size,uint16_t * retcode);
+	bool Write(uint8_t* /*data*/, uint16_t* /*size*/) override
+	{
+		LOG(LOG_ALL, LOG_NORMAL)("Write to mscdex device");
+		return false;
+	}
+	bool Seek(uint32_t* /*pos*/, uint32_t /*type*/) override
+	{
+		return false;
+	}
+	bool Close() override
+	{
+		return false;
+	}
+	uint16_t GetInformation(void) override
+	{
+		return 0xc880;
+	}
+	bool ReadFromControlChannel(PhysPt bufptr, uint16_t size,
+	                            uint16_t* retcode) override;
+	bool WriteToControlChannel(PhysPt bufptr, uint16_t size,
+	                           uint16_t* retcode) override;
+
 private:
-//	uint8_t cache;
+	//	uint8_t cache;
 };
 
 bool device_MSCDEX::ReadFromControlChannel(PhysPt bufptr,uint16_t size,uint16_t * retcode) { 
@@ -1368,7 +1380,7 @@ bool device_MSCDEX::WriteToControlChannel(PhysPt bufptr,uint16_t size,uint16_t *
 int MSCDEX_AddDrive(char driveLetter, const char* physicalPath, uint8_t& subUnit)
 {
 	int result = mscdex->AddDrive(drive_index(driveLetter),
-	                              const_cast<char*>(physicalPath), subUnit);
+	                              physicalPath, subUnit);
 	return result;
 }
 
@@ -1430,19 +1442,25 @@ void MSCDEX_SetCDInterface(int int_nr, int num_cd) {
 
 void MSCDEX_ShutDown(Section* /*sec*/) {
 	delete mscdex;
-	mscdex = 0;
+	mscdex = nullptr;
 	curReqheaderPtr = 0;
 }
 
-void MSCDEX_Init(Section* sec) {
+void MSCDEX_Init(Section* sec)
+{
+	assert(sec);
+
 	// AddDestroy func
 	sec->AddDestroyFunction(&MSCDEX_ShutDown);
-	/* Register the mscdex device */
-	DOS_Device * newdev = new device_MSCDEX();
+
+	// Register the mscdex device
+	DOS_Device* newdev = new device_MSCDEX();
 	DOS_AddDevice(newdev);
 	curReqheaderPtr = 0;
-	/* Add Multiplexer */
+
+	// Add Multiplexer
 	DOS_AddMultiplexHandler(MSCDEX_Handler);
-	/* Create MSCDEX */
+
+	// Create MSCDEX
 	mscdex = new CMscdex;
 }

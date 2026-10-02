@@ -1,6 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -53,7 +54,7 @@ void MOUNT::Move_Z(char new_z)
 		ZDRIVE_NUM = new_idx;
 		/* remap drives */
 		Drives[new_idx] = Drives[25];
-		Drives[25] = 0;
+		Drives[25]      = nullptr;
 		if (!first_shell) return; //Should not be possible
 		/* Update environment */
 		std::string line = "";
@@ -71,12 +72,6 @@ void MOUNT::Move_Z(char new_z)
 		tempenv += "COMMAND.COM";
 		first_shell->SetEnv("COMSPEC",tempenv.c_str());
 
-		/* Update batch file if running from Z: (very likely: autoexec) */
-		if (first_shell->bf) {
-			std::string &name = first_shell->bf->filename;
-			if (starts_with("Z:", name))
-				name[0] = new_drive_z;
-		}
 		/* Change the active drive */
 		if (DOS_GetDefaultDrive() == 25)
 			DOS_SetDrive(new_idx);
@@ -121,10 +116,12 @@ void MOUNT::ListMounts()
 }
 
 void MOUNT::Run(void) {
-	DOS_Drive * newdrive;char drive;
-	std::string label;
-	std::string umount;
-	std::string newz;
+	std::unique_ptr<DOS_Drive> newdrive = {};
+	DOS_Drive* drive_pointer            = nullptr;
+	char drive                          = '\0';
+	std::string label                   = {};
+	std::string umount                  = {};
+	std::string newz                    = {};
 
 	//Hack To allow long commandlines
 	ChangeToLongCmd();
@@ -173,6 +170,10 @@ void MOUNT::Run(void) {
 			WriteOut("%2d. %s\n", i, SDL_CDName(i));
 		return;
 	}
+
+	const Section_prop* section = static_cast<Section_prop*>(
+	        control->GetSection("dosbox"));
+	assert(section);
 
 	std::string type="dir";
 	cmd->FindString("-t",type,true);
@@ -243,14 +244,14 @@ void MOUNT::Run(void) {
 		drive = int_to_char(i_drive);
 		if (type == "overlay") {
 			//Ensure that the base drive exists:
-			if (!Drives[drive_index(drive)]) {
+			if (!Drives.at(drive_index(drive))) {
 				WriteOut(MSG_Get("PROGRAM_MOUNT_OVERLAY_NO_BASE"));
 				return;
 			}
-		} else if (Drives[drive_index(drive)]) {
+		} else if (Drives.at(drive_index(drive))) {
 			WriteOut(MSG_Get("PROGRAM_MOUNT_ALREADY_MOUNTED"),
 			         drive,
-			         Drives[drive_index(drive)]->GetInfoString().c_str());
+			         Drives.at(drive_index(drive))->GetInfoString().c_str());
 			return;
 		}
 
@@ -260,11 +261,17 @@ void MOUNT::Run(void) {
 		if (!temp_line.size()) {
 			goto showusage;
 		}
-		if (path_relative_to_last_config && control->configfiles.size() && !Cross::IsPathAbsolute(temp_line)) {
-			std::string lastconfigdir(control->configfiles[control->configfiles.size() - 1]);
-			std::string::size_type pos = lastconfigdir.rfind(CROSS_FILESPLIT);
+
+		if (path_relative_to_last_config && control->configfiles.size() &&
+		    !std_fs::path(temp_line).is_absolute()) {
+			std::string lastconfigdir =
+			        control->configfiles[control->configfiles.size() - 1];
+
+			std::string::size_type pos = lastconfigdir.rfind(
+			        CROSS_FILESPLIT);
+
 			if (pos == std::string::npos) {
-				pos = 0; //No directory then erase string
+				pos = 0; // No directory then erase string
 			}
 			lastconfigdir.erase(pos);
 			if (lastconfigdir.length()) {
@@ -283,8 +290,7 @@ void MOUNT::Run(void) {
 		if (real_path.empty()) {
 			LOG_MSG("MOUNT: Path '%s' not found", temp_line.c_str());
 		} else {
-			std::string home_resolve = temp_line;
-			Cross::ResolveHomedir(home_resolve);
+			const auto home_resolve = resolve_home(temp_line).string();
 			if (home_resolve == real_path) {
 				LOG_MSG("MOUNT: Path '%s' found",
 						temp_line.c_str());
@@ -321,7 +327,15 @@ void MOUNT::Run(void) {
 			MSCDEX_SetCDInterface(CDROM_USE_SDL, num);
 
 			int error = 0;
-			newdrive  = new cdromDrive(drive,temp_line.c_str(),sizes[0],int8_tize,sizes[2],0,mediaid,error);
+			newdrive  = std::make_unique<cdromDrive>(
+			        drive,
+			        temp_line.c_str(),
+			        sizes[0],
+			        int8_tize,
+			        sizes[2],
+			        0,
+			        mediaid,
+			        error);
 			// Check Mscdex, if it worked out...
 			switch (error) {
 				case 0  :	WriteOut(MSG_Get("MSCDEX_SUCCESS"));				break;
@@ -332,8 +346,7 @@ void MOUNT::Run(void) {
 				case 5  :	WriteOut(MSG_Get("MSCDEX_LIMITED_SUPPORT"));		break;
 				default :	WriteOut(MSG_Get("MSCDEX_UNKNOWN_ERROR"));			break;
 			};
-			if (error && error!=5) {
-				delete newdrive;
+			if (error && error != 5) {
 				return;
 			}
 		} else {
@@ -346,23 +359,30 @@ void MOUNT::Run(void) {
 			if (temp_line == "/") WriteOut(MSG_Get("PROGRAM_MOUNT_WARNING_OTHER"));
 #endif
 			if (type == "overlay") {
-				localDrive *ldp = dynamic_cast<localDrive *>(
-						Drives[drive_index(drive)]);
-				cdromDrive *cdp = dynamic_cast<cdromDrive *>(
-						Drives[drive_index(drive)]);
+				const auto ldp = dynamic_cast<localDrive*>(Drives[drive_index(drive)]);
+				const auto cdp = dynamic_cast<cdromDrive*>(Drives[drive_index(drive)]);
 				if (!ldp || cdp) {
 					WriteOut(MSG_Get("PROGRAM_MOUNT_OVERLAY_INCOMPAT_BASE"));
 					return;
 				}
 				std::string base = ldp->GetBasedir();
 				uint8_t o_error = 0;
-				newdrive = new Overlay_Drive(base.c_str(),temp_line.c_str(),sizes[0],int8_tize,sizes[2],sizes[3],mediaid,o_error);
-				//Erase old drive on success
+				newdrive = std::make_unique<Overlay_Drive>(
+				        base.c_str(),
+				        temp_line.c_str(),
+				        sizes[0],
+				        int8_tize,
+				        sizes[2],
+				        sizes[3],
+				        mediaid,
+				        o_error);
+				// Erase old drive on success
 				if (o_error) {
 					if (o_error == 1) WriteOut("No mixing of relative and absolute paths. Overlay failed.");
 					else if (o_error == 2) WriteOut("overlay directory can not be the same as underlying file system.");
-					else WriteOut("Something went wrong");
-					delete newdrive;
+					else {
+						WriteOut("Something went wrong");
+					}
 					return;
 				}
 				//Copy current directory if not marked as deleted.
@@ -370,40 +390,52 @@ void MOUNT::Run(void) {
 					safe_strcpy(newdrive->curdir,
 								ldp->curdir);
 				}
-
-				delete Drives[drive_index(drive)];
-				Drives[drive_index(drive)] = nullptr;
+				Drives.at(drive_index(drive)) = nullptr;
 			} else {
-				newdrive = new localDrive(temp_line.c_str(),sizes[0],int8_tize,sizes[2],sizes[3],mediaid);
+				newdrive = std::make_unique<localDrive>(
+				        temp_line.c_str(),
+				        sizes[0],
+				        int8_tize,
+				        sizes[2],
+				        sizes[3],
+				        mediaid,
+				        section->Get_bool(
+				                "allow_write_protected_files"));
 			}
 		}
 	} else {
 		WriteOut(MSG_Get("PROGRAM_MOUNT_ILL_TYPE"),type.c_str());
 		return;
 	}
-	Drives[drive_index(drive)] = newdrive;
+
+	drive_pointer = DriveManager::RegisterFilesystemImage(drive_index(drive),
+	                                                      std::move(newdrive));
+	Drives.at(drive_index(drive)) = drive_pointer;
+
 	/* Set the correct media byte in the table */
-	mem_writeb(Real2Phys(dos.tables.mediaid) + (drive_index(drive)) * 9,
-				newdrive->GetMediaByte());
+	mem_writeb(RealToPhysical(dos.tables.mediaid) + (drive_index(drive)) * 9,
+	           drive_pointer->GetMediaByte());
 	if (type != "overlay")
 		WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"),
-		         drive,
-		         newdrive->GetInfoString().c_str());
+		         drive_pointer->GetInfoString().c_str(),
+		         drive);
 	else
 		WriteOut(MSG_Get("PROGRAM_MOUNT_OVERLAY_STATUS"),
 		         temp_line.c_str(),
 		         drive);
 	/* check if volume label is given and don't allow it to updated in the future */
-	if (cmd->FindString("-label",label,true)) newdrive->dirCache.SetLabel(label.c_str(),iscdrom,false);
+	if (cmd->FindString("-label", label, true)) {
+		drive_pointer->dirCache.SetLabel(label.c_str(), iscdrom, false);
+	}
 	/* For hard drives set the label to DRIVELETTER_Drive.
-		* For floppy drives set the label to DRIVELETTER_Floppy.
-		* This way every drive except cdroms should get a label.*/
+	 * For floppy drives set the label to DRIVELETTER_Floppy.
+	 * This way every drive except cdroms should get a label.*/
 	else if (type == "dir" || type == "overlay") {
 		label = drive; label += "_DRIVE";
-		newdrive->dirCache.SetLabel(label.c_str(),iscdrom,false);
+		drive_pointer->dirCache.SetLabel(label.c_str(), iscdrom, false);
 	} else if (type == "floppy") {
 		label = drive; label += "_FLOPPY";
-		newdrive->dirCache.SetLabel(label.c_str(),iscdrom,true);
+		drive_pointer->dirCache.SetLabel(label.c_str(), iscdrom, true);
 	}
 	// BOXER-HOOK: mount-drive-mounted - Boxer refreshes gamebox/UI drive state
 	// after MOUNT changes DOSBox drive mappings.
@@ -420,58 +452,65 @@ showusage:
 void MOUNT::AddMessages() {
 	AddCommonMountMessages();
 	MSG_Add("PROGRAM_MOUNT_HELP",
-	        "Maps physical folders or drives to a virtual drive letter.\n");
+	        "Map physical folders or drives to a virtual drive letter.\n");
 
 	MSG_Add("PROGRAM_MOUNT_HELP_LONG",
 	        "Mount a directory from the host OS to a drive letter.\n"
 	        "\n"
 	        "Usage:\n"
-	        "  [color=green]mount[reset] [color=white]DRIVE[reset] [color=cyan]DIRECTORY[reset] [-t TYPE] [-usecd #] [-freesize SIZE] [-label LABEL]\n"
-	        "  [color=green]mount[reset] -listcd / -cd (lists all detected CD-ROM drives and their numbers)\n"
-	        "  [color=green]mount[reset] -u [color=white]DRIVE[reset]  (unmounts the DRIVE's directory)\n"
+	        "  [color=light-green]mount[reset] [color=white]DRIVE[reset] [color=light-cyan]DIRECTORY[reset] [-t TYPE] [-usecd #] [-freesize SIZE] [-label LABEL]\n"
+	        "  [color=light-green]mount[reset] -listcd / -cd (lists all detected CD-ROM drives and their numbers)\n"
+	        "  [color=light-green]mount[reset] -u [color=white]DRIVE[reset]  (unmounts the DRIVE's directory)\n"
 	        "\n"
-	        "Where:\n"
-	        "  [color=white]DRIVE[reset]     the drive letter where the directory will be mounted: A, C, D, ...\n"
-	        "  [color=cyan]DIRECTORY[reset] is the directory on the host OS to be mounted\n"
-	        "  TYPE      type of the directory to mount: dir, floppy, cdrom, or overlay\n"
-	        "  SIZE      free space for the virtual drive (KiB for floppies, MiB otherwise)\n"
-	        "  LABEL     drive label name to be used\n"
+	        "Parameters:\n"
+	        "  [color=white]DRIVE[reset]      drive letter where the directory will be mounted: A, C, D, ...\n"
+	        "  [color=light-cyan]DIRECTORY[reset]  directory on the host OS to mount\n"
+	        "  TYPE       type of the directory to mount: dir, floppy, cdrom, or overlay\n"
+	        "  SIZE       free space for the virtual drive (KB for floppies, MB otherwise)\n"
+	        "  LABEL      drive label name to use\n"
 	        "\n"
 	        "Notes:\n"
 	        "  - '-t overlay' redirects writes for mounted drive to another directory.\n"
+	        "  - '-usecd ID' gives direct access to a CD-ROM drive.\n"
+	        "    This is needed for CD audio (only supported on Windows and Linux).\n"
+	        "    Run 'mount -cd' to find out the list of valid IDs.\n"
 	        "  - Additional options are described in the manual (README file, chapter 4).\n"
 	        "\n"
 	        "Examples:\n"
 #if defined(WIN32)
-	        "  [color=green]mount[reset] [color=white]C[reset] [color=cyan]C:\\dosgames[reset]\n"
-	        "  [color=green]mount[reset] [color=white]D[reset] [color=cyan]D:\\[reset] -t cdrom\n"
-	        "  [color=green]mount[reset] [color=white]C[reset] [color=cyan]my_savegame_files[reset] -t overlay\n"
+	        "  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]C:\\dosgames[reset]\n"
+	        "  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]D:\\[reset] -t cdrom -usecd 0\n"
+	        "  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]my_savegame_files[reset] -t overlay\n"
 #elif defined(MACOSX)
-	        "  [color=green]mount[reset] [color=white]C[reset] [color=cyan]~/dosgames[reset]\n"
-	        "  [color=green]mount[reset] [color=white]D[reset] [color=cyan]\"/Volumes/Game CD\"[reset] -t cdrom\n"
-	        "  [color=green]mount[reset] [color=white]C[reset] [color=cyan]my_savegame_files[reset] -t overlay\n"
+	        "  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]~/dosgames[reset]\n"
+	        "  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]\"/Volumes/Game CD\"[reset] -t cdrom -usecd 0\n"
+	        "  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]my_savegame_files[reset] -t overlay\n"
 #else
-	        "  [color=green]mount[reset] [color=white]C[reset] [color=cyan]~/dosgames[reset]\n"
-	        "  [color=green]mount[reset] [color=white]D[reset] [color=cyan]\"/media/USERNAME/Game CD\"[reset] -t cdrom\n"
-	        "  [color=green]mount[reset] [color=white]C[reset] [color=cyan]my_savegame_files[reset] -t overlay\n"
+	        "  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]~/dosgames[reset]\n"
+	        "  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]\"/media/USERNAME/Game CD\"[reset] -t cdrom -usecd 0\n"
+	        "  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]my_savegame_files[reset] -t overlay\n"
 #endif
 	);
 
-	MSG_Add("PROGRAM_MOUNT_CDROMS_FOUND","CDROMs found: %d\n");
+	MSG_Add("PROGRAM_MOUNT_CDROMS_FOUND","CD-ROMs found: %d\n");
 	MSG_Add("PROGRAM_MOUNT_ERROR_1","Directory %s doesn't exist.\n");
-	MSG_Add("PROGRAM_MOUNT_ERROR_2","%s isn't a directory\n");
+	MSG_Add("PROGRAM_MOUNT_ERROR_2","%s isn't a directory.\n");
 	MSG_Add("PROGRAM_MOUNT_ILL_TYPE","Illegal type %s\n");
 	MSG_Add("PROGRAM_MOUNT_ALREADY_MOUNTED","Drive %c already mounted with %s\n");
 	MSG_Add("PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED","Drive %c isn't mounted.\n");
 	MSG_Add("PROGRAM_MOUNT_UMOUNT_SUCCESS","Drive %c has successfully been removed.\n");
 	MSG_Add("PROGRAM_MOUNT_UMOUNT_NO_VIRTUAL","Virtual Drives can not be unMOUNTed.\n");
 	MSG_Add("PROGRAM_MOUNT_DRIVEID_ERROR", "'%c' is not a valid drive identifier.\n");
-	MSG_Add("PROGRAM_MOUNT_WARNING_WIN","[color=red]Mounting c:\\ is NOT recommended. Please mount a (sub)directory next time.[reset]\n");
-	MSG_Add("PROGRAM_MOUNT_WARNING_OTHER","[color=red]Mounting / is NOT recommended. Please mount a (sub)directory next time.[reset]\n");
+	MSG_Add("PROGRAM_MOUNT_WARNING_WIN","[color=light-red]Mounting c:\\ is NOT recommended. Please mount a (sub)directory next time.[reset]\n");
+	MSG_Add("PROGRAM_MOUNT_WARNING_OTHER","[color=light-red]Mounting / is NOT recommended. Please mount a (sub)directory next time.[reset]\n");
 	MSG_Add("PROGRAM_MOUNT_NO_OPTION", "Warning: Ignoring unsupported option '%s'.\n");
-	MSG_Add("PROGRAM_MOUNT_OVERLAY_NO_BASE","A normal directory needs to be MOUNTed first before an overlay can be added on top.\n");
+	MSG_Add("PROGRAM_MOUNT_OVERLAY_NO_BASE",
+	        "A normal directory needs to be MOUNTed first before an overlay can be added on\n"
+	        "top.\n");
 	MSG_Add("PROGRAM_MOUNT_OVERLAY_INCOMPAT_BASE","The overlay is NOT compatible with the drive that is specified.\n");
-	MSG_Add("PROGRAM_MOUNT_OVERLAY_MIXED_BASE","The overlay needs to be specified using the same addressing as the underlying drive. No mixing of relative and absolute paths.");
+	MSG_Add("PROGRAM_MOUNT_OVERLAY_MIXED_BASE",
+	        "The overlay needs to be specified using the same addressing as the underlying\n"
+	        "drive. No mixing of relative and absolute paths.\n");
 	MSG_Add("PROGRAM_MOUNT_OVERLAY_SAME_AS_BASE","The overlay directory can not be the same as underlying drive.\n");
 	MSG_Add("PROGRAM_MOUNT_OVERLAY_GENERIC_ERROR","Something went wrong.\n");
 	MSG_Add("PROGRAM_MOUNT_OVERLAY_STATUS","Overlay %s on drive %c mounted.\n");

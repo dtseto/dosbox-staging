@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -24,16 +25,24 @@
 #include <optional>
 #include <vector>
 
+#include "bitops.h"
 #include "inout.h"
 #include "math_utils.h"
+#include "pci_bus.h"
+#include "render.h"
+#include "rgb666.h"
+#include "rgb888.h"
 #include "setup.h"
 #include "string_utils.h"
-#include "video.h"
 #include "vga.h"
+#include "video.h"
 
 #define SEQ_REGS 0x05
 #define GFX_REGS 0x09
 #define ATT_REGS 0x15
+
+using namespace bit;
+using namespace bit::literals;
 
 // clang-format off
 std::vector<VideoModeBlock> ModeList_VGA = {
@@ -110,26 +119,26 @@ std::vector<VideoModeBlock> ModeList_VGA = {
  // Custom modes
         { 0x150,  M_LIN8,  320,  200,  40, 25, 8,  8, 1, 0xA0000, 0x10000, 100,  449,  80,  400, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
         { 0x151,  M_LIN8,  320,  240,  40, 30, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
-        { 0x152,  M_LIN8,  320,  400,  40, 50, 8,  8, 1, 0xA0000, 0x10000, 100,  449,  80,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x153,  M_LIN8,  320,  480,  40, 60, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480,                   VGA_PIXEL_DOUBLE},
+        { 0x152,  M_LIN8,  320,  400,  40, 50, 8,  8, 1, 0xA0000, 0x10000, 100,  449,  80,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x153,  M_LIN8,  320,  480,  40, 60, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480, VGA_PIXEL_DOUBLE                  },
 
         { 0x155, M_LIN15,  320,  240,  40, 30, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
         { 0x156, M_LIN16,  320,  240,  40, 30, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
         { 0x157, M_LIN24,  320,  240,  40, 30, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  40,  480, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
         { 0x158, M_LIN32,  320,  240,  40, 30, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  40,  480, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
-        { 0x159,  M_LIN4,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  40,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x15A,  M_LIN8,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  80,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x15B, M_LIN15,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  80,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x15C, M_LIN16,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  80,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x15D, M_LIN24,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  40,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x15E, M_LIN32,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  40,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x15F,  M_LIN4,  320,  480,  40, 30, 8, 16, 1, 0xA0000, 0x10000, 100,  525,  40,  480,                   VGA_PIXEL_DOUBLE},
+        { 0x159,  M_LIN4,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  40,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x15A,  M_LIN8,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  80,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x15B, M_LIN15,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  80,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x15C, M_LIN16,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  80,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x15D, M_LIN24,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  40,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x15E, M_LIN32,  320,  400,  40, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  40,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x15F,  M_LIN4,  320,  480,  40, 30, 8, 16, 1, 0xA0000, 0x10000, 100,  525,  40,  480, VGA_PIXEL_DOUBLE                  },
 
         { 0x160, M_LIN15,  320,  240,  40, 30, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
-        { 0x161, M_LIN15,  320,  400,  40, 50, 8,  8, 1, 0xA0000, 0x10000, 100,  449,  80,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x162, M_LIN15,  320,  480,  40, 60, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480,                   VGA_PIXEL_DOUBLE},
-        { 0x163, M_LIN24,  320,  480,  40, 30, 8, 16, 1, 0xA0000, 0x10000, 100,  525,  40,  480,                   VGA_PIXEL_DOUBLE},
-        { 0x164, M_LIN32,  320,  480,  40, 30, 8, 16, 1, 0xA0000, 0x10000, 100,  525,  40,  480,                   VGA_PIXEL_DOUBLE},
+        { 0x161, M_LIN15,  320,  400,  40, 50, 8,  8, 1, 0xA0000, 0x10000, 100,  449,  80,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x162, M_LIN15,  320,  480,  40, 60, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480, VGA_PIXEL_DOUBLE                  },
+        { 0x163, M_LIN24,  320,  480,  40, 30, 8, 16, 1, 0xA0000, 0x10000, 100,  525,  40,  480, VGA_PIXEL_DOUBLE                  },
+        { 0x164, M_LIN32,  320,  480,  40, 30, 8, 16, 1, 0xA0000, 0x10000, 100,  525,  40,  480, VGA_PIXEL_DOUBLE                  },
         { 0x165, M_LIN15,  640,  400,  80, 25, 8, 16, 1, 0xA0000, 0x10000, 200,  449, 160,  400,                                  0},
         { 0x166,  M_LIN8,  400,  300,  50, 37, 8,  8, 1, 0xA0000, 0x10000, 132,  628, 100,  600, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
         { 0x167, M_LIN15,  400,  300,  50, 37, 8,  8, 1, 0xA0000, 0x10000, 132,  628, 100,  600, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
@@ -143,8 +152,8 @@ std::vector<VideoModeBlock> ModeList_VGA = {
         { 0x16F, M_LIN15,  640,  350,  80, 25, 8, 14, 1, 0xA0000, 0x10000, 100,  449, 160,  350,                                  0},
 
         { 0x170, M_LIN16,  320,  240,  40, 30, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
-        { 0x171, M_LIN16,  320,  400,  40, 50, 8,  8, 1, 0xA0000, 0x10000, 100,  449,  80,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x172, M_LIN16,  320,  480,  40, 60, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480,                   VGA_PIXEL_DOUBLE},
+        { 0x171, M_LIN16,  320,  400,  40, 50, 8,  8, 1, 0xA0000, 0x10000, 100,  449,  80,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x172, M_LIN16,  320,  480,  40, 60, 8,  8, 1, 0xA0000, 0x10000, 100,  525,  80,  480, VGA_PIXEL_DOUBLE                  },
         { 0x173,  M_LIN4,  640,  400,  80, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449,  80,  400,                                  0},
         { 0x174, M_LIN15,  640,  400,  80, 25, 8, 16, 1, 0xA0000, 0x10000, 100,  449, 160,  400,                                  0},
         { 0x175, M_LIN16,  640,  400,  80, 25, 8, 16, 1, 0xA0000, 0x10000, 200,  449, 160,  400,                                  0},
@@ -167,8 +176,8 @@ std::vector<VideoModeBlock> ModeList_VGA = {
         { 0x185, M_LIN32, 1600, 1200, 200, 75, 8, 16, 1, 0xA0000, 0x10000, 264, 1250, 200, 1200,                                  0},
 
         { 0x190, M_LIN32,  320,  240,  40, 30, 8,  8, 1, 0xA0000, 0x10000,  50,  525,  40,  480, VGA_PIXEL_DOUBLE | EGA_LINE_DOUBLE},
-        { 0x191, M_LIN32,  320,  400,  40, 50, 8,  8, 1, 0xA0000, 0x10000,  50,  449,  40,  400,                   VGA_PIXEL_DOUBLE},
-        { 0x192, M_LIN32,  320,  480,  40, 60, 8,  8, 1, 0xA0000, 0x10000,  50,  525,  40,  480,                   VGA_PIXEL_DOUBLE},
+        { 0x191, M_LIN32,  320,  400,  40, 50, 8,  8, 1, 0xA0000, 0x10000,  50,  449,  40,  400, VGA_PIXEL_DOUBLE                  },
+        { 0x192, M_LIN32,  320,  480,  40, 60, 8,  8, 1, 0xA0000, 0x10000,  50,  525,  40,  480, VGA_PIXEL_DOUBLE                  },
 
  // Remaining S3 specific modes
         { 0x207,  M_LIN8, 1152,  864, 144, 54, 8, 16, 1, 0xA0000, 0x10000, 182,  895, 144,  864,                                  0},
@@ -200,7 +209,7 @@ std::vector<VideoModeBlock> ModeList_VGA_Text_200lines = {
 };
 
 std::vector<VideoModeBlock> ModeList_VGA_Text_350lines = {
-  //     mode     type  sw   sh   tw th   cw ch  pt pstart   plength htot vtot hde vde    special flags
+  //     mode     type  sw   sh   tw th   cw ch  pt pstart   plength htot vtot hde vde  special flags
         {0x000, M_TEXT, 320, 350, 40, 25, 8, 14, 8, 0xB8000, 0x0800,  50, 449, 40, 350, EGA_HALF_CLOCK},
         {0x001, M_TEXT, 320, 350, 40, 25, 8, 14, 8, 0xB8000, 0x0800,  50, 449, 40, 350, EGA_HALF_CLOCK},
         {0x002, M_TEXT, 640, 350, 80, 25, 8, 14, 8, 0xB8000, 0x1000, 100, 449, 80, 350,              0},
@@ -298,11 +307,11 @@ std::vector<VideoModeBlock> ModeList_EGA = {
         { 0x003,  M_TEXT, 640, 350, 80, 25, 8, 14, 8, 0xB8000, 0x1000,  96, 366, 80, 350,                                0},
         { 0x004,  M_CGA4, 320, 200, 40, 25, 8,  8, 1, 0xB8000, 0x4000,  60, 262, 40, 200, EGA_HALF_CLOCK | EGA_LINE_DOUBLE},
         { 0x005,  M_CGA4, 320, 200, 40, 25, 8,  8, 1, 0xB8000, 0x4000,  60, 262, 40, 200, EGA_HALF_CLOCK | EGA_LINE_DOUBLE},
-        { 0x006,  M_CGA2, 640, 200, 80, 25, 8,  8, 1, 0xB8000, 0x4000, 117, 262, 80, 200,                   EGA_HALF_CLOCK},
+        { 0x006,  M_CGA2, 640, 200, 80, 25, 8,  8, 1, 0xB8000, 0x4000, 117, 262, 80, 200,                                0},
         { 0x007,  M_TEXT, 720, 350, 80, 25, 9, 14, 8, 0xB0000, 0x1000, 101, 370, 80, 350,                                0},
 
         { 0x00D,   M_EGA, 320, 200, 40, 25, 8,  8, 8, 0xA0000, 0x2000,  60, 262, 40, 200, EGA_HALF_CLOCK | EGA_LINE_DOUBLE},
-        { 0x00E,   M_EGA, 640, 200, 80, 25, 8,  8, 4, 0xA0000, 0x4000, 117, 262, 80, 200,                   EGA_HALF_CLOCK},
+        { 0x00E,   M_EGA, 640, 200, 80, 25, 8,  8, 4, 0xA0000, 0x4000, 117, 262, 80, 200,                                0},
         { 0x00F,   M_EGA, 640, 350, 80, 25, 8, 14, 2, 0xA0000, 0x8000, 101, 370, 80, 350,                                0}, // was EGA_2
         { 0x010,   M_EGA, 640, 350, 80, 25, 8, 14, 2, 0xA0000, 0x8000,  96, 366, 80, 350,                                0},
 
@@ -311,10 +320,10 @@ std::vector<VideoModeBlock> ModeList_EGA = {
 
 std::vector<VideoModeBlock> ModeList_OTHER = {
   //     mode       type    sw   sh   tw th  cw ch  pt pstart   plength htot vtot hde vde  special flags
-        { 0x000,    M_TEXT, 320, 400, 40, 25, 8, 8, 8, 0xB8000, 0x0800,  56,  31, 40,  25, 0},
-        { 0x001,    M_TEXT, 320, 400, 40, 25, 8, 8, 8, 0xB8000, 0x0800,  56,  31, 40,  25, 0},
-        { 0x002,    M_TEXT, 640, 400, 80, 25, 8, 8, 4, 0xB8000, 0x1000, 113,  31, 80,  25, 0},
-        { 0x003,    M_TEXT, 640, 400, 80, 25, 8, 8, 4, 0xB8000, 0x1000, 113,  31, 80,  25, 0},
+        { 0x000,    M_TEXT, 320, 200, 40, 25, 8, 8, 8, 0xB8000, 0x0800,  56,  31, 40,  25, 0},
+        { 0x001,    M_TEXT, 320, 200, 40, 25, 8, 8, 8, 0xB8000, 0x0800,  56,  31, 40,  25, 0},
+        { 0x002,    M_TEXT, 640, 200, 80, 25, 8, 8, 4, 0xB8000, 0x1000, 113,  31, 80,  25, 0},
+        { 0x003,    M_TEXT, 640, 200, 80, 25, 8, 8, 4, 0xB8000, 0x1000, 113,  31, 80,  25, 0},
         { 0x004,    M_CGA4, 320, 200, 40, 25, 8, 8, 1, 0xB8000, 0x4000,  56, 127, 40, 100, 0},
         { 0x005,    M_CGA4, 320, 200, 40, 25, 8, 8, 1, 0xB8000, 0x4000,  56, 127, 40, 100, 0},
         { 0x006,    M_CGA2, 640, 200, 80, 25, 8, 8, 1, 0xB8000, 0x4000,  56, 127, 40, 100, 0},
@@ -332,7 +341,7 @@ std::vector<VideoModeBlock> Hercules_Mode = {
 palette_t palette;
 
 // The canonical CGA palette as emulated by VGA cards.
-constexpr cga_colors_t cga_colors_default = { RGBEntry
+constexpr cga_colors_t cga_colors_default = { Rgb666
 		{0x00, 0x00, 0x00}, {0x00, 0x00, 0x2a}, {0x00, 0x2a, 0x00}, {0x00, 0x2a, 0x2a},
 		{0x2a, 0x00, 0x00}, {0x2a, 0x00, 0x2a}, {0x2a, 0x15, 0x00}, {0x2a, 0x2a, 0x2a},
 		{0x15, 0x15, 0x15}, {0x15, 0x15, 0x3f}, {0x15, 0x3f, 0x15}, {0x15, 0x3f, 0x3f},
@@ -341,7 +350,7 @@ constexpr cga_colors_t cga_colors_default = { RGBEntry
 
 // Emulation of the actual color output of an IBM 5153 monitor (maximum contrast).
 // https://int10h.org/blog/2022/06/ibm-5153-color-true-cga-palette/
-constexpr cga_colors_t cga_colors_ibm5153 = { RGBEntry
+constexpr cga_colors_t cga_colors_ibm5153 = { Rgb666
 		{0x00, 0x00, 0x00}, {0x00, 0x00, 0x29}, {0x00, 0x29, 0x00}, {0x00, 0x29, 0x29},
 		{0x29, 0x00, 0x00}, {0x29, 0x00, 0x29}, {0x29, 0x1a, 0x00}, {0x29, 0x29, 0x29},
 
@@ -351,35 +360,35 @@ constexpr cga_colors_t cga_colors_ibm5153 = { RGBEntry
 
 // Original LucasArts/SCUMM and Sierra/AGI Amiga palettes (from ScummVM)
 // https://github.com/scummvm/scummvm/blob/master/engines/agi/palette.h
-constexpr cga_colors_t cga_colors_scumm_amiga = { RGBEntry
+constexpr cga_colors_t cga_colors_scumm_amiga = { Rgb666
 		{0x00, 0x00, 0x00}, {0x00, 0x00, 0x2e}, {0x00, 0x2e, 0x00}, {0x00, 0x2e, 0x2e},
 		{0x2e, 0x00, 0x00}, {0x2e, 0x00, 0x2e}, {0x2e, 0x1d, 0x00}, {0x2e, 0x2e, 0x2e},
 		{0x1d, 0x1d, 0x1d}, {0x1d, 0x1d, 0x3f}, {0x00, 0x3f, 0x00}, {0x00, 0x3f, 0x3f},
 		{0x3f, 0x22, 0x22}, {0x3f, 0x00, 0x3f}, {0x3f, 0x3f, 0x00}, {0x3f, 0x3f, 0x3f}
 };
 
-constexpr cga_colors_t cga_colors_agi_amiga_v1 = { RGBEntry
+constexpr cga_colors_t cga_colors_agi_amiga_v1 = { Rgb666
 		{0x00, 0x00, 0x00}, {0x00, 0x00, 0x3f}, {0x00, 0x20, 0x00}, {0x00, 0x35, 0x2f},
 		{0x30, 0x00, 0x00}, {0x2f, 0x1f, 0x35}, {0x20, 0x15, 0x00}, {0x2f, 0x2f, 0x2f},
 		{0x1f, 0x1f, 0x1f}, {0x00, 0x2f, 0x3f}, {0x00, 0x3a, 0x00}, {0x00, 0x3f, 0x35},
 		{0x3f, 0x25, 0x20}, {0x3f, 0x1f, 0x00}, {0x3a, 0x3a, 0x00}, {0x3f, 0x3f, 0x3f},
 };
 
-constexpr cga_colors_t cga_colors_agi_amiga_v2 = { RGBEntry
+constexpr cga_colors_t cga_colors_agi_amiga_v2 = { Rgb666
 		{0x00, 0x00, 0x00}, {0x00, 0x00, 0x3f}, {0x00, 0x20, 0x00}, {0x00, 0x35, 0x2f},
 		{0x30, 0x00, 0x00}, {0x2f, 0x1f, 0x35}, {0x20, 0x15, 0x00}, {0x2f, 0x2f, 0x2f},
 		{0x1f, 0x1f, 0x1f}, {0x00, 0x2f, 0x3f}, {0x00, 0x3a, 0x00}, {0x00, 0x3f, 0x35},
 		{0x3f, 0x25, 0x20}, {0x35, 0x00, 0x3f}, {0x3a, 0x3a, 0x00}, {0x3f, 0x3f, 0x3f},
 };
 
-constexpr cga_colors_t cga_colors_agi_amiga_v3 = { RGBEntry
+constexpr cga_colors_t cga_colors_agi_amiga_v3 = { Rgb666
 		{0x00, 0x00, 0x00}, {0x00, 0x00, 0x2f}, {0x00, 0x2f, 0x00}, {0x00, 0x2f, 0x2f},
 		{0x2f, 0x00, 0x00}, {0x2f, 0x00, 0x2f}, {0x30, 0x1f, 0x00}, {0x2f, 0x2f, 0x2f},
 		{0x1f, 0x1f, 0x1f}, {0x00, 0x00, 0x3f}, {0x00, 0x3f, 0x00}, {0x00, 0x3f, 0x3f},
 		{0x3f, 0x00, 0x00}, {0x3f, 0x00, 0x3f}, {0x3f, 0x3f, 0x00}, {0x3f, 0x3f, 0x3f},
 };
 
-constexpr cga_colors_t cga_colors_agi_amigaish = { RGBEntry
+constexpr cga_colors_t cga_colors_agi_amigaish = { Rgb666
 		{0x00, 0x00, 0x00}, {0x00, 0x00, 0x3f}, {0x00, 0x2a, 0x00}, {0x00, 0x2a, 0x2a},
 		{0x33, 0x00, 0x00}, {0x2f, 0x1c, 0x37}, {0x23, 0x14, 0x00}, {0x2f, 0x2f, 0x2f},
 		{0x15, 0x15, 0x15}, {0x00, 0x2f, 0x3f}, {0x00, 0x33, 0x15}, {0x15, 0x3f, 0x3f},
@@ -390,7 +399,7 @@ constexpr cga_colors_t cga_colors_agi_amigaish = { RGBEntry
 // (brightness=50, contrast=50, saturation=50; custom dark cyan and bright
 // magenta as those colours are missing from the C64 palette)
 // https://www.colodore.com/
-constexpr cga_colors_t cga_colors_colodore_sat50 = { RGBEntry
+constexpr cga_colors_t cga_colors_colodore_sat50 = { Rgb666
 		{0x00, 0x00, 0x00}, {0x0b, 0x0b, 0x26}, {0x15, 0x2b, 0x13}, {0x0e, 0x22, 0x21},
 		{0x20, 0x0c, 0x0e}, {0x23, 0x0f, 0x26}, {0x23, 0x14, 0x0a}, {0x2c, 0x2c, 0x2c},
 		{0x12, 0x12, 0x12}, {0x1c, 0x1b, 0x3b}, {0x2a, 0x3f, 0x28}, {0x1d, 0x33, 0x32},
@@ -398,7 +407,7 @@ constexpr cga_colors_t cga_colors_colodore_sat50 = { RGBEntry
 };
 
 // A 20% more saturated version of the Colodore palette (saturation=60)
-constexpr cga_colors_t cga_colors_colodore_sat60 = { RGBEntry
+constexpr cga_colors_t cga_colors_colodore_sat60 = { Rgb666
 		{0x00, 0x00, 0x00}, {0x0b, 0x0a, 0x2c}, {0x13, 0x2d, 0x10}, {0x0c, 0x24, 0x22},
 		{0x23, 0x0b, 0x0d}, {0x26, 0x0d, 0x29}, {0x26, 0x13, 0x08}, {0x2c, 0x2c, 0x2c},
 		{0x12, 0x12, 0x12}, {0x1b, 0x1a, 0x3f}, {0x27, 0x3f, 0x24}, {0x1a, 0x35, 0x33},
@@ -406,7 +415,7 @@ constexpr cga_colors_t cga_colors_colodore_sat60 = { RGBEntry
 };
 
 // Emulation of the actual color output of an unknown Tandy monitor.
-constexpr cga_colors_t cga_colors_tandy_warm = { RGBEntry
+constexpr cga_colors_t cga_colors_tandy_warm = { Rgb666
 		{0x03, 0x03, 0x03}, {0x00, 0x03, 0x27}, {0x02, 0x1d, 0x05}, {0x0c, 0x23, 0x27},
 		{0x2a, 0x06, 0x00}, {0x2b, 0x0c, 0x27}, {0x2c, 0x18, 0x09}, {0x2a, 0x2a, 0x2a},
 		{0x14, 0x14, 0x14}, {0x16, 0x1a, 0x3c}, {0x11, 0x2f, 0x14}, {0x10, 0x37, 0x3e},
@@ -415,7 +424,7 @@ constexpr cga_colors_t cga_colors_tandy_warm = { RGBEntry
 
 // A modern take on the canonical CGA palette with dialed back contrast.
 // https://lospec.com/palette-list/aap-dga16
-constexpr cga_colors_t cga_colors_dga16 = { RGBEntry
+constexpr cga_colors_t cga_colors_dga16 = { Rgb666
 		{0x00, 0x00, 0x00}, {0x00, 0x06, 0x1d}, {0x04, 0x23, 0x00}, {0x05, 0x2e, 0x34},
 		{0x1c, 0x03, 0x02}, {0x1b, 0x07, 0x27}, {0x2c, 0x14, 0x05}, {0x2e, 0x2c, 0x2a},
 		{0x12, 0x12, 0x10}, {0x02, 0x18, 0x31}, {0x26, 0x33, 0x00}, {0x1c, 0x3d, 0x35},
@@ -424,7 +433,7 @@ constexpr cga_colors_t cga_colors_dga16 = { RGBEntry
 
 // clang-format on
 
-static void init_all_palettes(const cga_colors_t &cga_colors)
+static void init_all_palettes(const cga_colors_t& cga_colors)
 {
 	auto i = 0;
 
@@ -578,16 +587,33 @@ static void init_all_palettes(const cga_colors_t &cga_colors)
 	// clang-format on
 }
 
-std::vector<VideoModeBlock>::const_iterator CurMode = std::prev(ModeList_VGA.end());
+video_mode_block_iterator_t CurMode = std::prev(ModeList_VGA.end());
 
-static bool SetCurMode(const std::vector<VideoModeBlock> &modeblock, uint16_t mode)
+static void log_invalid_video_mode_error(const uint16_t mode) {
+	LOG_ERR("INT10H: Trying to set invalid video mode: %02Xh", mode);
+}
+
+static bool SetCurMode(const std::vector<VideoModeBlock>& modeblock, uint16_t mode)
 {
 	size_t i = 0;
 	while (modeblock[i].mode != 0xffff) {
-		if (modeblock[i].mode!=mode) i++;
-		else {
-			if (!int10.vesa_oldvbe || ModeList_VGA[i].mode < vesa_2_0_modes_start) {
+		if (modeblock[i].mode != mode) {
+			++i;
+		} else {
+			if (!int10.vesa_oldvbe ||
+			    ModeList_VGA[i].mode < vesa_2_0_modes_start) {
 				CurMode = modeblock.begin() + i;
+
+				// The flag will be reset by VGA_SetupDrawing()
+				// at the end of the mode change process.
+				vga.mode_change_in_progress = true;
+
+				// Clear flag when setting up a new mode. This
+				// will only be set to true when the first
+				// non-EGA DAC palette colour is set in an EGA
+				// mode on a VGA adapter.
+				vga.ega_mode_with_vga_colors = false;
+
 				return true;
 			}
 			return false;
@@ -620,13 +646,17 @@ void INT10_SetCurMode(void) {
 	uint16_t bios_mode=(uint16_t)real_readb(BIOSMEM_SEG,BIOSMEM_CURRENT_MODE);
 	if (GCC_UNLIKELY(CurMode->mode!=bios_mode)) {
 		bool mode_changed=false;
+
 		switch (machine) {
 		case MCH_CGA:
 			if (bios_mode<7) mode_changed=SetCurMode(ModeList_OTHER,bios_mode);
 			break;
-		case TANDY_ARCH_CASE:
+
+		case MCH_PCJR:
+		case MCH_TANDY:
 			if (bios_mode!=7 && bios_mode<=0xa) mode_changed=SetCurMode(ModeList_OTHER,bios_mode);
 			break;
+
 		case MCH_HERC:
 			if (bios_mode<7) mode_changed=SetCurMode(ModeList_OTHER,bios_mode);
 			else if (bios_mode == 7) {
@@ -634,10 +664,12 @@ void INT10_SetCurMode(void) {
 				CurMode = Hercules_Mode.begin();
 			}
 			break;
+
 		case MCH_EGA:
 			mode_changed=SetCurMode(ModeList_EGA,bios_mode);
 			break;
-		case VGA_ARCH_CASE:
+
+		case MCH_VGA:
 			switch (svgaCard) {
 			case SVGA_TsengET4K:
 			case SVGA_TsengET3K:
@@ -655,8 +687,24 @@ void INT10_SetCurMode(void) {
 			}
 			if (mode_changed && CurMode->type==M_TEXT) SetTextLines();
 			break;
+
+		default: assertm(false, "Invalid MachineType value");
 		}
-		if (mode_changed) LOG(LOG_INT10,LOG_WARN)("BIOS video mode changed to %X",bios_mode);
+
+		if (mode_changed) {
+		//	LOG_MSG("INT10H: BIOS video mode changed to %02Xh", bios_mode);
+		}
+	}
+}
+
+bool INT10_IsTextMode(const VideoModeBlock& mode_block)
+{
+	switch (mode_block.type) {
+	case M_TEXT:
+	case M_HERC_TEXT:
+	case M_TANDY_TEXT:
+	case M_CGA_TEXT_COMPOSITE: return true;
+	default: return false;
 	}
 }
 
@@ -684,7 +732,7 @@ static void FinishSetMode(bool clearmem) {
 		case M_HERC_TEXT:
 		case M_TANDY_TEXT:
 		case M_TEXT: {
-			// TODO Hercules had 32KiB compared to CGA/MDA 16KiB,
+			// TODO Hercules had 32KB compared to CGA/MDA 16 KB,
 			// but does it matter in here?
 			uint16_t seg = (CurMode->mode==7)?0xb000:0xb800;
 			for (uint16_t ct=0;ct<16*1024;ct++) real_writew(seg,ct*2,0x0720);
@@ -757,11 +805,12 @@ static bool INT10_SetVideoMode_OTHER(uint16_t mode, bool clearmem)
 		if (mode > 6)
 			return false;
 		[[fallthrough]];
-	case TANDY_ARCH_CASE:
+	case MCH_PCJR:
+	case MCH_TANDY:
 		if (mode>0xa) return false;
-		if (mode==7) mode=0; // PCJR defaults to 0 on illegal mode 7
+		if (mode==7) mode=0; // PCJR defaults to 0 on invalid mode 7
 		if (!SetCurMode(ModeList_OTHER,mode)) {
-			LOG(LOG_INT10,LOG_ERROR)("Trying to set illegal mode %X",mode);
+			log_invalid_video_mode_error(mode);
 			return false;
 		}
 		break;
@@ -769,8 +818,7 @@ static bool INT10_SetVideoMode_OTHER(uint16_t mode, bool clearmem)
 		// Allow standard color modes if equipment word is not set to mono (Victory Road)
 		if ((real_readw(BIOSMEM_SEG,BIOSMEM_INITIAL_MODE)&0x30)!=0x30 && mode<7) {
 			if (!SetCurMode(ModeList_OTHER, mode)) {
-				LOG(LOG_INT10, LOG_ERROR)
-				("Trying to set illegal mode %X", mode);
+				log_invalid_video_mode_error(mode);
 				return false;
 			}
 			FinishSetMode(clearmem);
@@ -785,8 +833,9 @@ static bool INT10_SetVideoMode_OTHER(uint16_t mode, bool clearmem)
 		// handled in function INT10_SetVideoMode.
 		assert(false);
 		break;
+
+	default: assertm(false, "Invalid MachineType value");
 	}
-	LOG(LOG_INT10,LOG_NORMAL)("Set Video Mode %X",mode);
 
 	//  Setup the VGA to the correct mode
 	//	VGA_SetMode(CurMode->type);
@@ -833,11 +882,9 @@ static bool INT10_SetVideoMode_OTHER(uint16_t mode, bool clearmem)
 	IO_WriteW(crtc_base,0x09 | (scanline-1) << 8);
 	// Setup the CGA palette using VGA DAC palette
 	for (size_t i = 0; i < palette.cga16.size(); ++i) {
-		auto ct = static_cast<uint8_t>(i);
-		VGA_DAC_SetEntry(ct,
-		                 palette.cga16[ct].red,
-		                 palette.cga16[ct].green,
-		                 palette.cga16[ct].blue);
+		const auto ct     = static_cast<uint8_t>(i);
+		const auto& entry = palette.cga16[ct];
+		VGA_DAC_SetEntry(ct, entry.red, entry.green, entry.blue);
 	}
 	//Setup the tandy palette
 	for (uint8_t ct=0;ct<16;ct++) VGA_DAC_CombineColor(ct,ct);
@@ -858,9 +905,7 @@ static bool INT10_SetVideoMode_OTHER(uint16_t mode, bool clearmem)
 	case MCH_HERC:
 		IO_WriteB(0x3b8,0x28);	// TEXT mode and blinking characters
 
-		Herc_Palette();
-		VGA_DAC_CombineColor(0,0);
-		VGA_DAC_CombineColor(1,7);
+		VGA_SetHerculesPalette();
 
 		real_writeb(BIOSMEM_SEG,BIOSMEM_CURRENT_MSR,0x29); // attribute controls blinking
 		break;
@@ -872,7 +917,10 @@ static bool INT10_SetVideoMode_OTHER(uint16_t mode, bool clearmem)
 		IO_WriteB(0x3d9,color_select);
 		real_writeb(BIOSMEM_SEG,BIOSMEM_CURRENT_MSR,mode_control);
 		real_writeb(BIOSMEM_SEG,BIOSMEM_CURRENT_PAL,color_select);
-		if (mono_cga) Mono_CGA_Palette();
+
+		if (mono_cga) {
+			VGA_SetMonochromeCgaPalette();
+		}
 		break;
 	case MCH_TANDY:
 		//  Init some registers
@@ -889,11 +937,13 @@ static bool INT10_SetVideoMode_OTHER(uint16_t mode, bool clearmem)
 		default:
 			IO_WriteB(0x3de,0x0);break;
 		}
-		// write palette
-		for(Bitu i = 0; i < 16; i++) {
-			IO_WriteB(0x3da,i+0x10);
-			IO_WriteB(0x3de,i);
+
+		// Write palette
+		for (uint8_t i = 0; i < NumCgaColors; ++i) {
+			IO_WriteB(0x3da, i + 0x10);
+			IO_WriteB(0x3de, i);
 		}
+
 		//Clear extended mapping
 		IO_WriteB(0x3da,0x5);
 		IO_WriteB(0x3de,0x0);
@@ -944,6 +994,8 @@ static bool INT10_SetVideoMode_OTHER(uint16_t mode, bool clearmem)
 		// handled in function INT10_SetVideoMode.
 		assert(false);
 		break;
+
+	default: assertm(false, "Invalid MachineType value");
 	}
 
 	RealPt vparams = RealGetVec(0x1d);
@@ -963,16 +1015,16 @@ static bool INT10_SetVideoMode_OTHER(uint16_t mode, bool clearmem)
 
 		// init CRTC registers
 		for (uint16_t i = 0; i < 16; i++)
-			IO_WriteW(crtc_base, i | (real_readb(RealSeg(vparams),
-				RealOff(vparams) + i + crtc_block_index*16) << 8));
+			IO_WriteW(crtc_base, i | (real_readb(RealSegment(vparams),
+				RealOffset(vparams) + i + crtc_block_index*16) << 8));
 	}
 	FinishSetMode(clearmem);
 	return true;
 }
 
-static void write_palette_dac_data(const std::vector<RGBEntry> &_palette)
+static void write_palette_dac_data(const std::vector<Rgb666>& colors)
 {
-	for (const auto &c : _palette) {
+	for (const auto& c : colors) {
 		IO_Write(VGAREG_DAC_DATA, c.red);
 		IO_Write(VGAREG_DAC_DATA, c.green);
 		IO_Write(VGAREG_DAC_DATA, c.blue);
@@ -983,17 +1035,25 @@ bool INT10_SetVideoMode(uint16_t mode)
 {
 	bool clearmem = true;
 	Bitu i;
-	if (mode>=0x100) {
-		if ((mode & 0x4000) && int10.vesa_nolfb) return false;
-		if (mode & 0x8000) clearmem=false;
-		mode&=0xfff;
+
+	const auto UseLinearFramebuffer    = is(mode, b14);
+	const auto DoNotClearDisplayMemory = is(mode, b15);
+
+	if (mode >= MinVesaBiosModeNumber) {
+		if (UseLinearFramebuffer && int10.vesa_nolfb) {
+			return false;
+		}
+		if (DoNotClearDisplayMemory) {
+			clearmem = false;
+		}
+		mode &= 0xfff;
 	}
-	if ((mode<0x100) && (mode & 0x80)) {
-		clearmem=false;
-		mode-=0x80;
+	if ((mode <= MinVesaBiosModeNumber) && (mode & 0x80)) {
+		clearmem = false;
+		mode -= 0x80;
 	}
 	int10.vesa_setmode=0xffff;
-	LOG(LOG_INT10,LOG_NORMAL)("Set Video Mode %X",mode);
+	// LOG_MSG("INT10H: Setting BIOS video mode %02Xh", mode);
 
 	if (!IS_EGAVGA_ARCH)
 		return INT10_SetVideoMode_OTHER(mode, clearmem);
@@ -1012,26 +1072,26 @@ bool INT10_SetVideoMode(uint16_t mode)
 		case SVGA_TsengET4K:
 		case SVGA_TsengET3K:
 			if (!SetCurMode(ModeList_VGA_Tseng,mode)){
-				LOG(LOG_INT10,LOG_ERROR)("VGA:Trying to set illegal mode %X",mode);
+				log_invalid_video_mode_error(mode);
 				return false;
 			}
 			break;
 		case SVGA_ParadisePVGA1A:
 			if (!SetCurMode(ModeList_VGA_Paradise,mode)){
-				LOG(LOG_INT10,LOG_ERROR)("VGA:Trying to set illegal mode %X",mode);
+				log_invalid_video_mode_error(mode);
 				return false;
 			}
 			break;
 		default:
 			if (!SetCurMode(ModeList_VGA, mode)) {
-				LOG(LOG_INT10,LOG_ERROR)("VGA:Trying to set illegal mode %X",mode);
+				log_invalid_video_mode_error(mode);
 				return false;
 			}
 		}
 		if (CurMode->type==M_TEXT) SetTextLines();
 	} else {
 		if (!SetCurMode(ModeList_EGA,mode)){
-			LOG(LOG_INT10,LOG_ERROR)("EGA:Trying to set illegal mode %X",mode);
+			log_invalid_video_mode_error(mode);
 			return false;
 		}
 	}
@@ -1114,16 +1174,16 @@ bool INT10_SetVideoMode(uint16_t mode)
 		seq_data[2]|=0xf;				//Enable all planes for writing
 		seq_data[4]|=0xc;				//Graphics - odd/even - Chained
 		break;
-	case M_CGA16:              // only in MCH_TANDY, MCH_PCJR
-	case M_CGA2_COMPOSITE:     // only in MCH_CGA
-	case M_CGA4_COMPOSITE:     // only in MCH_CGA
-	case M_CGA_TEXT_COMPOSITE: // only in MCH_CGA
-	case M_TANDY2:             // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-	case M_TANDY4:     // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-	case M_TANDY16:    // only in MCH_TANDY, MCH_PCJR
-	case M_TANDY_TEXT: // only in MCH_CGA, MCH_TANDY
-	case M_HERC_TEXT:  // only in MCH_HERC
-	case M_HERC_GFX:   // only in MCH_HERC
+	case M_CGA16:
+	case M_CGA2_COMPOSITE:
+	case M_CGA4_COMPOSITE:
+	case M_CGA_TEXT_COMPOSITE:
+	case M_TANDY2:
+	case M_TANDY4:
+	case M_TANDY16:
+	case M_TANDY_TEXT:
+	case M_HERC_TEXT:
+	case M_HERC_GFX:
 	case M_ERROR:
 		// This code should be unreachable, as this function deals only
 		// with MCH_EGA and MCH_VGA.
@@ -1377,16 +1437,16 @@ bool INT10_SetVideoMode(uint16_t mode)
 		if (CurMode->special & VGA_PIXEL_DOUBLE)
 			mode_control |= 0x08;
 		break;
-	case M_CGA16:              // only in MCH_TANDY, MCH_PCJR
-	case M_CGA2_COMPOSITE:     // only in MCH_CGA
-	case M_CGA4_COMPOSITE:     // only in MCH_CGA
-	case M_CGA_TEXT_COMPOSITE: // only in MCH_CGA
-	case M_TANDY2:             // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-	case M_TANDY4:     // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-	case M_TANDY16:    // only in MCH_TANDY, MCH_PCJR
-	case M_TANDY_TEXT: // only in MCH_CGA, MCH_TANDY
-	case M_HERC_TEXT:  // only in MCH_HERC
-	case M_HERC_GFX:   // only in MCH_HERC
+	case M_CGA16:
+	case M_CGA2_COMPOSITE:
+	case M_CGA4_COMPOSITE:
+	case M_CGA_TEXT_COMPOSITE:
+	case M_TANDY2:
+	case M_TANDY4:
+	case M_TANDY16:
+	case M_TANDY_TEXT:
+	case M_HERC_TEXT:
+	case M_HERC_GFX:
 	case M_ERROR:
 		// This code should be unreachable, as this function deals only
 		// with MCH_EGA and MCH_VGA.
@@ -1401,7 +1461,7 @@ bool INT10_SetVideoMode(uint16_t mode)
 
 	if (svgaCard == SVGA_S3Trio) {
 		//  Setup the correct clock
-		if (CurMode->mode>=0x100) {
+		if (CurMode->mode >= MinVesaBiosModeNumber) {
 			if (CurMode->vdispend>480)
 				misc_output|=0xc0;	//480-line sync
 			misc_output|=0x0c;		//Select clock 3
@@ -1490,16 +1550,16 @@ bool INT10_SetVideoMode(uint16_t mode)
 			gfx_data[0x6]|=0x0f;		//graphics mode at at 0xb800=0xbfff
 		}
 		break;
-	case M_CGA16:              // only in MCH_TANDY, MCH_PCJR
-	case M_CGA2_COMPOSITE:     // only in MCH_CGA
-	case M_CGA4_COMPOSITE:     // only in MCH_CGA
-	case M_CGA_TEXT_COMPOSITE: // only in MCH_CGA
-	case M_TANDY2:             // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-	case M_TANDY4:     // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-	case M_TANDY16:    // only in MCH_TANDY, MCH_PCJR
-	case M_TANDY_TEXT: // only in MCH_CGA, MCH_TANDY
-	case M_HERC_TEXT:  // only in MCH_HERC
-	case M_HERC_GFX:   // only in MCH_HERC
+	case M_CGA16:
+	case M_CGA2_COMPOSITE:
+	case M_CGA4_COMPOSITE:
+	case M_CGA_TEXT_COMPOSITE:
+	case M_TANDY2:
+	case M_TANDY4:
+	case M_TANDY16:
+	case M_TANDY_TEXT:
+	case M_HERC_TEXT:
+	case M_HERC_GFX:
 	case M_ERROR:
 		// This code should be unreachable, as this function deals only
 		// with MCH_EGA and MCH_VGA.
@@ -1607,16 +1667,16 @@ att_text16:
 		for (uint8_t ct=0;ct<16;ct++) att_data[ct]=ct;
 		att_data[0x10]=0x41;		//Color Graphics 8-bit
 		break;
-	case M_CGA16:              // only in MCH_TANDY, MCH_PCJR
-	case M_CGA2_COMPOSITE:     // only in MCH_CGA
-	case M_CGA4_COMPOSITE:     // only in MCH_CGA
-	case M_CGA_TEXT_COMPOSITE: // only in MCH_CGA
-	case M_TANDY2:             // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-	case M_TANDY4:     // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-	// case M_TANDY16:    // only in MCH_TANDY, MCH_PCJR
-	case M_TANDY_TEXT: // only in MCH_CGA, MCH_TANDY
-	case M_HERC_TEXT:  // only in MCH_HERC
-	case M_HERC_GFX:   // only in MCH_HERC
+	case M_CGA16:
+	case M_CGA2_COMPOSITE:
+	case M_CGA4_COMPOSITE:
+	case M_CGA_TEXT_COMPOSITE:
+	case M_TANDY2:
+	case M_TANDY4:
+	// case M_TANDY16:
+	case M_TANDY_TEXT:
+	case M_HERC_TEXT:
+	case M_HERC_GFX:
 	case M_ERROR:
 		// This code should be unreachable, as this function deals only
 		// with MCH_EGA and MCH_VGA.
@@ -1624,16 +1684,11 @@ att_text16:
 		break;
 	}
 	IO_Read(mono_mode ? 0x3ba : 0x3da);
+
 	if ((modeset_ctl & 8)==0) {
-		for (uint8_t ct=0;ct<ATT_REGS;ct++) {
-			IO_Write(0x3c0,ct);
-			IO_Write(0x3c0,att_data[ct]);
-		}
-		vga.config.pel_panning = 0;
-		IO_Write(0x3c0,0x20); IO_Write(0x3c0,0x00); //Disable palette access
-		IO_Write(0x3c6,0xff); //Reset Pelmask
-		//  Setup the DAC
-		IO_Write(0x3c8,0);
+		// Set up Color Registers (DAC colours)
+		IO_Write(0x3c8, 0);
+
 		switch (CurMode->type) {
 		case M_EGA:
 			if (CurMode->mode > 0xf)
@@ -1675,22 +1730,38 @@ dac_text16:
 			// Palette index is left at 0xf8 as on most clones, IBM leaves it at 0x10.
 			write_palette_dac_data(palette.vga);
 			break;
-		case M_CGA16:              // only in MCH_TANDY, MCH_PCJR
-		case M_CGA2_COMPOSITE:     // only in MCH_CGA
-		case M_CGA4_COMPOSITE:     // only in MCH_CGA
-		case M_CGA_TEXT_COMPOSITE: // only in MCH_CGA
-		case M_TANDY2:     // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-		case M_TANDY4:     // only in MCH_CGA, MCH_TANDY, MCH_PCJR
-		// case M_TANDY16:    // only in MCH_TANDY, MCH_PCJR
-		case M_TANDY_TEXT: // only in MCH_CGA, MCH_TANDY
-		case M_HERC_TEXT:  // only in MCH_HERC
-		case M_HERC_GFX:   // only in MCH_HERC
+		case M_CGA16:
+		case M_CGA2_COMPOSITE:
+		case M_CGA4_COMPOSITE:
+		case M_CGA_TEXT_COMPOSITE:
+		case M_TANDY2:
+		case M_TANDY4:
+		// case M_TANDY16:
+		case M_TANDY_TEXT:
+		case M_HERC_TEXT:
+		case M_HERC_GFX:
 		case M_ERROR:
 			// This code should be unreachable, as this function deals only
 			// with MCH_EGA and MCH_VGA.
 			assert(false);
 			break;
 		}
+
+		// Set up Palette Registers
+		for (uint8_t ct = 0; ct < ATT_REGS; ct++) {
+			IO_Write(0x3c0, ct);
+			IO_Write(0x3c0, att_data[ct]);
+		}
+
+		vga.config.pel_panning = 0;
+
+		// Disable palette access
+		IO_Write(0x3c0, 0x20);
+		IO_Write(0x3c0, 0x00);
+
+		// Reset PEL mask
+		IO_Write(0x3c6, 0xff);
+
 		if (IS_VGA_ARCH) {
 			//  check if gray scale summing is enabled
 			if (real_readb(BIOSMEM_SEG,BIOSMEM_MODESET_CTL) & 2) {
@@ -1708,12 +1779,12 @@ dac_text16:
 	}
 	//  Write palette register data to dynamic save area if pointer is non-zero
 	RealPt vsavept=real_readd(BIOSMEM_SEG,BIOSMEM_VS_POINTER);
-	RealPt dsapt=real_readd(RealSeg(vsavept),RealOff(vsavept)+4);
+	RealPt dsapt=real_readd(RealSegment(vsavept),RealOffset(vsavept)+4);
 	if (dsapt) {
 		for (uint8_t ct=0;ct<0x10;ct++) {
-			real_writeb(RealSeg(dsapt),RealOff(dsapt)+ct,att_data[ct]);
+			real_writeb(RealSegment(dsapt),RealOffset(dsapt)+ct,att_data[ct]);
 		}
-		real_writeb(RealSeg(dsapt),RealOff(dsapt)+0x10,0); // overscan
+		real_writeb(RealSegment(dsapt),RealOffset(dsapt)+0x10,0); // overscan
 	}
 	//  Setup some special stuff for different modes
 	switch (CurMode->type) {
@@ -1744,11 +1815,14 @@ dac_text16:
 		IO_Write(crtc_base+1,0);
 		//  Setup the linear frame buffer
 		IO_Write(crtc_base,0x59);
-		IO_Write(crtc_base+1,(uint8_t)((S3_LFB_BASE >> 24)&0xff));
-		IO_Write(crtc_base,0x5a);
-		IO_Write(crtc_base+1,(uint8_t)((S3_LFB_BASE >> 16)&0xff));
-		IO_Write(crtc_base,0x6b); // BIOS scratchpad
-		IO_Write(crtc_base+1,(uint8_t)((S3_LFB_BASE >> 24)&0xff));
+		IO_Write(crtc_base + 1,
+		         static_cast<uint8_t>((PciGfxLfbBase >> 24) & 0xff));
+		IO_Write(crtc_base, 0x5a);
+		IO_Write(crtc_base + 1,
+		         static_cast<uint8_t>((PciGfxLfbBase >> 16) & 0xff));
+		IO_Write(crtc_base, 0x6b); // BIOS scratchpad
+		IO_Write(crtc_base + 1,
+		         static_cast<uint8_t>((PciGfxLfbBase >> 24) & 0xff));
 
 		//  Setup some remaining S3 registers
 		IO_Write(crtc_base,0x41); // BIOS scratchpad
@@ -1832,13 +1906,17 @@ dac_text16:
 
 	//  Set vga attrib register into defined state
 	IO_Read(mono_mode ? 0x3ba : 0x3da);
-	IO_Write(0x3c0,0x20);
+
+	// Disable palette access
+	IO_Write(0x3c0, 0x20);
+
 	IO_Read(mono_mode ? 0x3ba : 0x3da); // Kukoo2 demo
 
 	//  Load text mode font
 	if (CurMode->type==M_TEXT) {
 		INT10_ReloadFont();
 	}
+
 	return true;
 }
 
@@ -1898,13 +1976,13 @@ uint32_t VideoModeMemSize(uint16_t mode) {
 	return static_cast<uint32_t>(mem_bytes);
 }
 
-static cga_colors_t handle_cga_colors_prefs_tandy(const std::string &cga_colors_prefs)
+static cga_colors_t handle_cga_colors_prefs_tandy(const std::string& cga_colors_setting)
 {
 	constexpr auto default_brown_level = 0.5f;
 
 	auto brown_level = default_brown_level;
 
-	const auto tokens = split(cga_colors_prefs, ' ');
+	const auto tokens = split_with_empties(cga_colors_setting, ' ');
 
 	if (tokens.size() > 1) {
 		auto brown_level_pref = tokens[1];
@@ -1919,7 +1997,7 @@ static cga_colors_t handle_cga_colors_prefs_tandy(const std::string &cga_colors_
 			                                           brown_level);
 			return cga_colors;
 		} else {
-			LOG_WARNING("INT10: Invalid brown level value for 'tandy' CGA colors: '%s', "
+			LOG_WARNING("INT10H: Invalid brown level value for 'tandy' CGA colors: '%s', "
 			            "using default brown level of %3.2f",
 			            brown_level_pref.c_str(),
 			            default_brown_level * 100);
@@ -1928,13 +2006,13 @@ static cga_colors_t handle_cga_colors_prefs_tandy(const std::string &cga_colors_
 	return cga_colors_ibm5153;
 }
 
-static cga_colors_t handle_cga_colors_prefs_ibm5153(const std::string &cga_colors_prefs)
+static cga_colors_t handle_cga_colors_prefs_ibm5153(const std::string& cga_colors_setting)
 {
 	constexpr auto default_contrast = 1.0f;
 
 	auto contrast = default_contrast;
 
-	const auto tokens = split(cga_colors_prefs, ' ');
+	const auto tokens = split_with_empties(cga_colors_setting, ' ');
 
 	if (tokens.size() > 1) {
 		auto contrast_pref = tokens[1];
@@ -1944,20 +2022,21 @@ static cga_colors_t handle_cga_colors_prefs_ibm5153(const std::string &cga_color
 
 			auto cga_colors = cga_colors_ibm5153;
 			for (size_t i = 0; i < cga_colors.size() / 2; ++i) {
-				// The contrast control effectively dims the
-				// first 8 non-bright colours only
-				const auto c = cga_colors[i];
-				const auto r = static_cast<float>(c.red)   * contrast;
-				const auto g = static_cast<float>(c.green) * contrast;
-				const auto b = static_cast<float>(c.blue)  * contrast;
+					// The contrast control effectively dims the first 8
+					// non-bright colours only
+					const auto c = cga_colors[i];
 
-				cga_colors[i] = {static_cast<uint8_t>(r),
-				                 static_cast<uint8_t>(g),
-				                 static_cast<uint8_t>(b)};
+					const auto r = static_cast<float>(c.red)   * contrast;
+					const auto g = static_cast<float>(c.green) * contrast;
+					const auto b = static_cast<float>(c.blue)  * contrast;
+
+					cga_colors[i] = {static_cast<uint8_t>(r),
+									 static_cast<uint8_t>(g),
+									 static_cast<uint8_t>(b)};
 			}
 			return cga_colors;
 		} else {
-			LOG_WARNING("INT10: Invalid contrast value for 'ibm5153' CGA colors: '%s', "
+			LOG_WARNING("INT10H: Invalid contrast value for 'ibm5153' CGA colors: '%s', "
 			            "using default contrast of %3.2f",
 			            contrast_pref.c_str(),
 			            default_contrast * 100);
@@ -1969,11 +2048,12 @@ static cga_colors_t handle_cga_colors_prefs_ibm5153(const std::string &cga_color
 // Tokenize the `cga_colors` string into tokens that each correspond to a
 // single color definition. These tokens will be validated and parsed by
 // `parse_color_token`.
-std::vector<std::string> tokenize_cga_colors_pref(const std::string &cga_colors_pref)
+std::vector<std::string> tokenize_cga_colors_pref(const std::string& cga_colors_pref)
 {
 	std::vector<std::string> tokens;
-	if (cga_colors_pref.size() == 0)
+	if (cga_colors_pref.size() == 0) {
 		return tokens;
+	}
 
 	enum class TokenType { None, Hex, RgbTriplet };
 
@@ -2013,8 +2093,9 @@ std::vector<std::string> tokenize_cga_colors_pref(const std::string &cga_colors_
 
 		case TokenType::RgbTriplet:
 			if (inside_paren) {
-				if (ch == ')')
+				if (ch == ')') {
 					inside_paren = false;
+				}
 			} else if (is_separator(ch)) {
 				store_token();
 				curr_token = TokenType::None;
@@ -2024,8 +2105,9 @@ std::vector<std::string> tokenize_cga_colors_pref(const std::string &cga_colors_
 		++it;
 	}
 
-	if (curr_token != TokenType::None)
+	if (curr_token != TokenType::None) {
 		store_token();
+	}
 
 	return tokens;
 }
@@ -2033,14 +2115,15 @@ std::vector<std::string> tokenize_cga_colors_pref(const std::string &cga_colors_
 // Input should be a token output by `tokenize_cga_colors_pref`, representing
 // a color definition. Tokens are assumed to have no leading or trailing
 // white-spaces
-std::optional<RGBEntry> parse_color_token(const std::string &token,
-                                          const uint8_t color_index)
+std::optional<Rgb888> parse_color_token(const std::string& token,
+                                        const uint8_t color_index)
 {
-	if (token.size() == 0)
+	if (token.size() == 0) {
 		return {};
+	}
 
-	auto log_warning = [&](const std::string &message) {
-		LOG_WARNING("INT10: Error parsing 'cga_colors' color value '%s' at index %u: %s",
+	auto log_warning = [&](const std::string& message) {
+		LOG_WARNING("INT10H: Error parsing 'cga_colors' color value '%s' at index %u: %s",
 		            token.c_str(),
 		            color_index,
 		            message.c_str());
@@ -2069,25 +2152,22 @@ std::optional<RGBEntry> parse_color_token(const std::string &token,
 		}
 
 		if (is_hex3_token) {
-			auto r = static_cast<uint8_t>(value >> 8 & 0xf);
-			auto g = static_cast<uint8_t>(value >> 4 & 0xf);
-			auto b = static_cast<uint8_t>(value      & 0xf);
+			auto red4   = static_cast<uint8_t>(value >> 8 & 0xf);
+			auto green4 = static_cast<uint8_t>(value >> 4 & 0xf);
+			auto blue4  = static_cast<uint8_t>(value      & 0xf);
 
-			r = r | r << 4;
-			g = g | g << 4;
-			b = b | b << 4;
+			return Rgb888::FromRgb444(red4, green4, blue4);
 
-			return RGBEntry{r, g, b};
-		} else {
-			auto r = static_cast<uint8_t>(value >> 16 & 0xff);
-			auto g = static_cast<uint8_t>(value >>  8 & 0xff);
-			auto b = static_cast<uint8_t>(value       & 0xff);
+		} else { // hex6 token
+			const auto red8   = static_cast<uint8_t>(value >> 16 & 0xff);
+			const auto green8 = static_cast<uint8_t>(value >>  8 & 0xff);
+			const auto blue8  = static_cast<uint8_t>(value       & 0xff);
 
-			return RGBEntry{r, g, b};
+			return Rgb888(red8, green8, blue8);
 		}
 	}
 	case '(': {
-		auto parts = split(token, ',');
+		auto parts = split_with_empties(token, ',');
 		if (parts.size() != 3) {
 			log_warning("RGB-triplets must have 3 comma-separated values");
 			return {};
@@ -2097,38 +2177,41 @@ std::optional<RGBEntry> parse_color_token(const std::string &token,
 		const auto g_string = parts[1];
 		const auto b_string = parts[2].substr(0, parts[2].size() - 1);
 
-		auto parse_component = [&](const std::string &component) {
+		auto parse_component =
+		        [&](const std::string& component) -> std::optional<uint8_t> {
 			constexpr char trim_chars[] = " \t,";
-			auto c                      = component;
+
+			auto c = component;
 			trim(c, trim_chars);
 
 			if (c.empty() || !is_digits(c)) {
 				log_warning("RGB-triplet values must contain only digits");
-				return -1;
+				return {};
 			}
 
 			int32_t value;
 			if (!sscanf(c.c_str(), "%d", &value)) {
 				log_warning("could not parse RGB-triplet value");
-				return -1;
+				return {};
 			}
-			if (value > 0xff) {
+			if (value < 0 || value > 255) {
 				log_warning("RGB-triplet values must be between 0 and 255");
-				return -1;
+				return {};
 			}
 			return value;
 		};
 
-		const auto r = parse_component(r_string);
-		const auto g = parse_component(g_string);
-		const auto b = parse_component(b_string);
+		const auto red8   = parse_component(r_string);
+		const auto green8 = parse_component(g_string);
+		const auto blue8  = parse_component(b_string);
 
-		if (r < 0 || g < 0 || b < 0)
+		if (red8 && green8 && blue8) {
+			return Rgb888(static_cast<uint8_t>(*red8),
+			              static_cast<uint8_t>(*green8),
+			              static_cast<uint8_t>(*blue8));
+		} else {
 			return {};
-		else
-			return RGBEntry{static_cast<uint8_t>(r),
-			                static_cast<uint8_t>(g),
-			                static_cast<uint8_t>(b)};
+		}
 	}
 	default:
 		log_warning("colors must be specified as 3 or 6 digit hex values "
@@ -2142,94 +2225,93 @@ std::optional<RGBEntry> parse_color_token(const std::string &token,
 // 1. first tokenize the input into individual string tokens, one for each
 // color definition
 // 2. validate and parse the color tokens
-std::optional<cga_colors_t> parse_cga_colors(const std::string &cga_colors_prefs)
+std::optional<cga_colors_t> parse_cga_colors(const std::string& cga_colors_setting)
 {
-	const auto tokens = tokenize_cga_colors_pref(cga_colors_prefs);
+	const auto tokens = tokenize_cga_colors_pref(cga_colors_setting);
 
-	if (tokens.size() != num_cga_colors) {
-		LOG_WARNING("INT10: Invalid 'cga_colors' value: 16 colors must be specified "
-				    "(found only %u)", static_cast<uint32_t>(tokens.size()));
+	if (tokens.size() != NumCgaColors) {
+		LOG_WARNING("INT10H: Invalid 'cga_colors' value: %d colors must be specified "
+		            "(found only %u)",
+		            NumCgaColors,
+		            static_cast<uint32_t>(tokens.size()));
 		return {};
 	}
 
 	cga_colors_t cga_colors = {};
+
 	bool found_errors = false;
 
 	for (size_t i = 0; i < tokens.size(); ++i) {
-		if (auto color = parse_color_token(tokens[i], static_cast<uint8_t>(i)); !color) {
+		if (auto color = parse_color_token(tokens[i],
+		                                   static_cast<uint8_t>(i));
+		    !color) {
 			found_errors = true;
 		} else {
-			// For now we only support 18-bit colours (6-bit
-			// components) when redefining CGA colors. There's not
-			// too much to be gained by adding full 24-bit support,
-			// and it would complicate the implementation a lot.
-			color->red   >>= 2;
-			color->green >>= 2;
-			color->blue  >>= 2;
+			// We only support 18-bit colours (RGB666) when
+			// redefining CGA colors. There's not too much to be
+			// gained from adding full 24-bit support, and it would
+			// complicate the implementation a lot.
 
-			cga_colors[i] = *color;
+			cga_colors[i] = Rgb666::FromRgb888(*color);
 		}
 	}
 
-	if (found_errors)
+	if (found_errors) {
 		return {};
-	else
+	} else {
 		return cga_colors;
+	}
 }
 
 static cga_colors_t configure_cga_colors()
 {
-	const auto render_section = static_cast<const Section_prop *>(
-	        control->GetSection("render"));
-	assert(render_section);
+	const auto cga_colors_setting = RENDER_GetCgaColorsSetting();
 
-	const std::string cga_colors_prefs = render_section->Get_string("cga_colors");
-
-	if (cga_colors_prefs.empty()) {
-		LOG_WARNING("INT10: No value specified for 'cga_colors', using default CGA colors");
+	if (cga_colors_setting.empty()) {
+		LOG_WARNING("INT10H: No value specified for 'cga_colors', using default CGA colors");
 		return cga_colors_default;
 	}
 
-	if (cga_colors_prefs == "default")
+	if (cga_colors_setting == "default") {
 		return cga_colors_default;
 
-	else if (starts_with("tandy", cga_colors_prefs))
-		return handle_cga_colors_prefs_tandy(cga_colors_prefs);
+	} else if (starts_with(cga_colors_setting, "tandy")) {
+		return handle_cga_colors_prefs_tandy(cga_colors_setting);
 
-	else if (starts_with("ibm5153", cga_colors_prefs))
-		return handle_cga_colors_prefs_ibm5153(cga_colors_prefs);
+	} else if (starts_with(cga_colors_setting, "ibm5153")) {
+		return handle_cga_colors_prefs_ibm5153(cga_colors_setting);
 
-	else if (cga_colors_prefs == "tandy-warm")
+	} else if (cga_colors_setting == "tandy-warm") {
 		return cga_colors_tandy_warm;
 
-	else if (cga_colors_prefs == "agi-amiga-v1")
+	} else if (cga_colors_setting == "agi-amiga-v1") {
 		return cga_colors_agi_amiga_v1;
 
-	else if (cga_colors_prefs == "agi-amiga-v2")
+	} else if (cga_colors_setting == "agi-amiga-v2") {
 		return cga_colors_agi_amiga_v2;
 
-	else if (cga_colors_prefs == "agi-amiga-v3")
+	} else if (cga_colors_setting == "agi-amiga-v3") {
 		return cga_colors_agi_amiga_v3;
 
-	else if (cga_colors_prefs == "agi-amigaish")
+	} else if (cga_colors_setting == "agi-amigaish") {
 		return cga_colors_agi_amigaish;
 
-	else if (cga_colors_prefs == "scumm-amiga")
+	} else if (cga_colors_setting == "scumm-amiga") {
 		return cga_colors_scumm_amiga;
 
-	else if (cga_colors_prefs == "colodore")
+	} else if (cga_colors_setting == "colodore") {
 		return cga_colors_colodore_sat50;
 
-	else if (cga_colors_prefs == "colodore-sat")
+	} else if (cga_colors_setting == "colodore-sat") {
 		return cga_colors_colodore_sat60;
 
-	else if (cga_colors_prefs == "dga16")
+	} else if (cga_colors_setting == "dga16") {
 		return cga_colors_dga16;
 
-	else {
-		const auto cga_colors = parse_cga_colors(cga_colors_prefs);
+	} else {
+		const auto cga_colors = parse_cga_colors(cga_colors_setting);
 		if (!cga_colors) {
-			LOG_WARNING("INT10: Using default CGA colors");
+			LOG_WARNING("INT10H: Using default CGA colors");
 		}
 		return cga_colors.value_or(cga_colors_default);
 	}

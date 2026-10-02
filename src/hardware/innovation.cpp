@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2022  The DOSBox Staging Team
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -21,6 +21,7 @@
 
 #include "innovation.h"
 
+#include "channel_names.h"
 #include "checks.h"
 #include "control.h"
 #include "pic.h"
@@ -28,18 +29,21 @@
 
 CHECK_NARROWING();
 
-void Innovation::Open(const std::string &model_choice,
-                      const std::string &clock_choice, const int filter_strength_6581,
+void Innovation::Open(const std::string_view model_choice,
+                      const std::string_view clock_choice,
+                      const int filter_strength_6581,
                       const int filter_strength_8580, const int port_choice,
-                      const std::string &channel_filter_choice)
+                      const std::string_view channel_filter_choice)
 {
 	Close();
 
 	// Sentinel
-	if (model_choice == "none")
+	const auto model_choice_has_bool = parse_bool_setting(model_choice);
+	if (model_choice_has_bool && *model_choice_has_bool == false) {
 		return;
+	}
 
-	std::string model_name;
+	std::string_view model_name = "";
 	int filter_strength = 0;
 	auto sid_service    = std::make_unique<reSIDfp::SID>();
 
@@ -80,16 +84,20 @@ void Innovation::Open(const std::string &model_choice,
 
 	auto mixer_channel = MIXER_AddChannel(mixer_callback,
 	                                      use_mixer_rate,
-	                                      "INNOVATION",
+	                                      ChannelName::InnovationSsi2001,
 	                                      {ChannelFeature::Sleep,
 	                                       ChannelFeature::ReverbSend,
 	                                       ChannelFeature::ChorusSend,
 	                                       ChannelFeature::Synthesizer});
 
 	if (!mixer_channel->TryParseAndSetCustomFilter(channel_filter_choice)) {
-		if (channel_filter_choice != "off")
-			LOG_WARNING("INNOVATION: Invalid 'innovation_filter' value: '%s', using 'off'",
-			            channel_filter_choice.c_str());
+		const auto filter_choice_has_bool = parse_bool_setting(
+		        channel_filter_choice);
+
+		if (!filter_choice_has_bool) {
+			LOG_WARNING("INNOVATION: Invalid 'innovation_filter' setting: '%s', using 'off'",
+			            channel_filter_choice.data());
+		}
 
 		mixer_channel->SetHighPassFilter(FilterState::Off);
 		mixer_channel->SetLowPassFilter(FilterState::Off);
@@ -124,12 +132,12 @@ void Innovation::Open(const std::string &model_choice,
 	if (filter_strength == 0)
 		LOG_MSG("INNOVATION: Running on port %xh with a SID %s at %0.3f MHz",
 		        base_port,
-		        model_name.c_str(),
+		        model_name.data(),
 		        chip_clock / us_per_s);
 	else
 		LOG_MSG("INNOVATION: Running on port %xh with a SID %s at %0.3f MHz filtering at %d%%",
 		        base_port,
-		        model_name.c_str(),
+		        model_name.data(),
 		        chip_clock / us_per_s,
 		        filter_strength);
 
@@ -260,54 +268,57 @@ static void innovation_init(Section *sec)
 	                port_choice,
 	                channel_filter_choice);
 
-	sec->AddDestroyFunction(&innovation_destroy, true);
+	constexpr auto changeable_at_runtime = true;
+	sec->AddDestroyFunction(&innovation_destroy, changeable_at_runtime);
 }
 
-static void init_innovation_dosbox_settings(Section_prop &sec_prop)
+static void init_innovation_dosbox_settings(Section_prop& sec_prop)
 {
 	constexpr auto when_idle = Property::Changeable::WhenIdle;
 
 	// Chip type
-	auto *str_prop = sec_prop.Add_string("sidmodel", when_idle, "none");
-	const char *sid_models[] = {"auto", "6581", "8580", "none", 0};
+	auto* str_prop = sec_prop.Add_string("sidmodel", when_idle, "none");
+	const char* sid_models[] = {"auto", "6581", "8580", "none", nullptr};
 	str_prop->Set_values(sid_models);
 	str_prop->Set_help(
 	        "Model of chip to emulate in the Innovation SSI-2001 card:\n"
-	        " - auto:  Selects the 6581 chip.\n"
-	        " - 6581:  The original chip, known for its bassy and rich character.\n"
-	        " - 8580:  A later revision that more closely matched the SID specification.\n"
-	        "          It fixed the 6581's DC bias and is less prone to distortion.\n"
-	        "          The 8580 is an option on reproduction cards, like the DuoSID.\n"
-	        " - none:  Disables the card.");
+	        "  auto:  Use the 6581 chip.\n"
+	        "  6581:  The original chip, known for its bassy and rich character.\n"
+	        "  8580:  A later revision that more closely matched the SID specification.\n"
+	        "         It fixed the 6581's DC bias and is less prone to distortion.\n"
+	        "         The 8580 is an option on reproduction cards, like the DuoSID.\n"
+	        "  none:  Disable the card (default).");
 
 	// Chip clock frequency
 	str_prop = sec_prop.Add_string("sidclock", when_idle, "default");
-	const char *sid_clocks[] = {"default", "c64ntsc", "c64pal", "hardsid", 0};
+	const char* sid_clocks[] = {"default", "c64ntsc", "c64pal", "hardsid", nullptr};
 	str_prop->Set_values(sid_clocks);
 	str_prop->Set_help(
-	        "The SID chip's clock frequency, which is jumperable on reproduction cards.\n"
-	        " - default: uses 0.895 MHz, per the original SSI-2001 card.\n"
-	        " - c64ntsc: uses 1.023 MHz, per NTSC Commodore PCs and the DuoSID.\n"
-	        " - c64pal:  uses 0.985 MHz, per PAL Commodore PCs and the DuoSID.\n"
-	        " - hardsid: uses 1.000 MHz, available on the DuoSID.");
+	        "The SID chip's clock frequency, which is jumperable on reproduction cards:\n"
+	        "  default:  0.895 MHz, per the original SSI-2001 card (default).\n"
+	        "  c64ntsc:  1.023 MHz, per NTSC Commodore PCs and the DuoSID.\n"
+	        "  c64pal:   0.985 MHz, per PAL Commodore PCs and the DuoSID.\n"
+	        "  hardsid:  1.000 MHz, available on the DuoSID.");
 
 	// IO Address
-	auto *hex_prop = sec_prop.Add_hex("sidport", when_idle, 0x280);
-	const char *sid_ports[] = {"240", "260", "280", "2a0", "2c0", 0};
+	auto* hex_prop          = sec_prop.Add_hex("sidport", when_idle, 0x280);
+	const char* sid_ports[] = {"240", "260", "280", "2a0", "2c0", nullptr};
 	hex_prop->Set_values(sid_ports);
-	hex_prop->Set_help("The IO port address of the Innovation SSI-2001.");
+	hex_prop->Set_help(
+	        "The IO port address of the Innovation SSI-2001 (280 by default).");
 
 	// Filter strengths
-	auto *int_prop = sec_prop.Add_int("6581filter", when_idle, 50);
+	auto* int_prop = sec_prop.Add_int("6581filter", when_idle, 50);
 	int_prop->SetMinMax(0, 100);
 	int_prop->Set_help(
-	        "The SID's analog filtering meant that each chip was physically unique.\n"
-	        "Adjusts the 6581's filtering strength as a percent from 0 to 100.");
+	        "Adjusts the 6581's filtering strength as a percentage from 0 to 100\n"
+	        "(50 by default). The SID's analog filtering meant that each chip was\n"
+	        "physically unique.");
 
 	int_prop = sec_prop.Add_int("8580filter", when_idle, 50);
 	int_prop->SetMinMax(0, 100);
-	int_prop->Set_help(
-	        "Adjusts the 8580's filtering strength as a percent from 0 to 100.");
+	int_prop->Set_help("Adjusts the 8580's filtering strength as a percentage from 0 to 100\n"
+	                   "(50 by default).");
 
 	str_prop = sec_prop.Add_string("innovation_filter", when_idle, "off");
 	assert(str_prop);
@@ -317,11 +328,14 @@ static void init_innovation_dosbox_settings(Section_prop &sec_prop)
 	        "  <custom>:  Custom filter definition; see 'sb_filter' for details.");
 }
 
-void INNOVATION_AddConfigSection(const config_ptr_t &conf)
+void INNOVATION_AddConfigSection(const config_ptr_t& conf)
 {
 	assert(conf);
-	Section_prop *sec = conf->AddSection_prop("innovation",
-	                                          &innovation_init, true);
+
+	constexpr auto changeable_at_runtime = true;
+	Section_prop* sec = conf->AddSection_prop("innovation",
+	                                          &innovation_init,
+	                                          changeable_at_runtime);
 	assert(sec);
 	init_innovation_dosbox_settings(*sec);
 }

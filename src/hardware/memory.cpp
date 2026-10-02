@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2023-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -16,23 +17,25 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-
 #include "mem.h"
 
 #include <string.h>
 
 #include "inout.h"
-#include "setup.h"
 #include "paging.h"
+#include "pci_bus.h"
 #include "regs.h"
+#include "setup.h"
 #include "support.h"
 
-#define PAGES_IN_BLOCK	((1024*1024)/MEM_PAGE_SIZE)
-#define SAFE_MEMORY	32
-#define MAX_MEMORY	64
-#define MAX_PAGE_ENTRIES (MAX_MEMORY*1024*1024/4096)
-#define LFB_PAGES	512
-#define MAX_LINKS	((MAX_MEMORY*1024/4)+4096)		//Hopefully enough
+constexpr auto megabyte = 1024 * 1024;
+
+constexpr auto MinMegabytes = static_cast<uint16_t>(1);
+constexpr auto MaxMegabytes = static_cast<uint16_t>(PciMemoryBase / megabyte);
+
+constexpr auto SafeMegabytesDos   = 31;
+constexpr auto SafeMegabytesWin95 = 480;
+constexpr auto SafeMegabytesWin98 = 512;
 
 static struct MemoryBlock {
 	struct page_t {
@@ -64,7 +67,7 @@ public:
 	IllegalPageHandler() {
 		flags=PFLAG_INIT|PFLAG_NOCODE;
 	}
-	uint8_t readb(PhysPt addr)
+	uint8_t readb(PhysPt addr) override
 	{
 #if C_DEBUG
 		LOG_MSG("Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
@@ -77,7 +80,7 @@ public:
 #endif
 		return 0xff;
 	}
-	void writeb(PhysPt addr, [[maybe_unused]] uint8_t val)
+	void writeb(PhysPt addr, [[maybe_unused]] uint8_t val) override
 	{
 #if C_DEBUG
 		LOG_MSG("Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
@@ -97,12 +100,12 @@ public:
 		flags=PFLAG_READABLE|PFLAG_WRITEABLE;
 	}
 	// Get the starting byte address for the give page
-	HostPt GetHostReadPt(const size_t phys_page)
+	HostPt GetHostReadPt(const size_t phys_page) override
 	{
 		assert(phys_page < memory.pages.size());
 		return &(memory.pages[phys_page].bytes[0]);
 	}
-	HostPt GetHostWritePt(const size_t phys_page)
+	HostPt GetHostWritePt(const size_t phys_page) override
 	{
 		return GetHostReadPt(phys_page); // same
 	}
@@ -113,18 +116,26 @@ public:
 	ROMPageHandler() {
 		flags=PFLAG_READABLE|PFLAG_HASROM;
 	}
-	void writeb(PhysPt addr,uint8_t val){
+	void writeb(PhysPt addr,uint8_t val) override{
 		LOG(LOG_CPU, LOG_ERROR)("Write 0x%x to rom at %x", val, addr);
 	}
-	void writew(PhysPt addr,uint16_t val){
+	void writew(PhysPt addr,uint16_t val) override{
 		LOG(LOG_CPU, LOG_ERROR)("Write 0x%x to rom at %x", val, addr);
 	}
-	void writed(PhysPt addr,uint32_t val){
+	void writed(PhysPt addr,uint32_t val) override{
 		LOG(LOG_CPU, LOG_ERROR)("Write 0x%x to rom at %x", val, addr);
 	}
 };
 
+uint16_t MEM_GetMinMegabytes()
+{
+	return MinMegabytes;
+}
 
+uint16_t MEM_GetMaxMegabytes()
+{
+	return MaxMegabytes;
+}
 
 static IllegalPageHandler illegal_page_handler;
 static RAMPageHandler ram_page_handler;
@@ -154,6 +165,11 @@ PageHandler * MEM_GetPageHandler(Bitu phys_page) {
 	if (phys_page >= last_page_in_first_16mb &&
 	    phys_page < sixteen_pages_beyond_first_16mb) {
 		return memory.lfb.mmiohandler;
+	} else {
+		PageHandler* VOODOO_PCI_GetLFBPageHandler(Bitu);
+		if (PageHandler* vph = VOODOO_PCI_GetLFBPageHandler(phys_page)) {
+			return vph;
+		}
 	}
 	return &illegal_page_handler;
 }
@@ -219,42 +235,49 @@ void MEM_StrCopy(PhysPt pt,char * data,Bitu size) {
 	*data=0;
 }
 
-Bitu MEM_TotalPages(void) {
-	return memory.pages.size();
+uint32_t MEM_TotalPages(void)
+{
+	return check_cast<uint32_t>(memory.pages.size());
 }
 
-Bitu MEM_FreeLargest(void) {
-	Bitu size=0;Bitu largest=0;
-	Bitu index=XMS_START;
+uint32_t MEM_FreeLargest()
+{
+	uint32_t size    = 0;
+	uint32_t largest = 0;
+	size_t   index   = XMS_START;
 	while (index < memory.pages.size()) {
 		if (!memory.mhandles[index]) {
-			size++;
+			++size;
 		} else {
-			if (size>largest) largest=size;
-			size=0;
+			largest = std::max(size, largest);
+			size = 0;
 		}
-		index++;
+		++index;
 	}
-	if (size>largest) largest=size;
+	largest = std::max(size, largest);
 	return largest;
 }
 
-Bitu MEM_FreeTotal(void) {
-	Bitu free=0;
-	Bitu index=XMS_START;
+uint32_t MEM_FreeTotal()
+{
+	uint32_t free  = 0;
+	size_t   index = XMS_START;
 	while (index < memory.pages.size()) {
-		if (!memory.mhandles[index]) free++;
-		index++;
+		if (!memory.mhandles[index]) {
+			++free;
+		}
+		++index;
 	}
 	return free;
 }
 
-Bitu MEM_AllocatedPages(MemHandle handle) 
+uint32_t MEM_AllocatedPages(MemHandle handle) 
 {
-	Bitu pages = 0;
-	while (handle>0) {
-		pages++;
-		handle=memory.mhandles[handle];
+	uint32_t pages = 0;
+	while (handle > 0) {
+		++pages;
+		assert(pages != 0);
+		handle = memory.mhandles[handle];
 	}
 	return pages;
 }
@@ -448,8 +471,7 @@ void MEM_A20_Enable(bool enabled) {
 	if (memory.a20.enabled == enabled) {
 		return;
 	}
-	constexpr uint32_t first_mb = 1024 * 1024;
-	constexpr uint32_t a20_base_page = first_mb / dos_pagesize;
+	constexpr uint32_t a20_base_page = megabyte / dos_pagesize;
 
 	const uint32_t phys_base_page = enabled ? a20_base_page : 0;
 
@@ -474,6 +496,15 @@ uint32_t mem_unalignedreadd(PhysPt address) {
 	return ret;
 }
 
+uint64_t mem_unalignedreadq(PhysPt address)
+{
+	uint64_t ret = 0;
+	for (int i = 0; i < 8; ++i) {
+		ret |= static_cast<uint64_t>(mem_readb_inline(address + i))
+		    << (i * 8);
+	}
+	return ret;
+}
 
 void mem_unalignedwritew(PhysPt address,uint16_t val) {
 	mem_writeb_inline(address,(uint8_t)val);val>>=8;
@@ -487,6 +518,13 @@ void mem_unalignedwrited(PhysPt address,uint32_t val) {
 	mem_writeb_inline(address+3,(uint8_t)val);
 }
 
+void mem_unalignedwriteq(PhysPt address, uint64_t val)
+{
+	for (int i = 0; i < 8; ++i) {
+		mem_writeb_inline(address + i, static_cast<uint8_t>(val));
+		val >>= 8;
+	}
+}
 
 bool mem_unalignedreadw_checked(PhysPt address, uint16_t * val) {
 	uint8_t rval1;
@@ -521,8 +559,27 @@ bool mem_unalignedreadd_checked(PhysPt address, uint32_t * val) {
 	return false;
 }
 
-bool mem_unalignedwritew_checked(PhysPt address, uint16_t val) {
-	if (mem_writeb_checked(address+0, (uint8_t)(val & 0xff))) return true;
+bool mem_unalignedreadq_checked(PhysPt address, uint64_t* val)
+{
+	uint8_t rval[8];
+	for (int i = 0; i < 8; ++i) {
+		if (mem_readb_checked(address + i, &rval[i])) {
+			return true;
+		}
+	}
+
+	*val = 0;
+	for (int i = 0; i < 8; ++i) {
+		*val |= static_cast<uint64_t>(rval[i]) << (i * 8);
+	}
+	return false;
+}
+
+bool mem_unalignedwritew_checked(PhysPt address, uint16_t val)
+{
+	if (mem_writeb_checked(address + 0, (uint8_t)(val & 0xff))) {
+		return true;
+	}
 	val >>= 8;
 	if (mem_writeb_checked(address+1, (uint8_t)(val & 0xff))) return true;
 	return false;
@@ -539,19 +596,57 @@ bool mem_unalignedwrited_checked(PhysPt address, uint32_t val) {
 	return false;
 }
 
-uint8_t mem_readb(PhysPt address) {
-	return mem_readb_inline(address);
+bool mem_unalignedwriteq_checked(PhysPt address, uint64_t val)
+{
+	for (int i = 0; i < 8; ++i) {
+		if (mem_writeb_checked(address + i,
+		                       static_cast<uint8_t>(val & 0xff))) {
+			return true;
+		}
+		val >>= 8;
+	}
+	return false;
 }
 
-uint16_t mem_readw(PhysPt address) {
-	return mem_readw_inline(address);
+template <MemOpMode op_mode>
+uint8_t mem_readb(const PhysPt address)
+{
+	return mem_readb_inline<op_mode>(address);
 }
 
-uint32_t mem_readd(PhysPt address) {
-	return mem_readd_inline(address);
+template <MemOpMode op_mode>
+uint16_t mem_readw(const PhysPt address)
+{
+	return mem_readw_inline<op_mode>(address);
 }
 
-void mem_writeb(PhysPt address,uint8_t val) {
+template <MemOpMode op_mode>
+uint32_t mem_readd(const PhysPt address)
+{
+	return mem_readd_inline<op_mode>(address);
+}
+
+template <MemOpMode op_mode>
+uint64_t mem_readq(PhysPt address)
+{
+	return mem_readq_inline<op_mode>(address);
+}
+
+// Explicit instantiations for mem_readb, mem_readw, and mem_readd
+template uint8_t mem_readb<MemOpMode::WithBreakpoints>(const PhysPt address);
+template uint8_t mem_readb<MemOpMode::SkipBreakpoints>(const PhysPt address);
+
+template uint16_t mem_readw<MemOpMode::WithBreakpoints>(const PhysPt address);
+template uint16_t mem_readw<MemOpMode::SkipBreakpoints>(const PhysPt address);
+
+template uint32_t mem_readd<MemOpMode::WithBreakpoints>(const PhysPt address);
+template uint32_t mem_readd<MemOpMode::SkipBreakpoints>(const PhysPt address);
+
+template uint64_t mem_readq<MemOpMode::WithBreakpoints>(const PhysPt address);
+template uint64_t mem_readq<MemOpMode::SkipBreakpoints>(const PhysPt address);
+
+void mem_writeb(PhysPt address, uint8_t val)
+{
 	mem_writeb_inline(address,val);
 }
 
@@ -561,6 +656,11 @@ void mem_writew(PhysPt address,uint16_t val) {
 
 void mem_writed(PhysPt address,uint32_t val) {
 	mem_writed_inline(address,val);
+}
+
+void mem_writeq(PhysPt address, uint64_t val)
+{
+	mem_writeq_inline(address, val);
 }
 
 static void write_p92(io_port_t, io_val_t value, io_width_t)
@@ -593,26 +693,21 @@ void MEM_PreparePCJRCartRom()
 	}
 }
 
-static int determine_num_megabytes(const int num_megabytes_pref)
+static void check_num_megabytes(const int num_megabytes)
 {
-	// max of 63 MB solves problems with certain xms handlers
-	constexpr auto min_megabytes  = 1;
-	constexpr auto safe_megabytes = SAFE_MEMORY - 1;
-	constexpr auto max_megabytes  = MAX_MEMORY - 1;
+	assert(num_megabytes >= MinMegabytes);
+	assert(num_megabytes <= MaxMegabytes);
 
-	const auto num_megabytes = std::clamp(num_megabytes_pref, min_megabytes, max_megabytes);
-
-	if (num_megabytes_pref > max_megabytes) {
-		LOG_WARNING("MEMORY: Memory size of %d MB is beyond the maximum of %d MB, limiting",
-		            num_megabytes_pref,
-		            max_megabytes);
-		assert(num_megabytes == max_megabytes);
+	if (num_megabytes > SafeMegabytesDos) {
+		LOG_WARNING("MEMORY: Memory sizes above %d MB aren't recommended for most DOS games",
+		            SafeMegabytesDos);
 	}
-
-	if (num_megabytes > safe_megabytes) {
-		LOG_WARNING("MEMORY: Memory sizes above %d MB aren't recommended", safe_megabytes);
+	if (num_megabytes > SafeMegabytesWin95) {
+		LOG_WARNING("MEMORY: Memory sizes above %d/%d MB aren't compatible with unpatched Windows 95/98, respectively",
+		            SafeMegabytesWin95,
+		            SafeMegabytesWin98);
+		// Limitation can be lifted with PATCHMEM by Rudolph R. Loew
 	}
-	return num_megabytes;
 }
 
 HostPt GetMemBase(void)
@@ -630,19 +725,17 @@ public:
 	{
 		// Get the users memory size preference
 		const auto section = static_cast<Section_prop*>(configuration);
-		const auto num_megabytes_pref = section->Get_int("memsize");
-
-		// Determine the memory size and pages based on the preference
-		const auto num_megabytes = determine_num_megabytes(num_megabytes_pref);
-		const auto num_pages = (num_megabytes * 1024 * 1024) / dos_pagesize;
+		const auto num_megabytes = section->Get_int("memsize");
+		check_num_megabytes(num_megabytes);
+		const auto num_pages = (num_megabytes * megabyte) / dos_pagesize;
 
 		// Size the actual memory pages
 		memory.pages.resize(num_pages);
 
-		// The MemBase is address of the the first page's first byte
+		// The MemBase is address of the first page's first byte
 		MemBase = &(memory.pages[0].bytes[0]);
 
-		LOG_MSG("MEMORY: Using %d DOS memory pages (%u MiB) at address: %p",
+		LOG_MSG("MEMORY: Using %d DOS memory pages (%u MB) at address: %p",
 		        static_cast<int>(memory.pages.size()),
 		        num_megabytes,
 		        static_cast<void*>(MemBase));
@@ -691,7 +784,10 @@ static void MEM_ShutDown([[maybe_unused]] Section *sec)
 	delete test;
 }
 
-void MEM_Init(Section * sec) {
+void MEM_Init(Section* sec)
+{
+	assert(sec);
+
 	/* shutdown function */
 	test = new MEMORY(sec);
 	sec->AddDestroyFunction(&MEM_ShutDown);

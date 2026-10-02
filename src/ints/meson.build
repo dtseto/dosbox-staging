@@ -2,6 +2,7 @@ libints_sources = files(
     'bios.cpp',
     'bios_disk.cpp',
     'bios_keyboard.cpp',
+    'bios_pci.cpp',
     'ems.cpp',
     'int10.cpp',
     'int10_char.cpp',
@@ -25,6 +26,7 @@ libints = static_library(
         ghc_dep,
         libloguru_dep,
     ],
+    cpp_args: warnings,
 )
 
 libints_dep = declare_dependency(link_with: libints)

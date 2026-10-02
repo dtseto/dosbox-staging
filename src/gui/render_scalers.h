@@ -27,7 +27,12 @@
 #define SCALER_MAX_MUL_HEIGHT 2
 
 constexpr uint16_t SCALER_MAXHEIGHT = 1200;
-constexpr uint16_t SCALER_MAXWIDTH  = 1600;
+constexpr uint16_t SCALER_MAXWIDTH  = 1600 + 30;
+//
+// The additional 30 pixels of width accommodates the full range that tweaked
+// text modes (such as Q200x25x8 used by Necromancer's DOS Navigator) are
+// capable of writing.
+
 
 #define SCALER_BLOCKSIZE	16
 
@@ -57,7 +62,7 @@ typedef ScalerLineHandler_t ScalerLineBlock_t[6][4];
 
 struct ScalerSimpleBlock_t {
 	const char* name         = {};
-	uint16_t gfxFlags        = 0;
+	uint8_t gfxFlags         = 0;
 	uint8_t xscale           = 0;
 	uint8_t yscale           = 0;
 	ScalerLineBlock_t Linear = {};
@@ -72,4 +77,5 @@ struct ScalerSimpleBlock_t {
 extern ScalerSimpleBlock_t ScaleNormal1x;
 extern ScalerSimpleBlock_t ScaleNormalDw;
 extern ScalerSimpleBlock_t ScaleNormalDh;
+extern ScalerSimpleBlock_t ScaleNormal2x;
 #endif

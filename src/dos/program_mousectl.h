@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ public:
 		               HELP_CmdType::Program,
 		               "MOUSECTL"};
 	}
-	void Run();
+	void Run() override;
 
 private:
 	bool ParseAndRun();
@@ -43,6 +43,7 @@ private:
 	bool ParseSensitivity(const std::string &param, int16_t &value);
 	static bool ParseIntParam(const std::string &param, int &value);
 	bool CheckInterfaces();
+	bool CheckMappingPossible();
 	void FinalizeMapping();
 
 	static const char *GetMapStatusStr(const MouseMapStatus map_status);
@@ -65,7 +66,7 @@ private:
 	bool CmdMinRate(const std::string &param);
 	bool CmdMinRate();
 
-	void AddMessages();
+	static void AddMessages();
 
 	std::vector<MouseInterfaceId> list_ids = {};
 };

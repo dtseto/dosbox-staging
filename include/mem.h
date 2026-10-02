@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2019-2022  The DOSBox Staging Team
+ *  Copyright (C) 2019-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -28,23 +28,28 @@
 #include "mem_unaligned.h"
 #include "types.h"
 
+constexpr uint16_t MemPageSize = 4096;
+
 typedef uint32_t PhysPt;
-typedef uint8_t *HostPt;
+typedef uint8_t* HostPt;
 typedef uint32_t RealPt;
 typedef int32_t MemHandle;
 
 extern HostPt MemBase;
 HostPt GetMemBase();
 
+uint16_t MEM_GetMinMegabytes();
+uint16_t MEM_GetMaxMegabytes();
+
 bool MEM_A20_Enabled();
 void MEM_A20_Enable(bool enable);
 
 /* Memory management / EMS mapping */
 HostPt MEM_GetBlockPage();
-Bitu MEM_FreeTotal();                      // Free 4 KiB pages
-Bitu MEM_FreeLargest();                    // Largest free 4 KiB pages block
-Bitu MEM_TotalPages();                     // Total amount of 4 KiB pages
-Bitu MEM_AllocatedPages(MemHandle handle); // amount of allocated pages of handle
+uint32_t MEM_FreeTotal();                      // free 4 KB pages
+uint32_t MEM_FreeLargest();                    // largest free 4 KB pages block
+uint32_t MEM_TotalPages();                     // total amount of 4 KB pages
+uint32_t MEM_AllocatedPages(MemHandle handle); // amount of allocated pages of handle
 MemHandle MEM_AllocatePages(Bitu pages, bool sequence);
 MemHandle MEM_GetNextFreePage();
 PhysPt MEM_AllocatePage();
@@ -71,7 +76,12 @@ static inline void var_write(uint32_t *var, uint32_t val)
 	host_writed((HostPt)var, val);
 }
 
-static inline uint16_t var_read(uint16_t *var)
+static inline void var_write(uint64_t* var, uint64_t val)
+{
+	host_writeq((HostPt)var, val);
+}
+
+static inline uint16_t var_read(uint16_t* var)
 {
 	return host_readw((HostPt)var);
 }
@@ -81,16 +91,35 @@ static inline uint32_t var_read(uint32_t *var)
 	return host_readd((HostPt)var);
 }
 
+static inline uint64_t var_read(uint64_t* var)
+{
+	return host_readq((HostPt)var);
+}
+
 /* The Following six functions are slower but they recognize the paged memory
  * system */
 
-uint8_t mem_readb(PhysPt pt);
-uint16_t mem_readw(PhysPt pt);
-uint32_t mem_readd(PhysPt pt);
+enum class MemOpMode {
+	WithBreakpoints,
+	SkipBreakpoints,
+};
+
+template <MemOpMode op_mode = MemOpMode::WithBreakpoints>
+uint8_t mem_readb(const PhysPt pt);
+
+template <MemOpMode op_mode = MemOpMode::WithBreakpoints>
+uint16_t mem_readw(const PhysPt pt);
+
+template <MemOpMode op_mode = MemOpMode::WithBreakpoints>
+uint32_t mem_readd(const PhysPt pt);
+
+template <MemOpMode op_mode = MemOpMode::WithBreakpoints>
+uint64_t mem_readq(const PhysPt pt);
 
 void mem_writeb(PhysPt pt, uint8_t val);
 void mem_writew(PhysPt pt, uint16_t val);
 void mem_writed(PhysPt pt, uint32_t val);
+void mem_writeq(PhysPt pt, uint64_t val);
 
 static inline void phys_writeb(PhysPt addr, uint8_t val)
 {
@@ -107,6 +136,11 @@ static inline void phys_writed(PhysPt addr, uint32_t val)
 	host_writed(MemBase + addr, val);
 }
 
+static inline void phys_writeq(PhysPt addr, uint64_t val)
+{
+	host_writeq(MemBase + addr, val);
+}
+
 static inline uint8_t phys_readb(PhysPt addr)
 {
 	return host_readb(MemBase + addr);
@@ -120,6 +154,11 @@ static inline uint16_t phys_readw(PhysPt addr)
 static inline uint32_t phys_readd(PhysPt addr)
 {
 	return host_readd(MemBase + addr);
+}
+
+static inline uint64_t phys_readq(PhysPt addr)
+{
+	return host_readq(MemBase + addr);
 }
 
 /* These don't check for alignment, better be sure it's correct */
@@ -154,6 +193,12 @@ static inline uint32_t real_readd(uint16_t seg, uint16_t off)
 	return mem_readd(base + off);
 }
 
+static inline uint64_t real_readq(uint16_t seg, uint16_t off)
+{
+	const auto base = static_cast<uint32_t>(seg << 4);
+	return mem_readq(base + off);
+}
+
 static inline void real_writeb(uint16_t seg, uint16_t off, uint8_t val)
 {
 	const auto base = static_cast<uint32_t>(seg << 4);
@@ -172,23 +217,29 @@ static inline void real_writed(uint16_t seg, uint16_t off, uint32_t val)
 	mem_writed(base + off, val);
 }
 
-static inline uint16_t RealSeg(RealPt pt)
+static inline void real_writeq(uint16_t seg, uint16_t off, uint64_t val)
+{
+	const auto base = static_cast<uint32_t>(seg << 4);
+	mem_writeq(base + off, val);
+}
+
+static inline uint16_t RealSegment(RealPt pt)
 {
 	return static_cast<uint16_t>(pt >> 16);
 }
 
-static inline uint16_t RealOff(RealPt pt)
+static inline uint16_t RealOffset(RealPt pt)
 {
 	return static_cast<uint16_t>(pt & 0xffff);
 }
 
-static inline PhysPt Real2Phys(RealPt pt)
+static inline PhysPt RealToPhysical(RealPt pt)
 {
-	const auto base = static_cast<uint32_t>(RealSeg(pt) << 4);
-	return base + RealOff(pt);
+	const auto base = static_cast<uint32_t>(RealSegment(pt) << 4);
+	return base + RealOffset(pt);
 }
 
-static inline PhysPt PhysMake(uint16_t seg, uint16_t off)
+static inline PhysPt PhysicalMake(uint16_t seg, uint16_t off)
 {
 	const auto base = static_cast<uint32_t>(seg << 4);
 	return base + off;

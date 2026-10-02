@@ -7,9 +7,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CCACHE_DIR:      "/c/ccache"
-  CCACHE_MAXSIZE:  "64M"
-  CCACHE_COMPRESS: "true"
+  CCACHE_DIR:        "/c/ccache"
+  CCACHE_MAXSIZE:    "128M"
+  CCACHE_COMPRESS:   "true"
+  CCACHE_SLOPPINESS: "pch_defines,time_macros"
+
   BUILD_RELEASE_DIR: build/release
   BUILD_DEBUGGER_DIR: build/debugger
 
@@ -25,36 +27,40 @@ jobs:
           - name: GCC (MinGW) x86 +tests
             toolchain: ""
             arch: i686
-            sys: MINGW32
+            sys: mingw32
             cc: gcc
-            max_warnings: 0
+            max_warnings: 2
             run_tests: true
-            build_flags: -Dbuildtype=debug
+            build_flags: -Dbuildtype=debug -Dfluidsynth:tests=false
 
           - name: GCC (UCRT) x86_64 +debugger
             toolchain: ucrt-
             arch: x86_64
-            sys: UCRT64
+            sys: ucrt64
             cc: gcc
-            max_warnings: 0
+            max_warnings: 2
             build_flags: -Denable_debugger=normal
 
           - name: Clang x86_64 +debugger
             toolchain: clang-
             arch: x86_64
-            sys: CLANG64
+            sys: clang64
             cc: clang
+<<<<<<< HEAD
             max_warnings: 0
+=======
+            max_warnings: 2
+>>>>>>> v0.81.0
             build_flags: -Denable_debugger=normal
 
           - name: Clang x86_64 +tests
             toolchain: clang-
             arch: x86_64
-            sys: CLANG64
+            sys: clang64
             cc: clang
-            max_warnings: 0
+            max_warnings: 2
             run_tests: true
-            build_flags: -Dbuildtype=debug
+            build_flags: -Dbuildtype=debug -Dfluidsynth:tests=false
 
     defaults:
       run:
@@ -68,7 +74,7 @@ jobs:
           git config --global core.eol lf
 
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
 
@@ -76,7 +82,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{matrix.conf.sys}}
-          update: true
+          update: false
           install: >-
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-${{matrix.conf.cc}}
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-meson
@@ -85,14 +91,19 @@ jobs:
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-ntldd
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-ncurses
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-glib2
+            mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-iir
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-libpng
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-opusfile
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-libslirp
-            mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-SDL2
-            mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-SDL2_image
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-SDL2_net
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-zlib
             mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-speexdsp
+            mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-python-pip
+            mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-fluidsynth
+
+      - shell: msys2 {0}
+        run: |
+            pacman --noconfirm -U https://repo.msys2.org/mingw/${{matrix.conf.sys}}/mingw-w64-${{matrix.conf.toolchain}}${{matrix.conf.arch}}-SDL2-2.26.5-1-any.pkg.tar.zst
 
       - name:  Prepare compiler cache
         id:    prep-ccache
@@ -103,7 +114,11 @@ jobs:
           echo "yesterday=$(date --date=yesterday -I)"                           >> $GITHUB_OUTPUT
           echo "name_hash=$(echo '${{ matrix.conf.name }}' | shasum | cut -b-8)" >> $GITHUB_OUTPUT
 
+<<<<<<< HEAD
       - uses:  actions/cache@v3.2.2
+=======
+      - uses:  actions/cache@v3.3.2
+>>>>>>> v0.81.0
         id:    cache-ccache
         with:
           path: ${{ steps.prep-ccache.outputs.dir }}
@@ -111,11 +126,40 @@ jobs:
           restore-keys: |
             ccache-msys2-${{ matrix.conf.sys }}-${{ steps.prep-ccache.outputs.name_hash }}-${{ steps.prep-ccache.outputs.yesterday }}-3
 
+<<<<<<< HEAD
       - name:  Cache subprojects
         uses:  actions/cache@v3.2.2
+=======
+      - name: Cache subprojects
+        id:   cache-subprojects
+        uses: actions/cache@v3.3.2
+>>>>>>> v0.81.0
         with:
-          path: subprojects/packagecache
-          key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}-3
+          path: subprojects.tar
+          key: subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
+          enableCrossOsArchive: true
+
+      - name: Update SSL certificates
+        shell: pwsh
+        run: |
+          pip3 install --upgrade pip-system-certs certifi
+          $certifiPath = & 'python3' -c 'import certifi; print(certifi.where())' | Out-String
+          $env:SSL_CERT_FILE = $certifiPath
+          "SSL_CERT_FILE=$certifiPath" >> $env:GITHUB_ENV
+          $webclient = New-Object System.Net.WebClient
+          $webclient.DownloadString("https://github.com") >$null
+
+      - if:   steps.cache-subprojects.outputs.cache-hit != 'true'
+        name: Generate subprojects cache
+        run:  scripts/fetch-and-tar-subprojects.sh
+
+      - name: Extract subprojects cache
+        run:  scripts/extract-subprojects-tar.sh
+        continue-on-error: true
+        #
+        # As of 2023-06-22, MSYS2's tar warns about being unable to apply
+        # directory permission to files, after which it returns a failure code.
+        # This is a work-around until tar is fixed.
 
       - name: Log environment
         run:  ./scripts/log-env.sh
@@ -153,7 +197,7 @@ jobs:
         conf:
           - name: Clang x86_64
             arch: x86_64
-            sys: CLANG64
+            sys: clang64
 
     defaults:
       run:
@@ -167,7 +211,7 @@ jobs:
           git config --global core.eol lf
 
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
 
@@ -179,20 +223,25 @@ jobs:
           install: |
             git
             mingw-w64-clang-${{matrix.conf.arch}}-clang
+            mingw-w64-clang-${{matrix.conf.arch}}-cmake
             mingw-w64-clang-${{matrix.conf.arch}}-meson
             mingw-w64-clang-${{matrix.conf.arch}}-ccache
             mingw-w64-clang-${{matrix.conf.arch}}-pkgconf
             mingw-w64-clang-${{matrix.conf.arch}}-ntldd
             mingw-w64-clang-${{matrix.conf.arch}}-ncurses
             mingw-w64-clang-${{matrix.conf.arch}}-glib2
+            mingw-w64-clang-${{matrix.conf.arch}}-iir
             mingw-w64-clang-${{matrix.conf.arch}}-libpng
             mingw-w64-clang-${{matrix.conf.arch}}-opusfile
             mingw-w64-clang-${{matrix.conf.arch}}-libslirp
-            mingw-w64-clang-${{matrix.conf.arch}}-SDL2
-            mingw-w64-clang-${{matrix.conf.arch}}-SDL2_image
             mingw-w64-clang-${{matrix.conf.arch}}-SDL2_net
-            mingw-w64-clang-${{matrix.conf.arch}}-zlib
             mingw-w64-clang-${{matrix.conf.arch}}-speexdsp
+            mingw-w64-clang-${{matrix.conf.arch}}-python-pip
+            mingw-w64-clang-${{matrix.conf.arch}}-fluidsynth
+
+      - shell: msys2 {0}
+        run: |
+            pacman --noconfirm -U https://repo.msys2.org/mingw/${{matrix.conf.sys}}/mingw-w64-clang-${{matrix.conf.arch}}-SDL2-2.26.5-1-any.pkg.tar.zst
 
       - name:  Prepare compiler cache
         id:    prep-ccache
@@ -202,7 +251,11 @@ jobs:
           echo "today=$(date -I)"                      >> $GITHUB_OUTPUT
           echo "yesterday=$(date --date=yesterday -I)" >> $GITHUB_OUTPUT
 
+<<<<<<< HEAD
       - uses:  actions/cache@v3.2.2
+=======
+      - uses:  actions/cache@v3.3.2
+>>>>>>> v0.81.0
         id:    cache-ccache
         with:
           path: ${{ steps.prep-ccache.outputs.dir }}
@@ -210,11 +263,40 @@ jobs:
           restore-keys: |
             ccache-msys2-${{matrix.conf.sys}}-release-${{ steps.prep-ccache.outputs.yesterday }}-3
 
+<<<<<<< HEAD
       - name:  Cache subprojects
         uses:  actions/cache@v3.2.2
+=======
+      - name: Cache subprojects
+        id:   cache-subprojects
+        uses: actions/cache@v3.3.2
+>>>>>>> v0.81.0
         with:
-          path: subprojects/packagecache
-          key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}-3
+          path: subprojects.tar
+          key: subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
+          enableCrossOsArchive: true
+
+      - name: Update SSL certificates
+        shell: pwsh
+        run: |
+          pip3 install --upgrade pip-system-certs certifi
+          $certifiPath = & 'python3' -c 'import certifi; print(certifi.where())' | Out-String
+          $env:SSL_CERT_FILE = $certifiPath
+          "SSL_CERT_FILE=$certifiPath" >> $env:GITHUB_ENV
+          $webclient = New-Object System.Net.WebClient
+          $webclient.DownloadString("https://github.com") >$null
+
+      - if:   steps.cache-subprojects.outputs.cache-hit != 'true'
+        name: Generate subprojects cache
+        run:  scripts/fetch-and-tar-subprojects.sh
+
+      - name: Extract subprojects cache
+        run:  scripts/extract-subprojects-tar.sh
+        continue-on-error: true
+        #
+        # As of 2023-06-22, MSYS2's tar warns about being unable to apply
+        # directory permission to files, after which it returns a failure code.
+        # This is a work-around until tar is fixed.
 
       - name: Log environment
         run:  ./scripts/log-env.sh
@@ -233,10 +315,23 @@ jobs:
           echo "PKG_RELEASE=dosbox-staging-windows-msys2-${{ matrix.conf.arch }}-${{ env.VERSION }}" >> $GITHUB_ENV
 
       - name: Setup release build
-        run: meson setup -Ddefault_library=static -Db_lto=true -Db_lto_threads=$(nproc) $BUILD_RELEASE_DIR
+        run: |
+          meson setup \
+            -Db_lto=true \
+            -Db_lto_threads=$(nproc) \
+            -Dtry_static_libs=mt32emu \
+            -Duse_zlib_ng=sse2,ssse3 \
+            $BUILD_RELEASE_DIR
 
       - name: Setup debugger build
-        run: meson setup -Ddefault_library=static -Db_lto=true -Db_lto_threads=$(nproc) -Denable_debugger=normal $BUILD_DEBUGGER_DIR
+        run: |
+          meson setup \
+            -Db_lto=true \
+            -Db_lto_threads=$(nproc) \
+            -Denable_debugger=heavy \
+            -Dtry_static_libs=mt32emu \
+            -Duse_zlib_ng=sse2,ssse3 \
+            $BUILD_DEBUGGER_DIR
 
       - name: Build release
         run: |
@@ -331,9 +426,9 @@ jobs:
           cd out
           mkdir program
           copy ${{ github.workspace }}\contrib\windows_installer\* .
-          copy ${{ github.workspace }}\contrib\icons\dosbox-staging.ico .
-          copy ${{ github.workspace }}\contrib\icons\dosbox-staging.bmp .
-          copy ${{ github.workspace }}\contrib\icons\dosbox-staging-side.bmp .
+          copy ${{ github.workspace }}\contrib\icons\windows\dosbox-staging.ico .
+          copy ${{ github.workspace }}\contrib\icons\windows\dosbox-staging.bmp .
+          copy ${{ github.workspace }}\contrib\icons\windows\dosbox-staging-side.bmp .
           xcopy /s ${{ github.workspace }}\${{ env.PKG_RELEASE }}\* program
           replace /a ..\msvc\*.dll program
           move program\dosbox.exe .
@@ -362,7 +457,7 @@ jobs:
     runs-on: windows-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: false
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022       The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,24 +17,30 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "dosbox.h"
-#include "mem.h"
 #include "bios.h"
-#include "regs.h"
-#include "cpu.h"
+
 #include "callback.h"
-#include "inout.h"
-#include "pic.h"
+#include "cpu.h"
+#include "dosbox.h"
 #include "hardware.h"
-#include "pci_bus.h"
+#include "inout.h"
 #include "joystick.h"
+#include "math_utils.h"
+#include "mem.h"
 #include "mouse.h"
-#include "setup.h"
+#include "pic.h"
+#include "regs.h"
 #include "serialport.h"
+#include "setup.h"
+
+#include <memory>
 #include <time.h>
 //--Added 2012-10-19 by Alun Bestor to activate parallel port emulation
 #include "parport.h"
 //--End of modifications
+
+// Constants
+constexpr uint32_t BiosMachineSignatureAddress = 0xfffff;
 
 #if defined(HAVE_CLOCK_GETTIME) && !defined(WIN32)
 // time.h is already included
@@ -46,6 +52,8 @@
 // - Ralf Brown's Interrupt List
 // - https://www.stanislavs.org/helppc/idx_interrupt.html
 // - http://www2.ift.ulaval.ca/~marchand/ift17583/dosints.pdf
+
+void INT1AB1_Handler(); // PCI BIOS calls
 
 /* if mem_systems 0 then size_extended is reported as the real size else
  * zero is reported. ems and xms can increase or decrease the other_memsystems
@@ -64,7 +72,7 @@ static Bitu INT70_Handler(void) {
 			mem_writed(BIOS_WAIT_FLAG_COUNT,count-997);
 		} else {
 			mem_writed(BIOS_WAIT_FLAG_COUNT,0);
-			PhysPt where=Real2Phys(mem_readd(BIOS_WAIT_FLAG_POINTER));
+			PhysPt where=RealToPhysical(mem_readd(BIOS_WAIT_FLAG_POINTER));
 			mem_writeb(where,mem_readb(where)|0x80);
 			mem_writeb(BIOS_WAIT_FLAG_ACTIVE,0);
 			mem_writed(BIOS_WAIT_FLAG_POINTER,RealMake(0,BIOS_WAIT_FLAG_TEMP));
@@ -78,17 +86,19 @@ static Bitu INT70_Handler(void) {
 	return 0;
 }
 
-CALLBACK_HandlerObject* tandy_DAC_callback[2];
+std::unique_ptr<CALLBACK_HandlerObject> tandy_dac_callback[2] = {};
+
 static struct {
-	uint16_t port;
-	uint8_t irq;
-	uint8_t dma;
-} tandy_sb;
+	uint16_t port = 0;
+	uint8_t irq   = 0;
+	uint8_t dma   = 0;
+} tandy_sb = {};
+
 static struct {
-	uint16_t port;
-	uint8_t irq;
-	uint8_t dma;
-} tandy_dac;
+	uint16_t port = 0;
+	uint8_t irq   = 0;
+	uint8_t dma   = 0;
+} tandy_dac = {};
 
 static bool Tandy_InitializeSB() {
 	/* see if soundblaster module available and at what port/IRQ/DMA */
@@ -157,9 +167,10 @@ static void Tandy_SetupTransfer(PhysPt bufpt,bool isplayback) {
 
 	/* revector IRQ-handler if necessary */
 	RealPt current_irq=RealGetVec(tandy_irq_vector);
-	if (current_irq!=tandy_DAC_callback[0]->Get_RealPointer()) {
+	if (current_irq != tandy_dac_callback[0]->Get_RealPointer()) {
 		real_writed(0x40,0xd6,current_irq);
-		RealSetVec(tandy_irq_vector,tandy_DAC_callback[0]->Get_RealPointer());
+		RealSetVec(tandy_irq_vector,
+		           tandy_dac_callback[0]->Get_RealPointer());
 	}
 
 	uint8_t tandy_dma = 1;
@@ -271,8 +282,8 @@ static Bitu IRQ_TandyDAC(void) {
 		}
 
 		/* issue BIOS tandy sound device busy callout */
-		SegSet16(cs, RealSeg(tandy_DAC_callback[1]->Get_RealPointer()));
-		reg_ip = RealOff(tandy_DAC_callback[1]->Get_RealPointer());
+		SegSet16(cs, RealSegment(tandy_dac_callback[1]->Get_RealPointer()));
+		reg_ip = RealOffset(tandy_dac_callback[1]->Get_RealPointer());
 	}
 	return CBRET_NONE;
 }
@@ -300,7 +311,7 @@ static void TandyDAC_Handler(uint8_t tfunction) {
 		real_writew(0x40,0xd0,reg_cx);
 		/* store delay and volume */
 		real_writew(0x40,0xd2,(reg_dx&0xfff)|((reg_al&7)<<13));
-		Tandy_SetupTransfer(PhysMake(SegValue(es),reg_bx),reg_ah==0x83);
+		Tandy_SetupTransfer(PhysicalMake(SegValue(es),reg_bx),reg_ah==0x83);
 		reg_ah=0x00;
 		CALLBACK_SCF(false);
 		break;
@@ -310,7 +321,7 @@ static void TandyDAC_Handler(uint8_t tfunction) {
 		/* setup for a small buffer with silence */
 		real_writew(0x40,0xd0,0x0a);
 		real_writew(0x40,0xd2,0x1c);
-		Tandy_SetupTransfer(PhysMake(0xf000,0xa084),true);
+		Tandy_SetupTransfer(PhysicalMake(0xf000,0xa084),true);
 		CALLBACK_SCF(false);
 		break;
 	case 0x85:	/* Tandy sound system reset */
@@ -368,125 +379,8 @@ static Bitu INT1A_Handler(void) {
 	case 0x85:	/* Tandy sound system reset */
 		TandyDAC_Handler(reg_ah);
 		break;
-	case 0xb1:		/* PCI Bios Calls */
-		LOG(LOG_BIOS,LOG_WARN)("INT1A:PCI bios call %2X",reg_al);
-#if defined(PCI_FUNCTIONALITY_ENABLED)
-		switch (reg_al) {
-		case 0x01: // installation check
-			if (PCI_IsInitialized()) {
-				reg_ah = 0x00;
-				reg_al = 0x01; // cfg space mechanism 1 supported
-				reg_bx = 0x0210; // ver 2.10
-				reg_cx = 0x0000; // only one PCI bus
-				reg_edx = 0x20494350;
-				reg_edi = PCI_GetPModeInterface();
-				CALLBACK_SCF(false);
-			} else {
-				CALLBACK_SCF(true);
-			}
-			break;
-		case 0x02: { // find device
-			Bitu devnr = 0;
-			Bitu count = 0x100;
-			uint32_t devicetag = (reg_cx << 16) | reg_dx;
-			Bits found = -1;
-			for (Bitu i = 0; i <= count; i++) {
-				IO_WriteD(0xcf8, 0x80000000 | (i << 8)); // query
-				                                         // unique
-				                                         // device/subdevice
-				                                         // entries
-				if (IO_ReadD(0xcfc) == devicetag) {
-					if (devnr == reg_si) {
-						found = i;
-						break;
-					} else {
-						// device found, but not the
-						// SIth device
-						devnr++;
-					}
-				}
-			}
-			if (found >= 0) {
-				reg_ah = 0x00;
-				reg_bh = 0x00; // bus 0
-				reg_bl = (uint8_t)(found & 0xff);
-				CALLBACK_SCF(false);
-			} else {
-				reg_ah = 0x86; // device not found
-				CALLBACK_SCF(true);
-			}
-				}
-				break;
-			case 0x03: {	// find device by class code
-				Bitu devnr=0;
-				Bitu count=0x100;
-				uint32_t classtag=reg_ecx&0xffffff;
-				Bits found=-1;
-				for (Bitu i=0; i<=count; i++) {
-					IO_WriteD(0xcf8,0x80000000|(i<<8));	// query unique device/subdevice entries
-					if (IO_ReadD(0xcfc)!=0xffffffff) {
-						IO_WriteD(0xcf8,0x80000000|(i<<8)|0x08);
-						if ((IO_ReadD(0xcfc)>>8)==classtag) {
-							if (devnr==reg_si) {
-								found=i;
-								break;
-							} else {
-								// device found, but not the SIth device
-								devnr++;
-							}
-						}
-					}
-				}
-				if (found>=0) {
-					reg_ah=0x00;
-					reg_bh=0x00;	// bus 0
-					reg_bl=(uint8_t)(found&0xff);
-					CALLBACK_SCF(false);
-				} else {
-					reg_ah=0x86;	// device not found
-					CALLBACK_SCF(true);
-				}
-				}
-				break;
-			case 0x08:	// read configuration byte
-				IO_WriteD(0xcf8,0x80000000|(reg_bx<<8)|(reg_di&0xfc));
-				reg_cl=IO_ReadB(0xcfc+(reg_di&3));
-				CALLBACK_SCF(false);
-				break;
-			case 0x09:	// read configuration word
-				IO_WriteD(0xcf8,0x80000000|(reg_bx<<8)|(reg_di&0xfc));
-				reg_cx=IO_ReadW(0xcfc+(reg_di&2));
-				CALLBACK_SCF(false);
-				break;
-			case 0x0a:	// read configuration dword
-				IO_WriteD(0xcf8,0x80000000|(reg_bx<<8)|(reg_di&0xfc));
-				reg_ecx=IO_ReadD(0xcfc+(reg_di&3));
-				CALLBACK_SCF(false);
-				break;
-			case 0x0b:	// write configuration byte
-				IO_WriteD(0xcf8,0x80000000|(reg_bx<<8)|(reg_di&0xfc));
-				IO_WriteB(0xcfc+(reg_di&3),reg_cl);
-				CALLBACK_SCF(false);
-				break;
-			case 0x0c:	// write configuration word
-				IO_WriteD(0xcf8,0x80000000|(reg_bx<<8)|(reg_di&0xfc));
-				IO_WriteW(0xcfc+(reg_di&2),reg_cx);
-				CALLBACK_SCF(false);
-				break;
-			case 0x0d:	// write configuration dword
-				IO_WriteD(0xcf8,0x80000000|(reg_bx<<8)|(reg_di&0xfc));
-				IO_WriteD(0xcfc+(reg_di&3),reg_ecx);
-				CALLBACK_SCF(false);
-				break;
-			default:
-				LOG(LOG_BIOS,LOG_ERROR)("INT1A:PCI BIOS: unknown function %x (%x %x %x)",
-					reg_ax,reg_bx,reg_cx,reg_dx);
-				CALLBACK_SCF(true);
-				break;
-		        }
-#else
-		CALLBACK_SCF(true);
-#endif
+	case 0xb1: // PCI_FUNCTION_ID - PCI BIOS calls
+		INT1AB1_Handler();
 		break;
 	default:
 		LOG(LOG_BIOS,LOG_ERROR)("INT1A:Undefined call %2X",reg_ah);
@@ -666,20 +560,21 @@ static Bitu INT14_Handler(void) {
 		//							AH: line status
 
 		// set baud rate
-		Bitu baudrate = 9600;
-		uint16_t baudresult;
-		Bitu rawbaud=reg_al>>5;
-		
-		if (rawbaud==0){ baudrate=110;}
-		else if (rawbaud==1){ baudrate=150;}
-		else if (rawbaud==2){ baudrate=300;}
-		else if (rawbaud==3){ baudrate=600;}
-		else if (rawbaud==4){ baudrate=1200;}
-		else if (rawbaud==5){ baudrate=2400;}
-		else if (rawbaud==6){ baudrate=4800;}
-		else if (rawbaud==7){ baudrate=9600;}
+		Bitu baudrate = {};
+		switch (reg_al >> 5) {
+		case 0: baudrate = 110; break;
+		case 1: baudrate = 150; break;
+		case 2: baudrate = 300; break;
+		case 3: baudrate = 600; break;
+		case 4: baudrate = 1200; break;
+		case 5: baudrate = 2400; break;
+		case 6: baudrate = 4800; break;
+		case 7: baudrate = 9600; break;
+		default: assert(false); return CBRET_NONE;
+		}
 
-		baudresult = (uint16_t)(115200 / baudrate);
+		const auto baudresult = static_cast<uint16_t>(
+		        SerialMaxBaudRate / baudrate);
 
 		IO_WriteB(port+3, 0x80);	// enable divider access
 		IO_WriteB(port, (uint8_t)baudresult&0xff);
@@ -787,7 +682,7 @@ static Bitu INT15_Handler(void) {
 		if (biosConfigSeg == 0)
 			biosConfigSeg = DOS_GetMemory(1); // We have 16 bytes
 
-		PhysPt data = PhysMake(biosConfigSeg, 0);
+		PhysPt data = PhysicalMake(biosConfigSeg, 0);
 		mem_writew(data, 8); // 8 Bytes following
 
 		// Tandy and IBM PCjr
@@ -971,97 +866,123 @@ static Bitu INT15_Handler(void) {
 		CALLBACK_SCF(false);
 		reg_ah=0;
 		break;
-	case 0xc2:	/* BIOS PS2 Pointing Device Support */
-		switch (reg_al) {
-		case 0x00:                      // enable/disable
-			if (reg_bh == 0) { // disable
-				MOUSEBIOS_Disable();
-				reg_ah = 0;
-				CALLBACK_SCF(false);
-			} else if (reg_bh == 0x01) { // enable
-				if (!MOUSEBIOS_Enable()) {
-					reg_ah = 5;
-					CALLBACK_SCF(true);
-					break;
-				}
-				reg_ah = 0;
-				CALLBACK_SCF(false);
-			} else {
-				CALLBACK_SCF(true);
-				reg_ah = 1;
-			}
-			break;
-		case 0x01: // reset
-			MOUSEBIOS_Reset();
-			reg_bx = 0x00aa; // mouse
-			[[fallthrough]];
-		case 0x05:		// initialize
-			if ((reg_al == 0x05) && !MOUSEBIOS_SetPacketSize(reg_bh)) {
-				CALLBACK_SCF(true);
-				reg_ah = 2;
-				break;
-			}
-			MOUSEBIOS_Disable();
-			CALLBACK_SCF(false);
-			reg_ah=0;
-			break;
-		case 0x02:		// set sampling rate
-			if (!MOUSEBIOS_SetSampleRate(reg_bh)) {
-				CALLBACK_SCF(true);
-				reg_ah = 2;
-				break;
-			}
-			CALLBACK_SCF(false);
-			reg_ah = 0;
-			break;
-		case 0x03: // set resolution
-			if (!MOUSEBIOS_SetResolution(reg_bh)) {
-				CALLBACK_SCF(true);
-				reg_ah = 2;
-				break;
-			}
-			CALLBACK_SCF(false);
-			reg_ah = 0;
-			break;
-		case 0x04: // get mouse type/protocol
-			reg_bh = MOUSEBIOS_GetProtocol();
-			CALLBACK_SCF(false);
-			reg_ah=0;
-			break;
-		case 0x06: // extended commands
-			if (reg_bh == 0x00) { // get mouse status
-				reg_bx = MOUSEBIOS_GetStatus();
-				reg_cx = MOUSEBIOS_GetResolution();
-				reg_dx = MOUSEBIOS_GetSampleRate();
-				CALLBACK_SCF(false);
-				reg_ah = 0;
-			} else if (reg_bh == 0x01 || reg_bh == 0x02) { // scaling
-				MOUSEBIOS_SetScaling21(reg_bh == 0x02);
-				CALLBACK_SCF(false);
-				reg_ah = 0;
-			} else {
-				CALLBACK_SCF(true);
-				reg_ah = 1;
-			}
-			break;
-		case 0x07:		// set callback
-			MOUSEBIOS_SetCallback(SegValue(es), reg_bx);
-			CALLBACK_SCF(false);
-			reg_ah = 0;
-			break;
-		default:
-			CALLBACK_SCF(true);
-			reg_ah = 1;
-			break;
-		}
+	case 0xc2: /* BIOS PS2 Pointing Device Support */
+		MOUSEBIOS_Subfunction_C2();
 		break;
 	case 0xc3:      /* set carry flag so BorlandRTM doesn't assume a VECTRA/PS2 */
 		reg_ah=0x86;
 		CALLBACK_SCF(true);
 		break;
 	case 0xc4:	/* BIOS POS Programm option Select */
-		LOG(LOG_BIOS,LOG_NORMAL)("INT15:Function %X called, bios mouse not supported",reg_ah);
+		LOG(LOG_BIOS, LOG_WARN)("INT15:Function %X called, programmable options not supported", reg_ah);
 		CALLBACK_SCF(true);
+		break;
+	case 0xe8:
+		switch (reg_al) {
+		case 0x01:
+			reg_ax = 0; // extended memory between 1MB and 16MB, in 1KB blocks
+			reg_bx = 0; // extended memory above 16MB, in 64KB blocks
+			{
+				const auto mem_in_kb = MEM_TotalPages() * 4;
+				if (mem_in_kb > 1024) {
+					reg_ax = std::min(static_cast<uint16_t>(mem_in_kb - 1024),
+					                  static_cast<uint16_t>(15 * 1024));
+				}
+				if (mem_in_kb > 16 * 1024) {
+					reg_bx = clamp_to_uint16((mem_in_kb - 16 * 1024) / 64);
+				}
+			}
+			reg_cx = reg_ax; // configured memory between 1MB and 16MB, in 1KB blocks
+			reg_dx = reg_bx; // configured memory above 16MB, in 64KB blocks
+			CALLBACK_SCF(false);
+			break;
+		case 0x20:
+			if (reg_edx == 0x534d4150 && reg_ecx >= 20 &&
+			    (MEM_TotalPages() * 4) >= 24000) {
+				// return a minimalist list:
+				// - 0x000000-0x09EFFF    free
+				// - 0x0C0000-0x0FFFFF    reserved
+				// - 0x100000-...         free (no ACPI tables)
+			    	reg_eax = reg_edx;
+				if (reg_ebx < 3) {
+					uint32_t base = 0;
+					uint32_t len  = 0;
+					uint32_t type = 0;
+
+					// type 1 - memory, available to OS
+					// type 2 - reserved, not available
+					//          (e.g. system ROM, memory-mapped device)
+					// type 3 - ACPI reclaim memory
+					//          (usable by OS after reading ACPI tables)
+					// type 4 - ACPI NVS Memory
+					//          (OS is required to save this memory between NVS)
+
+					switch (reg_ebx) {
+					case 0:
+						base = 0x000000;
+						len  = 0x09f000;
+						type = 1;
+						break;
+					case 1:
+						base = 0x0c0000;
+						len  = 0x040000;
+						type = 2;
+						break;
+					case 2:
+						base = 0x100000;
+						len  = (MEM_TotalPages() * 4096) - 0x100000;
+						type = 1;
+						break;
+					default:
+						E_Exit("Despite checks EBX is wrong value"); // BUG!
+					}
+
+					// Write map to ES:DI
+					const auto seg = SegValue(es);
+					real_writed(seg, reg_di + 0x00, base);
+					real_writed(seg, reg_di + 0x04, 0);
+					real_writed(seg, reg_di + 0x08, len);
+					real_writed(seg, reg_di + 0x0c, 0);
+					real_writed(seg, reg_di + 0x10, type);
+					reg_ecx = 20;
+
+					// Return EBX pointing to next entry.
+					// Wrap around, as most BIOSes do.
+					// The program is supposed to stop on
+					// CF == 1 or when we return EBX == 0
+					if (++reg_ebx >= 3) {
+						reg_ebx = 0;
+					}
+
+					CALLBACK_SCF(false);
+				} else {
+					CALLBACK_SCF(true);
+				}
+			} else {
+				reg_eax = 0x8600;
+				CALLBACK_SCF(true);
+			}
+			break;
+		case 0x81:
+			reg_eax = 0; // extended memory between 1MB and 16MB, in 1KB blocks
+			reg_ebx = 0; // extended memory above 16MB, in 64KB blocks
+			{
+				const auto mem_in_kb = MEM_TotalPages() * 4;
+				if (mem_in_kb > 1024) {
+					reg_eax = std::min(static_cast<uint32_t>(mem_in_kb - 1024),
+					                   static_cast<uint32_t>(15 * 1024));
+				}
+				if (mem_in_kb > 16 * 1024) {
+					reg_ebx = check_cast<uint32_t>((mem_in_kb - 16 * 1024) / 64);
+				}
+			}
+			reg_ecx = reg_eax; // configured memory between 1MB and 16MB, in 1KB blocks
+			reg_edx = reg_ebx; // configured memory above 16MB, in 64KB blocks
+			CALLBACK_SCF(false);
+			break;
+		default:
+			goto unhandled;
+		}
 		break;
 	default:
 	unhandled:
@@ -1122,7 +1043,7 @@ static Bitu Reboot_Handler(void) {
 		reg_al = static_cast<uint8_t>(c);
 		CALLBACK_RunRealInt(0x10);
 	}
-	LOG_MSG(text);
+	LOG_MSG("BIOS: Reboot requested, quitting");
 	const auto start = PIC_FullIndex();
 	while ((PIC_FullIndex() - start) < 3000.0)
 		CALLBACK_Idle();
@@ -1142,6 +1063,139 @@ void BIOS_ZeroExtendedSize(bool in) {
 	if(other_memsystems < 0) other_memsystems=0;
 }
 
+static void shutdown_tandy_sb_dac_callbacks()
+{
+	// Abort DAC playing when via the Sound Blaster's DAC
+	if (tandy_sb.port) {
+		IO_Write(tandy_sb.port + 0xc, 0xd3);
+		IO_Write(tandy_sb.port + 0xc, 0xd0);
+	}
+	real_writeb(0x40, 0xd4, 0x00);
+	if (tandy_dac_callback[0]) {
+		LOG_MSG("BIOS: Shutting down Tandy DAC interrupt callbacks");
+		uint32_t orig_vector = real_readd(0x40, 0xd6);
+		if (orig_vector == tandy_dac_callback[0]->Get_RealPointer()) {
+			// Set IRQ vector to old value
+			uint8_t tandy_irq = 7;
+			if (tandy_sb.port) {
+				tandy_irq = tandy_sb.irq;
+			} else if (tandy_dac.port) {
+				tandy_irq = tandy_dac.irq;
+			}
+			uint8_t tandy_irq_vector = tandy_irq;
+			if (tandy_irq_vector < 8) {
+				tandy_irq_vector += 8;
+			} else {
+				tandy_irq_vector += (0x70 - 8);
+			}
+
+			RealSetVec(tandy_irq_vector, real_readd(0x40, 0xd6));
+			real_writed(0x40, 0xd6, 0x00000000);
+		}
+		tandy_dac_callback[0] = {};
+		tandy_dac_callback[1] = {};
+	}
+	tandy_sb.port  = 0;
+	tandy_dac.port = 0;
+}
+
+// The Tandy Sound card requests DAC support which the following configures via
+// BIOS-based interrupt callbacks using either a Sound Blaster or the 'actual'
+// Tandy DAC module, respectively. If neither are present then the BIOS
+// callbacks aren't setup.
+//
+// The BIOS callbacks are shutdown when the backing device is shutdown to avoid
+// advertizing the DAC's presence when none exists.
+//
+// Returns true if a DAC was actually setup.
+//
+bool BIOS_ConfigureTandyDacCallbacks(const std::optional<bool> maybe_request_dac)
+{
+	// Holds the Tandy Sound card's request based on the presence of the
+	// optional 'maybe_request_dac' argument. This allows other modules
+	// (like the Sound Blaster) to run this function without any arguments
+	// to re-assess if BIOS callback can potentially be setup.
+	//
+	static bool dac_requested = false;
+
+	if (maybe_request_dac) {
+		dac_requested = *maybe_request_dac;
+	}
+
+	// The BIOS DAC handling depends on the BIOS IRQ vectors being setup, so
+	// we only proceed once those are in place. We use the presence of the
+	// machine signature (either Tandy or PC) to indicate this.
+	//
+	if (mem_readb(BiosMachineSignatureAddress) == 0) {
+		return false;
+	}
+
+	shutdown_tandy_sb_dac_callbacks();
+
+	if (dac_requested) {
+		// Tandy DAC sound requested, see if soundblaster device is available
+		Bitu tandy_dac_type = 0;
+		if (Tandy_InitializeSB()) {
+			tandy_dac_type = 1;
+		} else if (Tandy_InitializeTS()) {
+			tandy_dac_type = 2;
+		}
+		if (tandy_dac_type) {
+			real_writew(0x40, 0xd0, 0x0000);
+			real_writew(0x40, 0xd2, 0x0000);
+			real_writeb(0x40, 0xd4, 0xff); // Tandy DAC init value
+			real_writed(0x40, 0xd6, 0x00000000);
+			// Install the DAC callback handler
+			tandy_dac_callback[0] = std::make_unique<CALLBACK_HandlerObject>(
+			        CALLBACK_HandlerObject());
+			tandy_dac_callback[1] = std::make_unique<CALLBACK_HandlerObject>(
+			        CALLBACK_HandlerObject());
+			tandy_dac_callback[0]->Install(&IRQ_TandyDAC,
+			                               CB_IRET,
+			                               "Tandy DAC IRQ");
+			tandy_dac_callback[1]->Install(nullptr,
+			                               CB_TDE_IRET,
+			                               "Tandy DAC end transfer");
+			// pseudocode for CB_TDE_IRET:
+			//	push ax
+			//	mov ax, 0x91fb
+			//	int 15
+			//	cli
+			//	mov al, 0x20
+			//	out 0x20, al
+			//	pop ax
+			//	iret
+
+			uint8_t tandy_irq = 7;
+			if (tandy_dac_type == 1) {
+				LOG_MSG("BIOS: Tandy DAC interrupt linked to Sound Blaster on IRQ %u",
+				        tandy_sb.irq);
+				tandy_irq = tandy_sb.irq;
+			} else if (tandy_dac_type == 2) {
+				LOG_MSG("BIOS: Tandy DAC interrupt linked to Tandy Sound on IRQ %u",
+				        tandy_dac.irq);
+				tandy_irq = tandy_dac.irq;
+			}
+			uint8_t tandy_irq_vector = tandy_irq;
+			if (tandy_irq_vector < 8) {
+				tandy_irq_vector += 8;
+			} else {
+				tandy_irq_vector += (0x70 - 8);
+			}
+
+			RealPt current_irq = RealGetVec(tandy_irq_vector);
+			real_writed(0x40, 0xd6, current_irq);
+			for (auto i = 0; i < 0x10; i++) {
+				phys_writeb(PhysicalMake(0xf000, 0xa084 + i), 0x80);
+			}
+			return true;
+		}
+	}
+	// Indicate that the Tandy DAC callbacks are unavailable
+	real_writeb(0x40, 0xd4, 0x00);
+	return false;
+}
+
 void BIOS_SetupKeyboard(void);
 void BIOS_SetupDisks(void);
 
@@ -1149,10 +1203,8 @@ class BIOS final : public Module_base{
 private:
 	CALLBACK_HandlerObject callback[11];
 public:
-	BIOS(Section* configuration):Module_base(configuration){
-		/* tandy DAC can be requested in tandy_sound.cpp by initializing this field */
-		bool use_tandyDAC=(real_readb(0x40,0xd4)==0xff);
-
+	BIOS(Section* configuration) : Module_base(configuration)
+	{
 		/* Clear the Bios Data Area (0x400-0x5ff, 0x600- is accounted to DOS) */
 		for (uint16_t i=0;i<0x200;i++) real_writeb(0x40,i,0);
 
@@ -1160,7 +1212,7 @@ public:
 
 		/* INT 8 Clock IRQ Handler */
 		auto call_irq0 = CALLBACK_Allocate();
-		CALLBACK_Setup(call_irq0,INT8_Handler,CB_IRQ0,Real2Phys(BIOS_DEFAULT_IRQ0_LOCATION),"IRQ 0 Clock");
+		CALLBACK_Setup(call_irq0,INT8_Handler,CB_IRQ0,RealToPhysical(BIOS_DEFAULT_IRQ0_LOCATION),"IRQ 0 Clock");
 		RealSetVec(0x08,BIOS_DEFAULT_IRQ0_LOCATION);
 		// pseudocode for CB_IRQ0:
 		//	sti
@@ -1221,7 +1273,7 @@ public:
 		callback[8].Set_RealVec(0x70);
 
 		/* Irq 9 rerouted to irq 2 */
-		callback[9].Install(NULL,CB_IRQ9,"irq 9 bios");
+		callback[9].Install(nullptr,CB_IRQ9,"irq 9 bios");
 		callback[9].Set_RealVec(0x71);
 
 		/* Reboot */
@@ -1241,17 +1293,17 @@ public:
 
 		// The farjump at the processor reset entry point (jumps to POST routine)
 		phys_writeb(0xFFFF0,0xEA);		// FARJMP
-		phys_writew(0xFFFF1,RealOff(BIOS_DEFAULT_RESET_LOCATION));	// offset
-		phys_writew(0xFFFF3,RealSeg(BIOS_DEFAULT_RESET_LOCATION));	// segment
+		phys_writew(0xFFFF1,RealOffset(BIOS_DEFAULT_RESET_LOCATION));	// offset
+		phys_writew(0xFFFF3,RealSegment(BIOS_DEFAULT_RESET_LOCATION));	// segment
 
 		// Compatible POST routine location: jump to the callback
-		phys_writeb(Real2Phys(BIOS_DEFAULT_RESET_LOCATION)+0,0xEA);				// FARJMP
-		phys_writew(Real2Phys(BIOS_DEFAULT_RESET_LOCATION)+1,RealOff(rptr));	// offset
-		phys_writew(Real2Phys(BIOS_DEFAULT_RESET_LOCATION)+3,RealSeg(rptr));	// segment
+		phys_writeb(RealToPhysical(BIOS_DEFAULT_RESET_LOCATION)+0,0xEA);				// FARJMP
+		phys_writew(RealToPhysical(BIOS_DEFAULT_RESET_LOCATION)+1,RealOffset(rptr));	// offset
+		phys_writew(RealToPhysical(BIOS_DEFAULT_RESET_LOCATION)+3,RealSegment(rptr)); // segment
 
 		/* Irq 2 */
 		auto call_irq2 = CALLBACK_Allocate();
-		CALLBACK_Setup(call_irq2,NULL,CB_IRET_EOI_PIC1,Real2Phys(BIOS_DEFAULT_IRQ2_LOCATION),"irq 2 bios");
+		CALLBACK_Setup(call_irq2,nullptr,CB_IRET_EOI_PIC1,RealToPhysical(BIOS_DEFAULT_IRQ2_LOCATION),"irq 2 bios");
 		RealSetVec(0x0a,BIOS_DEFAULT_IRQ2_LOCATION);
 
 		/* Default IRQ handler */
@@ -1266,12 +1318,12 @@ public:
 
 		// INT 05h: Print Screen
 		// IRQ1 handler calls it when PrtSc key is pressed; does nothing unless hooked
-		phys_writeb(Real2Phys(BIOS_DEFAULT_INT5_LOCATION),0xcf);
+		phys_writeb(RealToPhysical(BIOS_DEFAULT_INT5_LOCATION),0xcf);
 		RealSetVec(0x05,BIOS_DEFAULT_INT5_LOCATION);
 
 		/* Some hardcoded vectors */
-		phys_writeb(Real2Phys(BIOS_DEFAULT_HANDLER_LOCATION),0xcf);	/* bios default interrupt vector location -> IRET */
-		phys_writew(Real2Phys(RealGetVec(0x12))+0x12,0x20); //Hack for Jurresic
+		phys_writeb(RealToPhysical(BIOS_DEFAULT_HANDLER_LOCATION),0xcf);	/* bios default interrupt vector location -> IRET */
+		phys_writew(RealToPhysical(RealGetVec(0x12))+0x12,0x20); //Hack for Jurresic
 
 		if (machine==MCH_TANDY) phys_writeb(0xffffe,0xff)	;	/* Tandy model */
 		else if (machine==MCH_PCJR) phys_writeb(0xffffe,0xfd);	/* PCJr model */
@@ -1292,55 +1344,17 @@ public:
 		for (const auto c : "01/01/92")
 			phys_writeb(0xffff5 + i++, static_cast<uint8_t>(c));
 
-		phys_writeb(0xfffff, 0x55); // signature
+		// write machine signature
+		const uint8_t machine_signature = (machine == MCH_TANDY) ? 0xff : 0x55;
+		phys_writeb(BiosMachineSignatureAddress, machine_signature);
 
-		tandy_sb.port=0;
-		tandy_dac.port=0;
-		if (use_tandyDAC) {
-			/* tandy DAC sound requested, see if soundblaster device is available */
-			Bitu tandy_dac_type = 0;
-			if (Tandy_InitializeSB()) {
-				tandy_dac_type = 1;
-			} else if (Tandy_InitializeTS()) {
-				tandy_dac_type = 2;
-			}
-			if (tandy_dac_type) {
-				real_writew(0x40,0xd0,0x0000);
-				real_writew(0x40,0xd2,0x0000);
-				real_writeb(0x40,0xd4,0xff);	/* tandy DAC init value */
-				real_writed(0x40,0xd6,0x00000000);
-				/* install the DAC callback handler */
-				tandy_DAC_callback[0]=new CALLBACK_HandlerObject();
-				tandy_DAC_callback[1]=new CALLBACK_HandlerObject();
-				tandy_DAC_callback[0]->Install(&IRQ_TandyDAC,CB_IRET,"Tandy DAC IRQ");
-				tandy_DAC_callback[1]->Install(NULL,CB_TDE_IRET,"Tandy DAC end transfer");
-				// pseudocode for CB_TDE_IRET:
-				//	push ax
-				//	mov ax, 0x91fb
-				//	int 15
-				//	cli
-				//	mov al, 0x20
-				//	out 0x20, al
-				//	pop ax
-				//	iret
+		// Note: The BIOS 0x40 segment (Tandy DAC) callbacks can also be
+		// re-configured when the Tandy Sound card is initialized
+		// followed by state changes in either backing DAC modules
+		// (pre-SB16 Sound Blaster or the Tandy DAC).
+		//
+		BIOS_ConfigureTandyDacCallbacks();
 
-				uint8_t tandy_irq = 7;
-				if (tandy_dac_type==1) tandy_irq = tandy_sb.irq;
-				else if (tandy_dac_type==2) tandy_irq = tandy_dac.irq;
-				uint8_t tandy_irq_vector = tandy_irq;
-				if (tandy_irq_vector<8) tandy_irq_vector += 8;
-				else tandy_irq_vector += (0x70-8);
-
-				RealPt current_irq=RealGetVec(tandy_irq_vector);
-				real_writed(0x40,0xd6,current_irq);
-				for (i = 0; i < 0x10; i++)
-					phys_writeb(PhysMake(0xf000, 0xa084 + i),
-					            0x80);
-			} else real_writeb(0x40,0xd4,0x00);
-		}
-	
-		/* Setup some stuff in 0x40 bios segment */
-		
 		// port timeouts
 		// always 1 second even if the port does not exist
 		mem_writeb(BIOS_LPT1_TIMEOUT,1);
@@ -1416,9 +1430,11 @@ public:
 			//Startup monochrome
 			config|=0x30;
 			break;
-		case EGAVGA_ARCH_CASE:
 		case MCH_CGA:
-		case TANDY_ARCH_CASE:
+		case MCH_PCJR:
+		case MCH_TANDY:
+		case MCH_EGA:
+		case MCH_VGA:
 			//Startup 80x25 color
 			config|=0x20;
 			break;
@@ -1442,31 +1458,7 @@ public:
 		BIOS_HostTimeSync();
 	}
 	~BIOS(){
-		/* abort DAC playing */
-		if (tandy_sb.port) {
-			IO_Write(tandy_sb.port+0xc,0xd3);
-			IO_Write(tandy_sb.port+0xc,0xd0);
-		}
-		real_writeb(0x40,0xd4,0x00);
-		if (tandy_DAC_callback[0]) {
-			uint32_t orig_vector=real_readd(0x40,0xd6);
-			if (orig_vector==tandy_DAC_callback[0]->Get_RealPointer()) {
-				/* set IRQ vector to old value */
-				uint8_t tandy_irq = 7;
-				if (tandy_sb.port) tandy_irq = tandy_sb.irq;
-				else if (tandy_dac.port) tandy_irq = tandy_dac.irq;
-				uint8_t tandy_irq_vector = tandy_irq;
-				if (tandy_irq_vector<8) tandy_irq_vector += 8;
-				else tandy_irq_vector += (0x70-8);
-
-				RealSetVec(tandy_irq_vector,real_readd(0x40,0xd6));
-				real_writed(0x40,0xd6,0x00000000);
-			}
-			delete tandy_DAC_callback[0];
-			delete tandy_DAC_callback[1];
-			tandy_DAC_callback[0]=NULL;
-			tandy_DAC_callback[1]=NULL;
-		}
+		shutdown_tandy_sb_dac_callbacks();
 	}
 };
 
@@ -1526,7 +1518,12 @@ void BIOS_Destroy(Section* /*sec*/){
 	delete test;
 }
 
-void BIOS_Init(Section* sec) {
+void BIOS_Init(Section* sec)
+{
+	assert(sec);
+
 	test = new BIOS(sec);
-	sec->AddDestroyFunction(&BIOS_Destroy,false);
+
+	constexpr auto changeable_at_runtime = true;
+	sec->AddDestroyFunction(&BIOS_Destroy, changeable_at_runtime);
 }

@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -110,16 +111,35 @@ public:
 		GEMMIS_seg = 0;
 	}
 
-	bool Read(uint8_t * /*data*/,uint16_t * /*size*/) { return false;}
-	bool Write(uint8_t * /*data*/,uint16_t * /*size*/){
-		LOG(LOG_IOCTL,LOG_NORMAL)("EMS:Write to device");
+	bool Read(uint8_t* /*data*/, uint16_t* /*size*/) override
+	{
 		return false;
 	}
-	bool Seek(uint32_t * /*pos*/,uint32_t /*type*/){return false;}
-	bool Close(){return false;}
-	uint16_t GetInformation(void){return 0xc0c0;}
-	bool ReadFromControlChannel(PhysPt bufptr,uint16_t size,uint16_t * retcode);
-	bool WriteToControlChannel(PhysPt /*bufptr*/,uint16_t /*size*/,uint16_t * /*retcode*/){return true;}
+	bool Write(uint8_t* /*data*/, uint16_t* /*size*/) override
+	{
+		LOG(LOG_IOCTL, LOG_NORMAL)("EMS:Write to device");
+		return false;
+	}
+	bool Seek(uint32_t* /*pos*/, uint32_t /*type*/) override
+	{
+		return false;
+	}
+	bool Close() override
+	{
+		return false;
+	}
+	uint16_t GetInformation(void) override
+	{
+		return 0xc0c0;
+	}
+	bool ReadFromControlChannel(PhysPt bufptr, uint16_t size,
+	                            uint16_t* retcode) override;
+	bool WriteToControlChannel(PhysPt /*bufptr*/, uint16_t /*size*/,
+	                           uint16_t* /*retcode*/) override
+	{
+		return true;
+	}
+
 private:
 	bool is_emm386;
 };
@@ -137,7 +157,7 @@ bool device_EMM::ReadFromControlChannel(PhysPt bufptr,uint16_t size,uint16_t * r
 			if (!is_emm386) return false;
 			if (size!=6) return false;
 			if (GEMMIS_seg==0) GEMMIS_seg=DOS_GetMemory(0x20);
-			PhysPt GEMMIS_addr=PhysMake(GEMMIS_seg,0);
+			PhysPt GEMMIS_addr=PhysicalMake(GEMMIS_seg,0);
 
 			mem_writew(GEMMIS_addr+0x00,0x0004);			// flags
 			mem_writew(GEMMIS_addr+0x02,0x019d);			// size of this structure
@@ -1273,12 +1293,10 @@ static Bitu V86_Monitor() {
 	return CBRET_NONE;
 }
 
-static void SetupVCPI() {
-	vcpi.enabled=false;
-
-	vcpi.ems_handle=0;	// use EMM system handle for VCPI data
-
-	vcpi.enabled=true;
+static void SetupVCPI()
+{
+	vcpi.ems_handle = 0; // use EMM system handle for VCPI data
+	vcpi.enabled    = true;
 
 	vcpi.pic1_remapping = 0x08; // primary PIC base
 	vcpi.pic2_remapping = 0x70; // secondary PIC base
@@ -1354,12 +1372,15 @@ static Bitu INT4B_Handler() {
 
 Bitu GetEMSType(Section_prop * section) {
 	Bitu rtype = 0;
-	std::string emstypestr(section->Get_string("ems"));
-	if (emstypestr=="true") {
-		rtype = 1;	// mixed mode
-	} else if (emstypestr=="emsboard") {
+	const std::string ems_pref = section->Get_string("ems");
+
+	const auto ems_pref_has_bool = parse_bool_setting(ems_pref);
+
+	if (ems_pref_has_bool && *ems_pref_has_bool == true) {
+		rtype = 1; // mixed mode
+	} else if (ems_pref == "emsboard") {
 		rtype = 2;
-	} else if (emstypestr=="emm386") {
+	} else if (ems_pref == "emm386") {
 		rtype = 3;
 	} else {
 		rtype = 0;
@@ -1407,12 +1428,12 @@ public:
 		ems_baseseg = DOS_GetMemory(2); // We have 32 bytes
 
 		/* Add a little hack so it appears that there is an actual ems device installed */
-		char const *emsname = "EMMXXXX0";
-		MEM_BlockWrite(PhysMake(ems_baseseg, 0xa), emsname,
+		const char* emsname = "EMMXXXX0";
+		MEM_BlockWrite(PhysicalMake(ems_baseseg, 0xa), emsname,
 		               strlen(emsname) + 1);
 
 		call_int67=CALLBACK_Allocate();
-		CALLBACK_Setup(call_int67,&INT67_Handler,CB_IRET,PhysMake(ems_baseseg,4),"Int 67 ems");
+		CALLBACK_Setup(call_int67,&INT67_Handler,CB_IRET,PhysicalMake(ems_baseseg,4),"Int 67 ems");
 		RealSetVec(0x67,RealMake(ems_baseseg,4),old67_pointer);
 
 		/* Register the ems device */
@@ -1498,15 +1519,15 @@ public:
 		BIOS_ZeroExtendedSize(false);
 
 		/* Remove ems device */
-		if (emm_device!=NULL) {
+		if (emm_device!=nullptr) {
 			DOS_DelDevice(emm_device);
-			emm_device=NULL;
+			emm_device=nullptr;
 		}
 		GEMMIS_seg=0;
 
 		/* Remove the emsname and callback hack */
 		char buf[32]= { 0 };
-		MEM_BlockWrite(PhysMake(ems_baseseg,0),buf,32);
+		MEM_BlockWrite(PhysicalMake(ems_baseseg,0),buf,32);
 		RealSetVec(0x67,old67_pointer);
 
 		/* Release memory allocated to system handle */
@@ -1536,7 +1557,12 @@ void EMS_ShutDown(Section* /*sec*/) {
 	delete test;
 }
 
-void EMS_Init(Section* sec) {
+void EMS_Init(Section* sec)
+{
+	assert(sec);
+
 	test = new EMS(sec);
-	sec->AddDestroyFunction(&EMS_ShutDown,true);
+
+	constexpr auto changeable_at_runtime = true;
+	sec->AddDestroyFunction(&EMS_ShutDown, changeable_at_runtime);
 }

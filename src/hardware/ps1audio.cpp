@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2022  The DOSBox Staging Team
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include <queue>
 #include <string.h>
 
+#include "channel_names.h"
 #include "control.h"
 #include "dma.h"
 #include "inout.h"
@@ -38,7 +39,8 @@
 
 #include "mame/emu.h"
 #include "mame/sn76496.h"
-#include "../libs/residfp/resample/TwoPassSincResampler.h"
+
+#include "residfp/resample/TwoPassSincResampler.h"
 
 using namespace std::placeholders;
 
@@ -51,7 +53,7 @@ struct Ps1Registers {
 
 class Ps1Dac {
 public:
-	Ps1Dac(const std::string &filter_choice);
+	Ps1Dac(const std::string_view filter_choice);
 	~Ps1Dac();
 
 private:
@@ -120,20 +122,22 @@ static void setup_filter(mixer_channel_t &channel)
 	channel->SetLowPassFilter(FilterState::On);
 }
 
-Ps1Dac::Ps1Dac(const std::string &filter_choice)
+Ps1Dac::Ps1Dac(const std::string_view filter_choice)
 {
 	const auto callback = std::bind(&Ps1Dac::Update, this, _1);
 
 	channel = MIXER_AddChannel(callback,
 	                           use_mixer_rate,
-	                           "PS1DAC",
+	                           ChannelName::Ps1AudioCardDac,
 	                           {ChannelFeature::Sleep,
 	                            ChannelFeature::ReverbSend,
 	                            ChannelFeature::ChorusSend,
 	                            ChannelFeature::DigitalAudio});
 
 	// Setup filters
-	if (filter_choice == "on") {
+	const auto filter_choice_has_bool = parse_bool_setting(filter_choice);
+
+	if (filter_choice_has_bool && *filter_choice_has_bool == true) {
 		// Using the same filter settings for the DAC as for the PSG
 		// synth. It's unclear whether this is accurate, but in any
 		// case, the filters do a good approximation of how a small
@@ -141,9 +145,10 @@ Ps1Dac::Ps1Dac(const std::string &filter_choice)
 		setup_filter(channel);
 
 	} else if (!channel->TryParseAndSetCustomFilter(filter_choice)) {
-		if (filter_choice != "off")
-			LOG_WARNING("PS1DAC: Invalid 'ps1audio_dac_filter' value: '%s', using 'off'",
-			            filter_choice.c_str());
+		if (!filter_choice_has_bool) {
+			LOG_WARNING("PS1DAC: Invalid 'ps1audio_dac_filter' setting: '%s', using 'off'",
+			            filter_choice.data());
+		}
 
 		channel->SetHighPassFilter(FilterState::Off);
 		channel->SetLowPassFilter(FilterState::Off);
@@ -371,7 +376,7 @@ Ps1Dac::~Ps1Dac()
 
 class Ps1Synth {
 public:
-	Ps1Synth(const std::string &filter_choice);
+	Ps1Synth(const std::string_view filter_choice);
 	~Ps1Synth();
 
 private:
@@ -405,30 +410,33 @@ private:
 	double last_rendered_ms     = 0.0;
 };
 
-Ps1Synth::Ps1Synth(const std::string &filter_choice)
-        : device(machine_config(), 0, 0, ps1_psg_clock_hz)
+Ps1Synth::Ps1Synth(const std::string_view filter_choice)
+        : device(nullptr, nullptr, ps1_psg_clock_hz)
 {
 	const auto callback = std::bind(&Ps1Synth::AudioCallback, this, _1);
 
 	channel = MIXER_AddChannel(callback,
 	                           use_mixer_rate,
-	                           "PS1",
+	                           ChannelName::Ps1AudioCardPsg,
 	                           {ChannelFeature::Sleep,
 	                            ChannelFeature::ReverbSend,
 	                            ChannelFeature::ChorusSend,
 	                            ChannelFeature::Synthesizer});
 
 	// Setup filters
-	if (filter_choice == "on") {
+	const auto filter_choice_has_bool = parse_bool_setting(filter_choice);
+
+	if (filter_choice_has_bool && *filter_choice_has_bool == true) {
 		// The filter parameters have been tweaked by analysing real
 		// hardware recordings. The results are virtually
 		// indistinguishable from the real thing by ear only.
 		setup_filter(channel);
 
 	} else if (!channel->TryParseAndSetCustomFilter(filter_choice)) {
-		if (filter_choice != "off")
+		if (!filter_choice_has_bool) {
 			LOG_WARNING("PS1: Invalid 'ps1audio_filter' setting: '%s', using 'off'",
-			            filter_choice.c_str());
+			            filter_choice.data());
+		}
 
 		channel->SetHighPassFilter(FilterState::Off);
 		channel->SetLowPassFilter(FilterState::Off);
@@ -564,7 +572,8 @@ void PS1AUDIO_Init(Section *section)
 	ps1_synth = std::make_unique<Ps1Synth>(
 	        prop->Get_string("ps1audio_filter"));
 
-	LOG_MSG("PS1: Initialized IBM PS/1 Audio card");
+	LOG_MSG("PS1: Initialised IBM PS/1 Audio card");
 
-	section->AddDestroyFunction(&PS1AUDIO_ShutDown, true);
+	constexpr auto changeable_at_runtime = true;
+	section->AddDestroyFunction(&PS1AUDIO_ShutDown, changeable_at_runtime);
 }

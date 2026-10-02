@@ -167,8 +167,8 @@
 #	elif DBPP == 32
 #		define PMAKE(_VAL) (_VAL)
 #	endif
-#	include "rgb24.h"
-#	define SRCTYPE rgb24
+#	include "rgb888.h"
+#	define SRCTYPE Rgb888
 #endif
 
 #if SBPP == 32
@@ -233,6 +233,21 @@
 #	define SCALERWIDTH  1
 #	define SCALERHEIGHT 1
 #	define SCALERFUNC   line0[0] = P;
+#	include "render_simple.h"
+
+#	undef SCALERNAME
+#	undef SCALERWIDTH
+#	undef SCALERHEIGHT
+#	undef SCALERFUNC
+
+#	define SCALERNAME   Normal2x
+#	define SCALERWIDTH  2
+#	define SCALERHEIGHT 2
+#	define SCALERFUNC \
+       line0[0] = P; \
+       line0[1] = P; \
+       line1[0] = P;                                                           \
+       line1[1] = P;
 #	include "render_simple.h"
 
 #	undef SCALERNAME

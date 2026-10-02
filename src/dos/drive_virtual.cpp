@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -48,36 +49,27 @@ extern DOS_Shell *first_shell;
 
 class VFILE_Block;
 using vfile_block_t = std::shared_ptr<VFILE_Block>;
+using vfile_data_t  = std::shared_ptr<std::vector<uint8_t>>;
 
-class VFILE_Block {
+class VFILE_Block final {
 public:
 	std::string name = {};
 
-	uint8_t* data = nullptr;
+	vfile_data_t data = nullptr;
 
-	uint32_t size      = 0;
 	uint16_t date      = 0;
 	uint16_t time      = 0;
-	unsigned int onpos = 0;
+	unsigned int position = 0;
 
 	bool isdir = false;
 
 	vfile_block_t next = {};
 
-	~VFILE_Block();
+	~VFILE_Block() = default;
 };
 
 static vfile_block_t first_file = {};
 static vfile_block_t parent_dir = {};
-
-VFILE_Block::~VFILE_Block()
-{
-	// Release the vfile's data (allocated with new[])
-	if (data) {
-		delete[] data;
-		data = nullptr;
-	}
-}
 
 // this gets replaced with std::find_if later
 template <typename Predicate>
@@ -93,19 +85,39 @@ vfile_block_t find_vfile_by_predicate(vfile_block_t head_file, Predicate predica
 	return {};
 }
 
-vfile_block_t find_vfile_by_name_and_pos(const std::string& name, unsigned int onpos)
+vfile_block_t find_vfile_by_name_and_pos(const std::string& name, unsigned int position)
 {
-	return find_vfile_by_predicate(first_file, [name, onpos](vfile_block_t vfile) {
-		return onpos == vfile->onpos && iequals(name, vfile->name);
+	return find_vfile_by_predicate(first_file, [name, position](vfile_block_t vfile) {
+		return position == vfile->position && iequals(name, vfile->name);
 	});
 }
 
-bool vfile_name_and_pos_exists(const std::string& name, unsigned int onpos)
+vfile_block_t find_vfile_by_name_and_dir(const char* name, const char* dir)
 {
-	return find_vfile_by_name_and_pos(name, onpos).get();
+	assert(name);
+	assert(dir);
+	unsigned int position = 0;
+	if (*dir) {
+		for (unsigned int i = 1; i < vfile_pos; i++) {
+			if (!strcasecmp(vfilenames[i].shortname.c_str(), dir) ||
+			    !strcasecmp(vfilenames[i].fullname.c_str(), dir)) {
+				position = i;
+				break;
+			}
+		}
+		if (position == 0) {
+			return {};
+		}
+	}
+	return find_vfile_by_name_and_pos(name, position);
 }
 
-char* VFILE_Generate_8x3(const char* name, const unsigned int onpos)
+bool vfile_name_and_pos_exists(const std::string& name, unsigned int position)
+{
+	return find_vfile_by_name_and_pos(name, position).get();
+}
+
+char* VFILE_Generate_8x3(const char* name, const unsigned int position)
 {
 	if (!name || !*name) {
 		reset_str(sfn);
@@ -130,7 +142,7 @@ char* VFILE_Generate_8x3(const char* name, const unsigned int onpos)
 		}
 
 		// Return if 8.3 name does not already exist
-		if (!vfile_name_and_pos_exists(sfn, onpos)) {
+		if (!vfile_name_and_pos_exists(sfn, position)) {
 			return sfn;
 		}
 		num++;
@@ -150,28 +162,28 @@ void VFILE_Register(const char *name,
 	const auto isdir = !strcmp(dir, "/") || !strcmp(name, ".") ||
 	                   !strcmp(name, "..");
 	const auto len = strlen(dir);
-	unsigned int onpos = 0;
+	unsigned int position = 0;
 	if (len > 2 && dir[0] == '/' && dir[len - 1] == '/') {
 		for (unsigned int i = 1; i < vfile_pos; i++)
 			if (!strcasecmp((vfilenames[i].shortname + "/").c_str(),
 			                dir + 1) ||
 			    !strcasecmp((vfilenames[i].fullname + "/").c_str(),
 			                dir + 1)) {
-				onpos = i;
+				position = i;
 				break;
 			}
-		if (onpos == 0)
+		if (position == 0)
 			return;
 	}
 
-	if (vfile_name_and_pos_exists(name, onpos)) {
+	if (vfile_name_and_pos_exists(name, position)) {
 		return;
 	}
 	Filename filename;
 	filename.fullname = name;
 	filename.shortname = filename_not_strict_8x3(name)
-	                             ? VFILE_Generate_8x3(name, onpos)
-	                             : name;
+	                           ? VFILE_Generate_8x3(name, position)
+	                           : name;
 	trim(filename.fullname);
 	trim(filename.shortname);
 	vfilenames.push_back(filename);
@@ -181,14 +193,15 @@ void VFILE_Register(const char *name,
 	auto new_file  = std::make_shared<VFILE_Block>();
 	new_file->name = vfilenames[vfile_pos].shortname;
 	vfile_pos++;
-	new_file->data = data ? new (std::nothrow) uint8_t[size] : nullptr;
-	if (new_file->data)
-		memcpy(new_file->data, data, size);
-	new_file->size = size;
-	new_file->date = fztime || fzdate ? fzdate : default_date;
-	new_file->time = fztime || fzdate ? fztime : default_time;
-	new_file->onpos = onpos;
-	new_file->isdir = isdir;
+	if (data && size > 0) {
+		new_file->data = std::make_shared<std::vector<uint8_t>>(data, data + size);
+	} else {
+		new_file->data = std::make_shared<std::vector<uint8_t>>();
+	}
+	new_file->date     = fztime || fzdate ? fzdate : default_date;
+	new_file->time     = fztime || fzdate ? fztime : default_time;
+	new_file->position = position;
+	new_file->isdir    = isdir;
 	new_file->next = first_file;
 	first_file = new_file;
 }
@@ -198,22 +211,19 @@ void VFILE_Register(const char *name, const std::vector<uint8_t> &blob, const ch
 	VFILE_Register(name, blob.data(), check_cast<uint32_t>(blob.size()), dir);
 }
 
-void VFILE_Remove(const char *name, const char *dir = "")
+void VFILE_Update(const char* name, std::vector<uint8_t> blob, const char* dir)
 {
-	assert(name);
-	assert(dir);
-	unsigned int onpos = 0;
-	if (*dir) {
-		for (unsigned int i = 1; i < vfile_pos; i++)
-			if (!strcasecmp(vfilenames[i].shortname.c_str(), dir) ||
-			    !strcasecmp(vfilenames[i].fullname.c_str(), dir)) {
-				onpos = i;
-				break;
-			}
-		if (onpos == 0)
-			return;
+	auto vfile = find_vfile_by_name_and_dir(name, dir);
+
+	if (vfile) {
+		vfile->data = std::make_shared<std::vector<uint8_t>>(std::move(blob));
 	}
-	auto vfile = find_vfile_by_name_and_pos(name, onpos);
+}
+
+void VFILE_Remove(const char* name, const char* dir)
+{
+	auto vfile = find_vfile_by_name_and_dir(name, dir);
+
 	if (vfile) {
 		if (vfile.get() == first_file.get()) {
 			first_file = vfile->next;
@@ -237,8 +247,7 @@ void VFILE_GetPathZDrive(std::string &path, const std::string &dirname)
 		}
 		if (!path.length() || result == -1 || (cstat.st_mode & S_IFDIR) == 0) {
 			path.clear();
-			Cross::CreatePlatformConfigDir(path);
-			path += dirname;
+			path = (GetConfigDir() / dirname).string();
 			result = stat(path.c_str(), &cstat);
 			if (result == -1 || (cstat.st_mode & S_IFDIR) == 0)
 				path.clear();
@@ -311,73 +320,91 @@ void VFILE_RegisterZDrive(const std_fs::path &z_drive_path)
 
 class Virtual_File final : public DOS_File {
 public:
-	Virtual_File(uint8_t *in_data, uint32_t in_size);
+	Virtual_File(const vfile_data_t& in_data);
 
 	Virtual_File(const Virtual_File &) = delete; // prevent copying
 	Virtual_File &operator=(const Virtual_File &) = delete; // prevent assignment
 
-	bool Read(uint8_t * data,uint16_t * size);
-	bool Write(uint8_t * data,uint16_t * size);
-	bool Seek(uint32_t * pos,uint32_t type);
-	bool Close();
-	uint16_t GetInformation();
+	bool Read(uint8_t* data, uint16_t* size) override;
+	bool Write(uint8_t* data, uint16_t* size) override;
+	bool Seek(uint32_t* pos, uint32_t type) override;
+	bool Close() override;
+	uint16_t GetInformation() override;
 
 private:
-	uint32_t file_size;
+	const vfile_data_t file_data;
 	uint32_t file_pos;
-	uint8_t *file_data;
 };
 
-Virtual_File::Virtual_File(uint8_t *in_data, uint32_t in_size)
-        : file_size(in_size),
-          file_pos(0),
-          file_data(in_data)
+Virtual_File::Virtual_File(const vfile_data_t& in_data)
+        : file_data(in_data),
+          file_pos(0)
 {
 	date = default_date;
 	time = default_time;
 	open = true;
 }
 
-bool Virtual_File::Read(uint8_t * data,uint16_t * size) {
-	uint32_t left=file_size-file_pos;
-	if (left <= *size) {
-		memcpy(data, &file_data[file_pos], left);
-		*size = (uint16_t)left;
-	} else {
-		memcpy(data, &file_data[file_pos], *size);
+bool Virtual_File::Read(uint8_t* data, uint16_t* bytes_requested)
+{
+	if (file_pos > file_data->size()) {
+		// File has been read beyond the end and is in an invalid state,
+		// so inform the caller with a negative rvalue.
+		*bytes_requested = 0;
+		return false;
 	}
-	file_pos += *size;
+
+	const auto bytes_remaining = file_data->size() - file_pos;
+	const auto bytes_to_read = std::min(static_cast<size_t>(bytes_remaining),
+	                                    static_cast<size_t>(*bytes_requested));
+
+	const uint8_t* src = file_data->data() + file_pos;
+	memcpy(data, src, bytes_to_read);
+
+	file_pos += bytes_to_read;
+	*bytes_requested = check_cast<uint16_t>(bytes_to_read);
 	return true;
 }
 
-bool Virtual_File::Write(uint8_t * /*data*/,uint16_t * /*size*/){
+bool Virtual_File::Write(uint8_t* /*data*/, uint16_t* /*size*/)
+{
 	/* Not really writable */
 	return false;
 }
 
-bool Virtual_File::Seek(uint32_t * new_pos,uint32_t type){
+bool Virtual_File::Seek(uint32_t* new_pos, uint32_t type)
+{
 	switch (type) {
 	case DOS_SEEK_SET:
-		if (*new_pos <= file_size) file_pos = *new_pos;
-		else return false;
+		if (*new_pos <= file_data->size()) {
+			file_pos = *new_pos;
+		} else {
+			return false;
+		}
 		break;
 	case DOS_SEEK_CUR:
-		if ((*new_pos + file_pos) <= file_size) file_pos = *new_pos + file_pos;
-		else return false;
+		if ((*new_pos + file_pos) <= file_data->size()) {
+			file_pos = *new_pos + file_pos;
+		} else {
+			return false;
+		}
 		break;
 	case DOS_SEEK_END:
-		if (*new_pos <= file_size) file_pos = file_size - *new_pos;
-		else return false;
+		if (*new_pos <= file_data->size()) {
+			file_pos = file_data->size() - *new_pos;
+		} else {
+			return false;
+		}
 		break;
 	}
 	*new_pos = file_pos;
 	return true;
 }
 
-bool Virtual_File::Close(){
+bool Virtual_File::Close()
+{
 	return true;
 }
-
 
 uint16_t Virtual_File::GetInformation() {
 	return 0x40;	// read-only drive
@@ -397,18 +424,20 @@ bool Virtual_Drive::FileOpen(DOS_File * * file,char * name,uint32_t flags) {
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
 	}
-/* Scan through the internal list of files */
+	/* Scan through the internal list of files */
 	auto vfile = find_vfile_by_name(name);
 	if (vfile) {
 		/* We have a match */
-		*file          = new Virtual_File(vfile->data, vfile->size);
+		*file          = new Virtual_File(vfile->data);
 		(*file)->flags = flags;
 		return true;
 	}
 	return false;
 }
 
-bool Virtual_Drive::FileCreate(DOS_File * * /*file*/,char * /*name*/,uint16_t /*attributes*/) {
+bool Virtual_Drive::FileCreate(DOS_File** /*file*/, char* /*name*/,
+                               FatAttributeFlags /*attributes*/)
+{
 	DOS_SetError(DOSERR_ACCESS_DENIED);
 	return false;
 }
@@ -435,13 +464,16 @@ bool Virtual_Drive::TestDir(char * dir) {
 	return find_vfile_dir_by_name(dir).get();
 }
 
-bool Virtual_Drive::FileStat(const char* name, FileStat_Block * const stat_block){
+bool Virtual_Drive::FileStat(const char* name, FileStat_Block* const stat_block)
+{
 	assert(name);
 	auto vfile = find_vfile_by_name(name);
 	if (vfile) {
-		stat_block->attr = (int)(vfile->isdir ? DOS_ATTR_DIRECTORY
-		                                      : DOS_ATTR_ARCHIVE);
-		stat_block->size = vfile->size;
+		FatAttributeFlags attr = {FatAttributeFlags::ReadOnly};
+		attr.directory = vfile->isdir;
+
+		stat_block->attr = attr._data;
+		stat_block->size = vfile->data->size();
 		stat_block->date = default_date;
 		stat_block->time = default_time;
 		return true;
@@ -461,42 +493,45 @@ bool Virtual_Drive::FileExists(const char* name){
 bool Virtual_Drive::FindFirst(char *_dir, DOS_DTA &dta, bool fcb_findfirst)
 {
 	assert(_dir);
-	unsigned int onpos = 0;
+	unsigned int position = 0;
 	if (*_dir) {
 		if (FileExists(_dir)) {
 			DOS_SetError(DOSERR_FILE_NOT_FOUND);
 			return false;
 		}
 		for (unsigned int i = 1; i < vfile_pos; i++) {
-			if (!strcasecmp(vfilenames[i].shortname.c_str(), _dir) ||
-			    !strcasecmp(vfilenames[i].fullname.c_str(), _dir)) {
-				onpos = i;
+			if (iequals(vfilenames[i].shortname, _dir) ||
+			    iequals(vfilenames[i].fullname, _dir)) {
+				position = i;
 				break;
 			}
 		}
-		if (!onpos) {
+		if (!position) {
 			DOS_SetError(DOSERR_PATH_NOT_FOUND);
 			return false;
 		}
 	}
-	dta.SetDirID(onpos);
-	uint8_t attr;
+	dta.SetDirID(position);
+
+	FatAttributeFlags attr = {};
 	char pattern[DOS_NAMELENGTH_ASCII];
 	dta.GetSearchParams(attr, pattern);
-	search_file = (attr & DOS_ATTR_DIRECTORY) && onpos > 0 ? parent_dir
-	                                                       : first_file;
-	if (attr == DOS_ATTR_VOLUME) {
-		dta.SetResult(GetLabel(), 0, 0, 0, DOS_ATTR_VOLUME);
+	search_file = attr.directory && position > 0 ? parent_dir : first_file;
+	if (attr == FatAttributeFlags::Volume) {
+		dta.SetResult(GetLabel(), 0, 0, 0, FatAttributeFlags::Volume);
 		return true;
-	} else if ((attr & DOS_ATTR_VOLUME) && !fcb_findfirst) {
+	} else if (attr.volume && !fcb_findfirst) {
 		if (WildFileCmp(GetLabel(), pattern)) {
-			dta.SetResult(GetLabel(), 0, 0, 0, DOS_ATTR_VOLUME);
+			dta.SetResult(GetLabel(), 0, 0, 0, FatAttributeFlags::Volume);
 			return true;
 		}
-	} else if ((attr & DOS_ATTR_DIRECTORY) && onpos > 0) {
+	} else if (attr.directory && position > 0) {
 		if (WildFileCmp(".", pattern)) {
-			dta.SetResult(".", 0, default_date,
-			              default_time, DOS_ATTR_DIRECTORY);
+			dta.SetResult(".",
+			              0,
+			              default_date,
+			              default_time,
+			              FatAttributeFlags::Directory);
 			return true;
 		}
 	}
@@ -504,27 +539,30 @@ bool Virtual_Drive::FindFirst(char *_dir, DOS_DTA &dta, bool fcb_findfirst)
 }
 
 vfile_block_t find_vfile_by_atribute_pattern_and_pos(vfile_block_t head_file,
-                                                     uint8_t attr, const char* pattern,
+                                                     FatAttributeFlags attr,
+                                                     const char* pattern,
                                                      unsigned int pos)
 {
 	return find_vfile_by_predicate(head_file, [pos, attr, pattern](vfile_block_t vfile) {
-		return pos == vfile->onpos &&
-		       ((attr & DOS_ATTR_DIRECTORY) || !vfile->isdir) &&
+		return pos == vfile->position && (attr.directory || !vfile->isdir) &&
 		       WildFileCmp(vfile->name.c_str(), pattern);
 	});
 }
 
 bool Virtual_Drive::FindNext(DOS_DTA& dta)
 {
-	uint8_t attr;
+	FatAttributeFlags attr = {};
 	char pattern[DOS_NAMELENGTH_ASCII];
 	dta.GetSearchParams(attr, pattern);
 	unsigned int pos = dta.GetDirID();
 	if (search_file == parent_dir) {
 		bool cmp = WildFileCmp("..", pattern);
 		if (cmp)
-			dta.SetResult("..", 0, default_date,
-			              default_time, DOS_ATTR_DIRECTORY);
+			dta.SetResult("..",
+			              0,
+			              default_date,
+			              default_time,
+			              FatAttributeFlags::Directory);
 		search_file = first_file;
 		if (cmp)
 			return true;
@@ -534,12 +572,14 @@ bool Virtual_Drive::FindNext(DOS_DTA& dta)
 	                                                     pattern,
 	                                                     pos);
 	if (search_file) {
+		FatAttributeFlags attr = {FatAttributeFlags::ReadOnly};
+		attr.directory = search_file->isdir;
+
 		dta.SetResult(search_file->name.c_str(),
-		              search_file->size,
+		              search_file->data->size(),
 		              search_file->date,
 		              search_file->time,
-		              (int)(search_file->isdir ? DOS_ATTR_DIRECTORY
-		                                       : DOS_ATTR_ARCHIVE));
+		              attr);
 		search_file = search_file->next;
 		return true;
 	}
@@ -547,23 +587,26 @@ bool Virtual_Drive::FindNext(DOS_DTA& dta)
 	return false;
 }
 
-bool Virtual_Drive::GetFileAttr(char *name, uint16_t *attr)
+bool Virtual_Drive::GetFileAttr(char* name, FatAttributeFlags* attr)
 {
+	*attr = {};
 	assert(name);
 	if (*name == 0) {
-		*attr = DOS_ATTR_DIRECTORY;
+		attr->directory = true;
+		attr->read_only = true;
 		return true;
 	}
-	auto vfile = find_vfile_by_name(name);
+	const auto vfile = find_vfile_by_name(name);
 	if (vfile) {
-		*attr = (int)(vfile->isdir ? DOS_ATTR_DIRECTORY // Maybe
-		                           : DOS_ATTR_ARCHIVE); // Read-only?
+		attr->directory = vfile->isdir;
+		attr->read_only = true;
 		return true;
 	}
 	return false;
 }
 
-bool Virtual_Drive::SetFileAttr(const char *name, [[maybe_unused]] uint16_t attr)
+bool Virtual_Drive::SetFileAttr(const char* name,
+                                [[maybe_unused]] FatAttributeFlags attr)
 {
 	assert(name);
 	if (*name == 0) {
@@ -610,10 +653,10 @@ const char* Virtual_Drive::GetLabel()
 
 bool Virtual_Drive::is_name_equal(const vfile_block_t vfile, const char* name) const
 {
-	unsigned int onpos = vfile->onpos;
+	unsigned int position = vfile->position;
 	return iequals(name,
-	               onpos ? vfilenames[onpos].shortname + "\\" + vfile->name
-	                     : vfile->name);
+	               position ? vfilenames[position].shortname + "\\" + vfile->name
+	                        : vfile->name);
 }
 
 vfile_block_t Virtual_Drive::find_vfile_by_name(const char* name) const

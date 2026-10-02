@@ -8,19 +8,22 @@
 // Additional labels for pre-release and build metadata are available as extensions to the MAJOR.MINOR.PATCH format.
 // Ref: https://semver.org/
 
-#define VERSION "0.80.1"
+#define VERSION "0.81.0-alpha"
 
 /* This macro is going to be overriden via CI */
 #define DOSBOX_DETAILED_VERSION "git"
 
+/* Strings to be returned by virtual drivers, etc. */
+
+// Name of the emulator
+#define DOSBOX_NAME "DOSBox Staging"
+// Development team name
+#define DOSBOX_TEAM "The " DOSBOX_NAME " Team"
+// Copyright string
+#define DOSBOX_COPYRIGHT "(C) " DOSBOX_TEAM
+
 /* Define to 1 to enable internal debugger, requires libcurses */
 #define C_DEBUG 0
-
-/* Define to 1 to enable rendered screenshots, requires SDL_image */
-#define C_SDL_IMAGE 1
-
-/* Define to 1 to enable surface screenshots, requires libpng */
-#define C_SSHOT 1
 
 /* Define to 1 to use opengl display output support */
 #define C_OPENGL 1
@@ -45,7 +48,12 @@
 /* Define to 1 to use x86 dynamic cpu core */
 #define C_DYNAMIC_X86 1
 
-/* Define to 1 to use recompiling cpu core. Can not be used together with the dynamic-x86 core */
+/* Define to 1 if the target platform needs per-page dynamic core write or
+ * execute (W^X) tagging */
+#define C_PER_PAGE_W_OR_X 1
+
+/* Define to 1 to use recompiling cpu core. Can not be used together with the
+ * dynamic-x86 core */
 #define C_DYNREC 0
 
 /* Enable memory function inlining in */
@@ -105,7 +113,7 @@
 // https://github.com/dosbox-staging/dosbox-staging/issues/1314)
 //
 // Because the recommendations in these warnings will not be acted
-// upon given the planned direction of the the project, they
+// upon given the planned direction of the project, they
 // therefore provide no value and are being silenced.
 
 #ifndef _CRT_SECURE_NO_WARNINGS
@@ -117,12 +125,3 @@
 // On Windows, this path is not customizeable, so it's left blank here.
 //
 #define CUSTOM_DATADIR ""
-
-/* Loguru-related defines
- */
-
-// Prevent loguru from parsing command-line arguments with
-// with the hosts's locale-applied, because this can foul up
-// ncurses. (DOSBox also doesn't have foreign-language arguments).
-//
-#define LOGURU_USE_LOCALE 0

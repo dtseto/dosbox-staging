@@ -34,7 +34,7 @@ CDirectSerial::CDirectSerial(const uint8_t port_idx, CommandLine *cmd)
         : CSerial(port_idx, cmd)
 {
 	InstallationSuccessful = false;
-	comport = 0;
+	comport = nullptr;
 
 	rx_retry = 0;
     rx_retry_max = 0;
@@ -247,7 +247,7 @@ bool CDirectSerial::doReceive() {
 
 // updatePortConfig is called when emulated app changes the serial port
 // parameters baudrate, stopbits, number of databits, parity.
-void CDirectSerial::updatePortConfig(uint16_t divider, uint8_t lcr)
+void CDirectSerial::updatePortConfig(uint16_t, uint8_t lcr)
 {
 	uint8_t parity = 0;
 
@@ -262,7 +262,7 @@ void CDirectSerial::updatePortConfig(uint16_t divider, uint8_t lcr)
 	uint8_t bytelength = (lcr & 0x3) + 5;
 
 	// baudrate
-	const uint32_t baudrate = divider ? 115200 / divider : 115200;
+	const uint32_t baudrate = GetPortBaudRate();
 
 	// stopbits
 	uint8_t stopbits;

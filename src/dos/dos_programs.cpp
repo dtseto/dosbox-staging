@@ -1,6 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -20,6 +21,7 @@
 
 #include "programs.h"
 
+#include "autoexec.h"
 #include "program_attrib.h"
 #include "program_autotype.h"
 #include "program_boot.h"
@@ -32,12 +34,17 @@
 #include "program_loadrom.h"
 #include "program_ls.h"
 #include "program_mem.h"
+#include "program_mixer.h"
 #include "program_more.h"
 #include "program_mount.h"
 #include "program_mousectl.h"
+#include "program_move.h"
 #include "program_placeholder.h"
 #include "program_rescan.h"
 #include "program_serial.h"
+#include "program_setver.h"
+#include "program_subst.h"
+#include "program_tree.h"
 
 #if C_DEBUG
 #include "program_biostest.h"
@@ -45,7 +52,6 @@
 
 extern uint32_t floppytype;
 
-extern char autoexec_data[autoexec_maxsize];
 std::unique_ptr<Program> CONFIG_ProgramCreate();
 std::unique_ptr<Program> MIXER_ProgramCreate();
 std::unique_ptr<Program> SHELL_ProgramCreate();
@@ -53,12 +59,14 @@ std::unique_ptr<Program> SHELL_ProgramCreate();
 void REELMAGIC_MaybeCreateFmpdrvExecutable();
 
 void VFILE_GetPathZDrive(std::string& path, const std::string& dirname);
-void VFILE_RegisterZDrive(const std_fs::path &z_drive_path);
+void VFILE_RegisterZDrive(const std_fs::path& z_drive_path);
 
 void Add_VFiles(const bool add_autoexec)
 {
 	const std::string dirname = "drivez";
+
 	std::string path = ".";
+
 	path += CROSS_FILESPLIT;
 	path += dirname;
 	VFILE_GetPathZDrive(path, dirname);
@@ -71,7 +79,8 @@ void Add_VFiles(const bool add_autoexec)
 #endif
 	PROGRAMS_MakeFile("BOOT.COM", ProgramCreate<BOOT>);
 	PROGRAMS_MakeFile("CHOICE.COM", ProgramCreate<CHOICE>);
-	REELMAGIC_MaybeCreateFmpdrvExecutable();
+	PROGRAMS_MakeFile("COMMAND.COM", SHELL_ProgramCreate);
+	PROGRAMS_MakeFile("CONFIG.COM", CONFIG_ProgramCreate);
 	PROGRAMS_MakeFile("HELP.COM", ProgramCreate<HELP>);
 	PROGRAMS_MakeFile("IMGMOUNT.COM", ProgramCreate<IMGMOUNT>);
 	// BOXER-HOOK: hide-intro-command - Boxer provides its own onboarding.
@@ -82,16 +91,22 @@ void Add_VFiles(const bool add_autoexec)
 	PROGRAMS_MakeFile("LOADROM.COM", ProgramCreate<LOADROM>);
 	PROGRAMS_MakeFile("LS.COM", ProgramCreate<LS>);
 	PROGRAMS_MakeFile("MEM.COM", ProgramCreate<MEM>);
+	PROGRAMS_MakeFile("MIXER.COM", ProgramCreate<MIXER>);
 	PROGRAMS_MakeFile("MORE.COM", ProgramCreate<MORE>);
 	PROGRAMS_MakeFile("MOUNT.COM", ProgramCreate<MOUNT>);
 	PROGRAMS_MakeFile("MOUSECTL.COM", ProgramCreate<MOUSECTL>);
+	PROGRAMS_MakeFile("MOVE.EXE", ProgramCreate<MOVE>);
 	PROGRAMS_MakeFile("RESCAN.COM", ProgramCreate<RESCAN>);
-	PROGRAMS_MakeFile("MIXER.COM", MIXER_ProgramCreate);
-	PROGRAMS_MakeFile("CONFIG.COM", CONFIG_ProgramCreate);
 	PROGRAMS_MakeFile("SERIAL.COM", ProgramCreate<SERIAL>);
-	PROGRAMS_MakeFile("COMMAND.COM", SHELL_ProgramCreate);
-	if (add_autoexec)
-		VFILE_Register("AUTOEXEC.BAT", (uint8_t *)autoexec_data, (uint32_t)strlen(autoexec_data));
+	PROGRAMS_MakeFile("SETVER.EXE", ProgramCreate<SETVER>);
+	PROGRAMS_MakeFile("SUBST.EXE", ProgramCreate<SUBST>);
+	PROGRAMS_MakeFile("TREE.COM", ProgramCreate<TREE>);
+
+	REELMAGIC_MaybeCreateFmpdrvExecutable();
+
+	if (add_autoexec) {
+		AUTOEXEC_RegisterFile();
+	}
 }
 
 void DOS_SetupPrograms(void)

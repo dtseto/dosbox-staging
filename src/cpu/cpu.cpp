@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -31,8 +32,8 @@
 #include "lazyflags.h"
 #include "support.h"
 
-extern void GFX_RefreshTitle();
-extern void GFX_SetTitle(const int32_t cycles, const bool paused = false);
+extern void GFX_RefreshTitle(const bool is_paused = false);
+extern void GFX_SetTitle(const int32_t cycles, const bool is_paused = false);
 
 #if 1
 #undef LOG
@@ -59,10 +60,9 @@ int32_t CPU_CycleDown = 0;
 int64_t CPU_IODelayRemoved = 0;
 CPU_Decoder * cpudecoder;
 bool CPU_CycleAutoAdjust = false;
-bool CPU_SkipCycleAutoAdjust = false;
 Bitu CPU_AutoDetermineMode = 0;
 
-Bitu CPU_ArchitectureType = CPU_ARCHTYPE_MIXED;
+ArchitectureType CPU_ArchitectureType = ArchitectureType::Mixed;
 
 Bitu CPU_extflags_toggle=0;	// ID and AC flags may be toggled depending on emulated CPU architecture
 
@@ -133,28 +133,43 @@ void Descriptor:: Save(PhysPt address) {
 	cpu.mpl=03;
 }
 
+void CPU_Push16(const uint16_t value)
+{
+	const uint32_t new_esp = (reg_esp & cpu.stack.notmask) |
+	                         ((reg_esp - 2) & cpu.stack.mask);
 
-void CPU_Push16(Bitu value) {
-	uint32_t new_esp=(reg_esp&cpu.stack.notmask)|((reg_esp-2)&cpu.stack.mask);
-	mem_writew(SegPhys(ss) + (new_esp & cpu.stack.mask) ,value);
-	reg_esp=new_esp;
+	mem_writew(SegPhys(ss) + (new_esp & cpu.stack.mask), value);
+
+	reg_esp = new_esp;
 }
 
-void CPU_Push32(Bitu value) {
-	uint32_t new_esp=(reg_esp&cpu.stack.notmask)|((reg_esp-4)&cpu.stack.mask);
-	mem_writed(SegPhys(ss) + (new_esp & cpu.stack.mask) ,value);
-	reg_esp=new_esp;
+void CPU_Push32(const uint32_t value)
+{
+	const uint32_t new_esp = (reg_esp & cpu.stack.notmask) |
+	                         ((reg_esp - 4) & cpu.stack.mask);
+
+	mem_writed(SegPhys(ss) + (new_esp & cpu.stack.mask), value);
+
+	reg_esp = new_esp;
 }
 
-Bitu CPU_Pop16(void) {
-	Bitu val=mem_readw(SegPhys(ss) + (reg_esp & cpu.stack.mask));
-	reg_esp=(reg_esp&cpu.stack.notmask)|((reg_esp+2)&cpu.stack.mask);
+uint16_t CPU_Pop16()
+{
+	const auto val = check_cast<uint16_t>(
+	        mem_readw(SegPhys(ss) + (reg_esp & cpu.stack.mask)));
+
+	reg_esp = (reg_esp & cpu.stack.notmask) | ((reg_esp + 2) & cpu.stack.mask);
+
 	return val;
 }
 
-Bitu CPU_Pop32(void) {
-	Bitu val=mem_readd(SegPhys(ss) + (reg_esp & cpu.stack.mask));
-	reg_esp=(reg_esp&cpu.stack.notmask)|((reg_esp+4)&cpu.stack.mask);
+uint32_t CPU_Pop32()
+{
+	const auto val = check_cast<uint32_t>(
+	        mem_readd(SegPhys(ss) + (reg_esp & cpu.stack.mask)));
+
+	reg_esp = (reg_esp & cpu.stack.notmask) | ((reg_esp + 4) & cpu.stack.mask);
+
 	return val;
 }
 
@@ -1624,7 +1639,7 @@ bool CPU_WRITE_CRX(Bitu cr,Bitu value) {
 	/* Check if privileged to access control registers */
 	if (cpu.pmode && (cpu.cpl>0)) return CPU_PrepareException(EXCEPTION_GP,0);
 	if ((cr==1) || (cr>4)) return CPU_PrepareException(EXCEPTION_UD,0);
-	if (CPU_ArchitectureType<CPU_ARCHTYPE_486OLDSLOW) {
+	if (CPU_ArchitectureType<ArchitectureType::Intel486OldSlow) {
 		if (cr==4) return CPU_PrepareException(EXCEPTION_UD,0);
 	}
 	CPU_SET_CRX(cr,value);
@@ -1634,8 +1649,8 @@ bool CPU_WRITE_CRX(Bitu cr,Bitu value) {
 Bitu CPU_GET_CRX(Bitu cr) {
 	switch (cr) {
 	case 0:
-		if (CPU_ArchitectureType>=CPU_ARCHTYPE_PENTIUMSLOW) return cpu.cr0;
-		else if (CPU_ArchitectureType>=CPU_ARCHTYPE_486OLDSLOW) return (cpu.cr0 & 0xe005003f);
+		if (CPU_ArchitectureType>=ArchitectureType::PentiumSlow) return cpu.cr0;
+		else if (CPU_ArchitectureType>=ArchitectureType::Intel486OldSlow) return (cpu.cr0 & 0xe005003f);
 		else return (cpu.cr0 | 0x7ffffff0);
 	case 2:
 		return paging.cr2;
@@ -1673,7 +1688,7 @@ bool CPU_WRITE_DRX(Bitu dr,Bitu value) {
 		break;
 	case 5:
 	case 7:
-		if (CPU_ArchitectureType<CPU_ARCHTYPE_PENTIUMSLOW) {
+		if (CPU_ArchitectureType<ArchitectureType::PentiumSlow) {
 			cpu.drx[7]=(value|0x400) & 0xffff2fff;
 		} else {
 			cpu.drx[7]=(value|0x400);
@@ -2008,7 +2023,7 @@ bool CPU_PopSeg(SegNames seg,bool use32) {
 }
 
 bool CPU_CPUID(void) {
-	if (CPU_ArchitectureType<CPU_ARCHTYPE_486NEWSLOW) return false;
+	if (CPU_ArchitectureType<ArchitectureType::Intel486NewSlow) return false;
 	switch (reg_eax) {
 	case 0:	/* Vendor ID String and maximum level? */
 		reg_eax=1;  /* Maximum level */ 
@@ -2017,8 +2032,8 @@ bool CPU_CPUID(void) {
 		reg_ecx='n' | ('t' << 8) | ('e' << 16) | ('l'<< 24); 
 		break;
 	case 1: // Get processor type/family/model/stepping and feature flags
-		if ((CPU_ArchitectureType == CPU_ARCHTYPE_486NEWSLOW) ||
-		    (CPU_ArchitectureType == CPU_ARCHTYPE_MIXED)) {
+		if ((CPU_ArchitectureType == ArchitectureType::Intel486NewSlow) ||
+		    (CPU_ArchitectureType == ArchitectureType::Mixed)) {
 #if (C_FPU)
 			reg_eax = 0x402; // Intel 486DX
 			reg_edx = 0x1;   // FPU
@@ -2028,7 +2043,7 @@ bool CPU_CPUID(void) {
 #endif
 			reg_ebx = 0;     // Not supported
 			reg_ecx = 0;     // No features
-		} else if (CPU_ArchitectureType == CPU_ARCHTYPE_PENTIUMSLOW) {
+		} else if (CPU_ArchitectureType == ArchitectureType::PentiumSlow) {
 #if (C_FPU)
 			reg_eax = 0x517; // Intel Pentium P5 60/66 MHz D1-step
 			reg_edx = 0x11;  // FPU + Time Stamp Counter (RDTSC)
@@ -2114,7 +2129,7 @@ static void CPU_CycleIncrease(bool pressed) {
 	if (!pressed) return;
 	if (CPU_CycleAutoAdjust) {
 		CPU_CyclePercUsed+=5;
-		if (CPU_CyclePercUsed>105) CPU_CyclePercUsed=105;
+		if (CPU_CyclePercUsed>100) CPU_CyclePercUsed=100;
 		LOG_MSG("CPU speed: max %d percent.",CPU_CyclePercUsed);
 		GFX_SetTitle(CPU_CyclePercUsed);
 	} else {
@@ -2162,22 +2177,8 @@ static void CPU_CycleDecrease(bool pressed) {
 	}
 }
 
-void CPU_Enable_SkipAutoAdjust(void) {
-	if (CPU_CycleAutoAdjust) {
-		CPU_CycleMax /= 2;
-		if (CPU_CycleMax < CPU_CYCLES_LOWER_LIMIT)
-			CPU_CycleMax = CPU_CYCLES_LOWER_LIMIT;
-	}
-	CPU_SkipCycleAutoAdjust=true;
-}
-
-void CPU_Disable_SkipAutoAdjust(void) {
-	CPU_SkipCycleAutoAdjust=false;
-}
-
-
-extern int ticksDone;
-extern int ticksScheduled;
+extern int64_t ticksDone;
+extern int64_t ticksScheduled;
 
 void CPU_Reset_AutoAdjust(void) {
 	CPU_IODelayRemoved = 0;
@@ -2227,7 +2228,7 @@ public:
 			cpu.drx[i]=0;
 			cpu.trx[i]=0;
 		}
-		if (CPU_ArchitectureType==CPU_ARCHTYPE_PENTIUMSLOW) {
+		if (CPU_ArchitectureType==ArchitectureType::PentiumSlow) {
 			cpu.drx[6]=0xffff0ff0;
 		} else {
 			cpu.drx[6]=0xffff1ff0;
@@ -2259,7 +2260,6 @@ public:
 		CPU_AutoDetermineMode=CPU_AUTODETERMINE_NONE;
 		//CPU_CycleLeft=0;//needed ?
 		CPU_Cycles=0;
-		CPU_SkipCycleAutoAdjust=false;
 
 		// Sets the value if the string in within the min and max values
 		auto set_if_in_range = [](const std::string &str, int &value,
@@ -2277,10 +2277,10 @@ public:
 		PropMultiVal *p = section->GetMultiVal("cycles");
 		std::string type = p->GetSection()->Get_string("type");
 		std::string str;
-		CommandLine cmd(0, p->GetSection()->Get_string("parameters"));
+		CommandLine cmd("", p->GetSection()->Get_string("parameters"));
 
 		constexpr auto min_percent = 0;
-		constexpr auto max_percent = 105;
+		constexpr auto max_percent = 100;
 
 		if (type == "max") {
 			CPU_CycleMax = 0;
@@ -2369,14 +2369,14 @@ public:
 		CPU_Core_Dynrec_Cache_Init( core == "dynamic" );
 #endif
 
-		CPU_ArchitectureType = CPU_ARCHTYPE_MIXED;
+		CPU_ArchitectureType = ArchitectureType::Mixed;
 		std::string cputype(section->Get_string("cputype"));
 		if (cputype == "auto") {
-			CPU_ArchitectureType = CPU_ARCHTYPE_MIXED;
+			CPU_ArchitectureType = ArchitectureType::Mixed;
 		} else if (cputype == "386") {
-			CPU_ArchitectureType = CPU_ARCHTYPE_386FAST;
+			CPU_ArchitectureType = ArchitectureType::Intel386Fast;
 		} else if (cputype == "386_prefetch") {
-			CPU_ArchitectureType = CPU_ARCHTYPE_386FAST;
+			CPU_ArchitectureType = ArchitectureType::Intel386Fast;
 			if (core == "normal") {
 				cpudecoder=&CPU_Core_Prefetch_Run;
 				CPU_PrefetchQueueSize = 16;
@@ -2388,11 +2388,11 @@ public:
 				E_Exit("prefetch queue emulation requires the normal core setting.");
 			}
 		} else if (cputype == "386_slow") {
-			CPU_ArchitectureType = CPU_ARCHTYPE_386SLOW;
+			CPU_ArchitectureType = ArchitectureType::Intel386Slow;
 		} else if (cputype == "486_slow") {
-			CPU_ArchitectureType = CPU_ARCHTYPE_486OLDSLOW;
+			CPU_ArchitectureType = ArchitectureType::Intel486OldSlow;
 		} else if (cputype == "486_prefetch") {
-			CPU_ArchitectureType = CPU_ARCHTYPE_486NEWSLOW;
+			CPU_ArchitectureType = ArchitectureType::Intel486NewSlow;
 			if (core == "normal") {
 				cpudecoder=&CPU_Core_Prefetch_Run;
 				CPU_PrefetchQueueSize = 32;
@@ -2404,11 +2404,11 @@ public:
 				E_Exit("prefetch queue emulation requires the normal core setting.");
 			}
 		} else if (cputype == "pentium_slow") {
-			CPU_ArchitectureType = CPU_ARCHTYPE_PENTIUMSLOW;
+			CPU_ArchitectureType = ArchitectureType::PentiumSlow;
 		}
 
-		if (CPU_ArchitectureType>=CPU_ARCHTYPE_486NEWSLOW) CPU_extflags_toggle=(FLAG_ID|FLAG_AC);
-		else if (CPU_ArchitectureType>=CPU_ARCHTYPE_486OLDSLOW) CPU_extflags_toggle=(FLAG_AC);
+		if (CPU_ArchitectureType>=ArchitectureType::Intel486NewSlow) CPU_extflags_toggle=(FLAG_ID|FLAG_AC);
+		else if (CPU_ArchitectureType>=ArchitectureType::Intel486OldSlow) CPU_extflags_toggle=(FLAG_AC);
 		else CPU_extflags_toggle=0;
 
 
@@ -2435,9 +2435,15 @@ void CPU_ShutDown([[maybe_unused]] Section* sec) {
 	delete test;
 }
 
-void CPU_Init(Section* sec) {
-	test = new CPU(sec);
-	sec->AddDestroyFunction(&CPU_ShutDown,true);
+void CPU_Init(Section* sec)
+{
+	assert(sec);
+
+	test = new (std::nothrow) CPU(sec);
+
+	constexpr auto changeable_at_runtime = true;
+	sec->AddDestroyFunction(&CPU_ShutDown, changeable_at_runtime);
 }
+
 //initialize static members
 bool CPU::inited=false;

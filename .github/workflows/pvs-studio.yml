@@ -12,12 +12,12 @@ concurrency:
 jobs:
   pvs_studio_analyzer:
     name: PVS-Studio static analyzer
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
-      debfile: pvs-studio-7.21.64848.262-amd64.deb
+      debfile: pvs-studio-7.28.78353.377-amd64.deb
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: false
 
@@ -28,7 +28,11 @@ jobs:
           ./scripts/log-env.sh
           mkdir -p pvs-package
 
+<<<<<<< HEAD
       - uses: actions/cache@v3.2.2
+=======
+      - uses: actions/cache@v3.3.2
+>>>>>>> v0.81.0
         id: cache-pvs
         with:
           path: pvs-package
@@ -46,11 +50,25 @@ jobs:
           sudo dpkg -i "pvs-package/pvs.deb"
           pvs-studio-analyzer credentials "${{ secrets.PvsStudioName }}" "${{ secrets.PvsStudioKey }}"
 
+<<<<<<< HEAD
       - name:  Cache subprojects
         uses:  actions/cache@v3.2.2
+=======
+      - name: Cache subprojects
+        id:   cache-subprojects
+        uses: actions/cache@v3.3.2
+>>>>>>> v0.81.0
         with:
-          path: subprojects/packagecache
-          key:  subprojects-${{ hashFiles('subprojects/*.wrap') }}
+          path: subprojects.tar
+          key: subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
+          enableCrossOsArchive: true
+
+      - if:   steps.cache-subprojects.outputs.cache-hit != 'true'
+        name: Generate subprojects cache
+        run:  scripts/fetch-and-tar-subprojects.sh
+
+      - name: Extract subprojects cache
+        run:  scripts/extract-subprojects-tar.sh
 
       - name: Build
         run: |
@@ -65,7 +83,7 @@ jobs:
           general_criteria="GA:1,2;64:1;OP:1,2,3;CS:1"
           stamp="$(date +'%Y-%m-%d_T%H%M')-${GITHUB_SHA:0:8}"
           reportdir="pvs-report/pvs-report-${stamp}"
-          disable_warnings="V002,V1042,V826,V802,V2008,V1071"
+          disable_warnings="V002,V801,V802,V813,V826,V1042,V1071,V2008,V2010"
 
           mkdir -p "${reportdir}"
 
@@ -102,7 +120,11 @@ jobs:
 
       - name: Summarize report
         env:
+<<<<<<< HEAD
           MAX_BUGS: 253
+=======
+          MAX_BUGS: 107
+>>>>>>> v0.81.0
         run: |
           echo "Full report is included in build Artifacts"
           echo

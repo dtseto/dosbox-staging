@@ -1,44 +1,37 @@
 Name:    dosbox-staging
 Version: 0.80.1
-Release: 2%{?dist}
+Release: 1%{?dist}
 Summary: DOS/x86 emulator focusing on ease of use
 License: GPLv2+
 URL:     https://dosbox-staging.github.io/
 
 Source0: https://github.com/dosbox-staging/dosbox-staging/archive/v%{version}/%{name}-%{version}.tar.gz
-Source1: https://github.com/munt/munt/archive/libmt32emu_2_5_3.tar.gz
-# Downloaded from: https://wrapdb.mesonbuild.com/v2/mt32emu_2.5.3-1/get_patch
-Source2: mt32emu_2.5.3-1_patch.zip
-
-# https://github.com/dosbox-staging/dosbox-staging/commit/5d25187760e595f7e6efa6b639c3945fb4804db1
-Patch1: 0001-Add-0.77.0-release-to-metainfo.xml.patch
 
 # This package is a drop-in replacement for dosbox
 Provides:  dosbox = %{version}-%{release}
 Obsoletes: dosbox < 0.74.4
 
-Provides: bundled(mt32emu) = 2.5.3
-
 BuildRequires: alsa-lib-devel
 BuildRequires: desktop-file-utils
+BuildRequires: ffmpeg-free-devel
 BuildRequires: fluidsynth-devel >= 2.2.3
 BuildRequires: gcc
 BuildRequires: gcc-c++
 BuildRequires: git
+BuildRequires: gmock-devel
 BuildRequires: gtest-devel
+BuildRequires: iir1-devel
 BuildRequires: libappstream-glib
 BuildRequires: libatomic
 BuildRequires: libpng-devel
-BuildRequires: libslirp >= 4.6.1
+BuildRequires: libslirp-devel >= 4.6.1
 BuildRequires: make
-BuildRequires: meson >= 0.57.0
+BuildRequires: meson >= 0.54.2
+BuildRequires: mt32emu-devel >= 2.5.3
 BuildRequires: opusfile-devel
 BuildRequires: SDL2-devel >= 2.0.5
-BuildRequires: SDL2_image-devel
 BuildRequires: SDL2_net-devel
 BuildRequires: speexdsp-devel > 1.1.9
-# mt32emu dependencies:
-BuildRequires: cmake
 
 Requires: hicolor-icon-theme
 Requires: fluid-soundfont-gm
@@ -62,14 +55,10 @@ any old DOS game using modern hardware.
 
 %prep
 %autosetup -p1
-# mt32emu is not packaged yet; provide sources for Meson wrap dependency:
-mkdir -p %{_vpath_srcdir}/subprojects/packagecache/
-cp %{SOURCE1} %{_vpath_srcdir}/subprojects/packagecache/
-cp %{SOURCE2} %{_vpath_srcdir}/subprojects/packagecache/
 
 
 %build
-%meson -Ddefault_library=static
+%meson
 %meson_build
 
 
@@ -89,32 +78,25 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/*.xml
 %{_mandir}/man1/*
 %{_datadir}/applications/*
 %{_datadir}/icons/hicolor/*/apps/dosbox-staging.*
+%{_datadir}/%{name}/translations/*
+%{_datadir}/%{name}/drives/*
+%{_datadir}/%{name}/freedos-cpi/*
+%{_datadir}/%{name}/freedos-keyboard/*
+%{_datadir}/%{name}/glshaders/*
+%{_datadir}/%{name}/mapperfiles/*
+%{_datadir}/%{name}/mapping-freedos.org/*
+%{_datadir}/%{name}/mapping-unicode.org/*
+%{_datadir}/%{name}/mapping-wikipedia.org/*
+%{_datadir}/%{name}/mapping/*
 %{_metainfodir}/*
 
 
 %changelog
-* Fri 6 Jan 2023 <kcgen@users.noreply.github.com>
-- 0.80.1-1
-- Fix a corner-case bug involving CLI mounts and using MORE.COM
-- Fix a handful of Common Weakness Enumeration (CWE) issues
-- Drop the unused "system_libraries" Meson option
-- Add the X11 Input 2.0 (libxi) as a Meson option, for use with ManyMouse
-- Refine the default mouse behavior based on feedback:
--  * The mouse will be centered in the window when uncapturing
--  * The mouse will now be captured 'onclick' by default
--  * When running without a window manager, the mouse will always be captured
-- Fix a potential small incremental memory increase when using Ethernet
-- Fix the documentation regarding the 'direct' serial port type
+* Sat Jan 07 2023 rderooy <rderooy@users.noreply.github.com> - 0.80.1-1
+- Update to 0.80.1
+- Remove included mt32emu as it is now available in the distro repos
 
-* Tue 20 Dec 2022 <kcgen@users.noreply.github.com>
-- 0.80.0-1
-- Update to 0.80.0
-- Raie minimum Meson version to 0.57.0
-- Add SDL2-image build dependency
-- Add ReelMagic
-- Add Mouse Enhancements
-
-* Fri 24 Dec 2021 kcgen <kcgen@users.noreply.github.com>
+* Fri Dec 24 2021 kcgen <kcgen@users.noreply.github.com>
 - 0.78.0-1
 - Update to 0.78.0
 - Raise minimum Meson version to 0.54.2

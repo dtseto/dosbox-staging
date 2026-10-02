@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -207,7 +207,7 @@ void PcSpeakerDiscrete::ForwardPIT(const float newindex)
 	case PitMode::HardwareStrobe:
 	case PitMode::Inactive:
 	default:
-		LOG_WARNING("PCSPEAKER: Unhandled PIT mode %s", pit_mode_to_string(pit_mode));
+		LOG_WARNING("PCSPEAKER: Unhandled PIT mode: '%s'", pit_mode_to_string(pit_mode));
 		break;
 	}
 }
@@ -279,12 +279,13 @@ void PcSpeakerDiscrete::SetCounter(int count, const PitMode mode)
 		break;
 	default:
 #if C_DEBUG
-		LOG_WARNING("PCSPEAKER: Unhandled speaker PIT mode: %s", pit_mode_to_string(pit_mode));
+		LOG_WARNING("PCSPEAKER: Unhandled speaker PIT mode: '%s'", pit_mode_to_string(pit_mode));
 #endif
 		return;
 	}
 	// Activate the channel after queuing new speaker entries
-	channel->WakeUp();
+	// We don't care about the return-code, so explicitly ignore it.
+	(void)channel->WakeUp();
 }
 
 // Returns the amp_neutral voltage if the speaker's  fully faded,
@@ -334,8 +335,8 @@ void PcSpeakerDiscrete::SetType(const PpiPortB &b)
 		AddDelayEntry(newindex, NeutralLastPitOr(amp_positive));
 		break;
 	};
-
-	channel->WakeUp();
+	// We don't care about the return-code, so explicitly ignore it.
+	(void)channel->WakeUp();
 }
 
 void PcSpeakerDiscrete::ChannelCallback(const uint16_t frames)
@@ -456,7 +457,7 @@ void PcSpeakerDiscrete::SetFilterState(const FilterState filter_state)
 	}
 }
 
-bool PcSpeakerDiscrete::TryParseAndSetCustomFilter(const std::string &filter_choice)
+bool PcSpeakerDiscrete::TryParseAndSetCustomFilter(const std::string_view filter_choice)
 {
 	assert(channel);
 	return channel->TryParseAndSetCustomFilter(filter_choice);
@@ -485,7 +486,7 @@ PcSpeakerDiscrete::PcSpeakerDiscrete()
 
 	channel->SetPeakAmplitude(static_cast<uint32_t>(amp_positive));
 
-	LOG_MSG("%s: Initialized %s model", device_name, model_name);
+	LOG_MSG("%s: Initialised %s model", device_name, model_name);
 }
 
 PcSpeakerDiscrete::~PcSpeakerDiscrete()

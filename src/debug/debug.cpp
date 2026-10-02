@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -50,6 +51,7 @@ using namespace std;
 #include "../cpu/lazyflags.h"
 #include "keyboard.h"
 #include "setup.h"
+#include "std_filesystem.h"
 
 SDL_Window *GFX_GetSDLWindow(void);
 
@@ -93,7 +95,7 @@ public:
 
 class DEBUG;
 
-DEBUG*	pDebugcom	= 0;
+DEBUG*	pDebugcom	= nullptr;
 bool	exitLoop	= false;
 
 
@@ -288,7 +290,15 @@ static std::vector<CDebugVar *> varList = {};
 
 bool skipFirstInstruction = false;
 
-enum EBreakpoint { BKPNT_UNKNOWN, BKPNT_PHYSICAL, BKPNT_INTERRUPT, BKPNT_MEMORY, BKPNT_MEMORY_PROT, BKPNT_MEMORY_LINEAR };
+enum EBreakpoint {
+	BKPNT_UNKNOWN,
+	BKPNT_PHYSICAL,
+	BKPNT_INTERRUPT,
+	BKPNT_MEMORY,
+	BKPNT_MEMORY_READ,
+	BKPNT_MEMORY_PROT,
+	BKPNT_MEMORY_LINEAR
+};
 
 #define BPINT_ALL 0x100
 
@@ -316,6 +326,22 @@ public:
 	uint8_t GetIntNr() const noexcept { return intNr; }
 	uint16_t GetValue() const noexcept { return ahValue; }
 	uint16_t GetOther() const noexcept { return alValue; }
+#if C_HEAVY_DEBUG
+	void FlagMemoryAsRead()
+	{
+		memory_was_read = true;
+	}
+
+	void FlagMemoryAsUnread()
+	{
+		memory_was_read = false;
+	}
+
+	bool WasMemoryRead() const
+	{
+		return memory_was_read;
+	}
+#endif
 
 	// statics
 	static CBreakpoint*		AddBreakpoint		(uint16_t seg, uint32_t off, bool once);
@@ -350,8 +376,9 @@ private:
 	// Shared
 	bool active = 0;
 	bool once   = 0;
+#if C_HEAVY_DEBUG
+	bool memory_was_read = false;
 
-#	if C_HEAVY_DEBUG
 	friend bool DEBUG_HeavyIsBreakpoint(void);
 #	endif
 };
@@ -390,7 +417,7 @@ void CBreakpoint::Activate(bool _active)
 					DEBUG_ShowMsg("DEBUG: Internal error while deactivating breakpoint.\n");
 
 				// Check if we are the last active breakpoint at this location
-				bool otherActive = (FindOtherActiveBreakpoint(location, this) != 0);
+				bool otherActive = (FindOtherActiveBreakpoint(location, this) != nullptr);
 
 				// If so, remove 0xCC and set old value
 				if (!otherActive)
@@ -404,6 +431,35 @@ void CBreakpoint::Activate(bool _active)
 
 // Statics
 static std::list<CBreakpoint *> BPoints = {};
+
+#if C_HEAVY_DEBUG
+template <typename T>
+void DEBUG_UpdateMemoryReadBreakpoints(const PhysPt addr)
+{
+	static_assert(std::is_unsigned_v<T>);
+	static_assert(std::is_integral_v<T>);
+
+	for (CBreakpoint* bp : BPoints) {
+		if (bp->GetType() == BKPNT_MEMORY_READ) {
+			const PhysPt location_begin = bp->GetLocation();
+			const PhysPt location_end = location_begin + sizeof(T);
+			if ((addr >= location_begin) && (addr < location_end)) {
+				DEBUG_ShowMsg("bpmr hit: %04X:%04X, cs:ip = %04X:%04X",
+				              bp->GetSegment(),
+				              bp->GetOffset(),
+				              SegValue(cs),
+				              reg_eip);
+				bp->FlagMemoryAsRead();
+			}
+		}
+	}
+}
+// Explicit instantiations
+template void DEBUG_UpdateMemoryReadBreakpoints<uint8_t>(const PhysPt addr);
+template void DEBUG_UpdateMemoryReadBreakpoints<uint16_t>(const PhysPt addr);
+template void DEBUG_UpdateMemoryReadBreakpoints<uint32_t>(const PhysPt addr);
+template void DEBUG_UpdateMemoryReadBreakpoints<uint64_t>(const PhysPt addr);
+#endif
 
 CBreakpoint* CBreakpoint::AddBreakpoint(uint16_t seg, uint32_t off, bool once)
 {
@@ -514,6 +570,15 @@ bool CBreakpoint::CheckBreakpoint(Bitu seg, Bitu off)
 					bp->SetValue(value);
 					return true;
 				}
+			} else if (bp->GetType() == BKPNT_MEMORY_READ) {
+				if (bp->WasMemoryRead()) {
+					// Yup, memory value was read
+					DEBUG_ShowMsg("DEBUG: Memory read breakpoint: %04X:%04X\n",
+					              bp->GetSegment(),
+					              bp->GetOffset());
+					bp->FlagMemoryAsUnread();
+					return true;
+				}
 			}
 		}
 #endif
@@ -577,7 +642,7 @@ bool CBreakpoint::DeleteByIndex(uint16_t index)
 
 CBreakpoint* CBreakpoint::FindPhysBreakpoint(uint16_t seg, uint32_t off, bool once)
 {
-	if (BPoints.empty()) return 0;
+	if (BPoints.empty()) return nullptr;
 #if !C_HEAVY_DEBUG
 	PhysPt adr = GetAddress(seg, off);
 #endif
@@ -595,7 +660,7 @@ CBreakpoint* CBreakpoint::FindPhysBreakpoint(uint16_t seg, uint32_t off, bool on
 			return bp;
 	}
 
-	return 0;
+	return nullptr;
 }
 
 CBreakpoint* CBreakpoint::FindOtherActiveBreakpoint(PhysPt adr, CBreakpoint* skip)
@@ -603,13 +668,13 @@ CBreakpoint* CBreakpoint::FindOtherActiveBreakpoint(PhysPt adr, CBreakpoint* ski
 	for (auto &bp : BPoints)
 		if (bp != skip && bp->GetType() == BKPNT_PHYSICAL && bp->GetLocation() == adr && bp->IsActive())
 			return bp;
-	return 0;
+	return nullptr;
 }
 
 // is there a permanent breakpoint at address ?
 bool CBreakpoint::IsBreakpoint(uint16_t seg, uint32_t off)
 {
-	return FindPhysBreakpoint(seg, off, false) != 0;
+	return FindPhysBreakpoint(seg, off, false) != nullptr;
 }
 
 bool CBreakpoint::DeleteBreakpoint(uint16_t seg, uint32_t off)
@@ -895,9 +960,9 @@ static void DrawCode(void) {
 		mvwprintw(dbg.win_code,10,0,"%c-> %s%c",
 			(codeViewData.ovrMode?'O':'I'),dispPtr,(*curPtr?' ':'_'));
 		wclrtoeol(dbg.win_code); // not correct in pdcurses if full line
-		mvwchgat(dbg.win_code,10,0,3,0,(PAIR_BLACK_GREY),NULL);
+		mvwchgat(dbg.win_code,10,0,3,0,(PAIR_BLACK_GREY),nullptr);
 		if (*curPtr) {
-			mvwchgat(dbg.win_code,10,(curPtr-dispPtr+4),1,0,(PAIR_BLACK_GREY),NULL);
+			mvwchgat(dbg.win_code,10,(curPtr-dispPtr+4),1,0,(PAIR_BLACK_GREY),nullptr);
  		}
 	}
 
@@ -1123,6 +1188,19 @@ bool ParseCommand(char* str) {
 		return true;
 	}
 
+	if (command == "BPMR") { // Add new breakpoint
+		uint16_t seg = (uint16_t)GetHexValue(found, found);
+		found++; // skip ":"
+		uint32_t ofs    = GetHexValue(found, found);
+		CBreakpoint* bp = CBreakpoint::AddMemBreakpoint(seg, ofs);
+		bp->SetType(BKPNT_MEMORY_READ);
+		bp->FlagMemoryAsUnread();
+		DEBUG_ShowMsg("DEBUG: Set memory read breakpoint at %04X:%04X\n",
+		              seg,
+		              ofs);
+		return true;
+	}
+
 	if (command == "BPPM") { // Add new breakpoint
 		uint16_t seg = (uint16_t)GetHexValue(found,found);found++; // skip ":"
 		uint32_t ofs = GetHexValue(found,found);
@@ -1225,11 +1303,14 @@ bool ParseCommand(char* str) {
 
 	if (command == "logcode") { //Shared code between all logs
 		DEBUG_ShowMsg("DEBUG: Starting log\n");
-		cpuLogFile.open("LOGCPU.TXT");
+		const std_fs::path log_cpu_txt = "LOGCPU.TXT";
+		cpuLogFile.open(log_cpu_txt.string());
 		if (!cpuLogFile.is_open()) {
 			DEBUG_ShowMsg("DEBUG: Logfile couldn't be created.\n");
 			return false;
 		}
+		DEBUG_ShowMsg("DEBUG: Logfile '%s' created.\n",
+		              std_fs::absolute(log_cpu_txt).string().c_str());
 		//Initialize log object
 		cpuLogFile << hex << noshowbase << setfill('0') << uppercase;
 		cpuLog = true;
@@ -1340,6 +1421,7 @@ bool ParseCommand(char* str) {
 		DEBUG_ShowMsg("BPINT  [intNr] [ah] [al]  - Set interrupt breakpoint with ah and al.\n");
 #if C_HEAVY_DEBUG
 		DEBUG_ShowMsg("BPM    [segment]:[offset] - Set memory breakpoint (memory change).\n");
+		DEBUG_ShowMsg("BPMR   [segment]:[offset] - Set memory breakpoint (memory read).\n");
 		DEBUG_ShowMsg("BPPM   [selector]:[offset]- Set pmode-memory breakpoint (memory change).\n");
 		DEBUG_ShowMsg("BPLM   [linear address]   - Set linear memory breakpoint (memory change).\n");
 #endif
@@ -1445,19 +1527,25 @@ char* AnalyzeInstruction(char* inst, bool saveSelector) {
 
 			if (cpu.pmode) outmask[6] = '8';
 				switch (DasmLastOperandSize()) {
-				case 8 : {	uint8_t val = mem_readb(address);
-							outmask[12] = '2';
-							sprintf(result,outmask,prefix,adr,val);
-						}	break;
-				case 16: {	uint16_t val = mem_readw(address);
-							outmask[12] = '4';
-							sprintf(result,outmask,prefix,adr,val);
-						}	break;
-				case 32: {	uint32_t val = mem_readd(address);
-							outmask[12] = '8';
-							sprintf(result,outmask,prefix,adr,val);
-						}	break;
-			}
+			        case 8: {
+				        uint8_t val = mem_readb<MemOpMode::SkipBreakpoints>(
+				                address);
+				        outmask[12] = '2';
+				        sprintf(result, outmask, prefix, adr, val);
+			        } break;
+			        case 16: {
+				        uint16_t val = mem_readw<MemOpMode::SkipBreakpoints>(
+				                address);
+				        outmask[12] = '4';
+				        sprintf(result, outmask, prefix, adr, val);
+			        } break;
+			        case 32: {
+				        uint32_t val = mem_readd<MemOpMode::SkipBreakpoints>(
+				                address);
+				        outmask[12] = '8';
+				        sprintf(result, outmask, prefix, adr, val);
+			        } break;
+			        }
 		} else {
 			sprintf(result,"[illegal]");
 		}
@@ -1932,7 +2020,7 @@ static void LogMCBChain(uint16_t mcb_segment) {
 	char filename[9]; // 8 characters plus a terminating NUL
 	const char *psp_seg_note;
 	uint16_t DOS_dataOfs = static_cast<uint16_t>(dataOfs); //Realmode addressing only
-	PhysPt dataAddr = PhysMake(dataSeg,DOS_dataOfs);// location being viewed in the "Data Overview"
+	PhysPt dataAddr = PhysicalMake(dataSeg,DOS_dataOfs);// location being viewed in the "Data Overview"
 
 	// loop forever, breaking out of the loop once we've processed the last MCB
 	while (true) {
@@ -1959,8 +2047,8 @@ static void LogMCBChain(uint16_t mcb_segment) {
 		LOG(LOG_MISC,LOG_ERROR)("   %04X  %12u     %04X %-7s  %s",mcb_segment,mcb.GetSize() << 4,mcb.GetPSPSeg(), psp_seg_note, filename);
 
 		// print a message if dataAddr is within this MCB's memory range
-		PhysPt mcbStartAddr = PhysMake(mcb_segment+1,0);
-		PhysPt mcbEndAddr = PhysMake(mcb_segment+1+mcb.GetSize(),0);
+		PhysPt mcbStartAddr = PhysicalMake(mcb_segment+1,0);
+		PhysPt mcbEndAddr = PhysicalMake(mcb_segment+1+mcb.GetSize(),0);
 		if (dataAddr >= mcbStartAddr && dataAddr < mcbEndAddr) {
 			LOG(LOG_MISC,LOG_ERROR)("   (data addr %04hX:%04X is %u bytes past this MCB)",dataSeg,DOS_dataOfs,dataAddr - mcbStartAddr);
 		}
@@ -2044,32 +2132,56 @@ void LogPages(char* selname) {
 			for (int i=0; i<0xfffff; i++) {
 				Bitu table_addr=(paging.base.page<<12)+(i >> 10)*4;
 				X86PageEntry table;
-				table.load=phys_readd(table_addr);
-				if (table.block.p) {
+				table.set(phys_readd(table_addr));
+				if (table.p) {
 					X86PageEntry entry;
-					Bitu entry_addr=(table.block.base<<12)+(i & 0x3ff)*4;
-					entry.load=phys_readd(entry_addr);
-					if (entry.block.p) {
-						sprintf(out1,"page %05Xxxx -> %04Xxxx  flags [uw] %x:%x::%x:%x [d=%x|a=%x]",
-							i,entry.block.base,entry.block.us,table.block.us,
-							entry.block.wr,table.block.wr,entry.block.d,entry.block.a);
-						LOG(LOG_MISC,LOG_ERROR)("%s",out1);
+					Bitu entry_addr = (table.base << 12) +
+					                  (i & 0x3ff) * 4;
+					entry.set(phys_readd(entry_addr));
+					if (entry.p) {
+						sprintf(out1,
+						        "page %05Xxxx -> %04Xxxx  flags [uw] %x:%x::%x:%x [d=%x|a=%x]",
+						        i,
+						        entry.base,
+						        entry.us,
+						        table.us,
+						        entry.wr,
+						        table.wr,
+						        entry.d,
+						        entry.a);
+						LOG(LOG_MISC, LOG_ERROR)
+						("%s", out1);
 					}
 				}
 			}
 		} else {
 			Bitu table_addr=(paging.base.page<<12)+(sel >> 10)*4;
 			X86PageEntry table;
-			table.load=phys_readd(table_addr);
-			if (table.block.p) {
+			table.set(phys_readd(table_addr));
+			if (table.p) {
 				X86PageEntry entry;
-				Bitu entry_addr=(table.block.base<<12)+(sel & 0x3ff)*4;
-				entry.load=phys_readd(entry_addr);
-				sprintf(out1,"page %05" sBitfs(X) "xxx -> %04Xxxx  flags [puw] %x:%x::%x:%x::%x:%x",sel,entry.block.base,entry.block.p,table.block.p,entry.block.us,table.block.us,entry.block.wr,table.block.wr);
-				LOG(LOG_MISC,LOG_ERROR)("%s",out1);
+				Bitu entry_addr = (table.base << 12) +
+				                  (sel & 0x3ff) * 4;
+				entry.set(phys_readd(entry_addr));
+				sprintf(out1,
+				        "page %05" sBitfs(X) "xxx -> %04Xxxx  flags [puw] %x:%x::%x:%x::%x:%x",
+				        sel,
+				        entry.base,
+				        entry.p,
+				        table.p,
+				        entry.us,
+				        table.us,
+				        entry.wr,
+				        table.wr);
+				LOG(LOG_MISC, LOG_ERROR)("%s", out1);
 			} else {
-				sprintf(out1,"pagetable %03" sBitfs(X) " not present, flags [puw] %x::%x::%x",(sel >> 10),table.block.p,table.block.us,table.block.wr);
-				LOG(LOG_MISC,LOG_ERROR)("%s",out1);
+				sprintf(out1,
+				        "pagetable %03" sBitfs(X) " not present, flags [puw] %x::%x::%x",
+				        (sel >> 10),
+				        table.p,
+				        table.us,
+				        table.wr);
+				LOG(LOG_MISC, LOG_ERROR)("%s", out1);
 			}
 		}
 	}
@@ -2174,11 +2286,11 @@ class DEBUG final : public Program {
 public:
 	DEBUG() : active(false) { pDebugcom = this; }
 
-	~DEBUG() { pDebugcom = nullptr; }
+	~DEBUG() override { pDebugcom = nullptr; }
 
 	bool IsActive() const { return active; }
 
-	void Run()
+	void Run() override
 	{
 		if(cmd->FindExist("/NOMOUSE",false)) {
 	        	real_writed(0,0x33<<2,0);
@@ -2210,7 +2322,7 @@ public:
 
 		// Start shell
 		DOS_Shell shell;
-		if (!shell.Execute(filename, args))
+		if (!shell.ExecuteProgram(filename, args))
 			WriteOut(MSG_Get("PROGRAM_EXECUTABLE_MISSING"), filename);
 
 		// set old reg values
@@ -2229,7 +2341,7 @@ void DEBUG_CheckExecuteBreakpoint(uint16_t seg, uint32_t off)
 	if (pDebugcom && pDebugcom->IsActive()) {
 		CBreakpoint::AddBreakpoint(seg,off,true);
 		CBreakpoint::ActivateBreakpointsExceptAt(SegPhys(cs)+reg_eip);
-		pDebugcom = 0;
+		pDebugcom = nullptr;
 	}
 }
 
@@ -2291,7 +2403,7 @@ void CDebugVar::DeleteAll()
 
 CDebugVar *CDebugVar::FindVar(PhysPt pt)
 {
-	if (varList.empty()) return 0;
+	if (varList.empty()) return nullptr;
 
 	std::vector<CDebugVar*>::size_type s = varList.size();
 	CDebugVar* bp;
@@ -2299,15 +2411,21 @@ CDebugVar *CDebugVar::FindVar(PhysPt pt)
 		bp = static_cast<CDebugVar*>(varList[i]);
 		if (bp->GetAdr() == pt) return bp;
 	}
-	return 0;
+	return nullptr;
 }
 
 bool CDebugVar::SaveVars(char *name)
 {
 	if (varList.size() > 65535) return false;
+	const std_fs::path vars_file = name;
+	FILE* f = fopen(vars_file.string().c_str(), "wb+");
+	if (!f) {
+		DEBUG_ShowMsg("DEBUG: Output of vars failed.\n");
+		return false;
+	}
+	DEBUG_ShowMsg("DEBUG: vars file '%s' created.\n",
+	              std_fs::absolute(vars_file).string().c_str());
 
-	FILE* f = fopen(name,"wb+");
-	if (!f) return false;
 
 	// write number of vars
 	uint16_t num = (uint16_t)varList.size();
@@ -2329,9 +2447,15 @@ bool CDebugVar::SaveVars(char *name)
 
 bool CDebugVar::LoadVars(char *name)
 {
-	FILE* f = fopen(name,"rb");
-	if (!f) return false;
-
+	const std_fs::path vars_file = name;
+	FILE* f = fopen(vars_file.string().c_str(), "rb");
+	if (!f) {
+		DEBUG_ShowMsg("DEBUG: Load of vars from %s failed.\n",
+		              name);
+		return false;
+	}
+	DEBUG_ShowMsg("DEBUG: vars file '%s' loaded.\n",
+	              std_fs::absolute(vars_file).string().c_str());
 	// read number of vars
 	uint16_t num;
 	if (fread(&num,sizeof(num),1,f) != 1) {
@@ -2353,11 +2477,14 @@ bool CDebugVar::LoadVars(char *name)
 }
 
 static void SaveMemory(uint16_t seg, uint32_t ofs1, uint32_t num) {
-	FILE* f = fopen("MEMDUMP.TXT","wt");
+	const std_fs::path memdump_txt = "MEMDUMP.TXT";
+	FILE* f = fopen(memdump_txt.string().c_str(),"wt");
 	if (!f) {
 		DEBUG_ShowMsg("DEBUG: Memory dump failed.\n");
 		return;
 	}
+	DEBUG_ShowMsg("DEBUG: Memory dump file '%s' created.\n",
+	              std_fs::absolute(memdump_txt).string().c_str());
 
 	char buffer[128];
 	char temp[16];
@@ -2390,11 +2517,14 @@ static void SaveMemory(uint16_t seg, uint32_t ofs1, uint32_t num) {
 }
 
 static void SaveMemoryBin(uint16_t seg, uint32_t ofs1, uint32_t num) {
-	FILE* f = fopen("MEMDUMP.BIN","wb");
+	const std_fs::path memdump_bin = "MEMDUMP.BIN";
+	FILE* f = fopen(memdump_bin.string().c_str(), "wb");
 	if (!f) {
 		DEBUG_ShowMsg("DEBUG: Memory binary dump failed.\n");
 		return;
 	}
+	DEBUG_ShowMsg("DEBUG: Memory binary dump file '%s' created.\n",
+	              std_fs::absolute(memdump_bin).string().c_str());
 
 	for (Bitu x = 0; x < num;x++) {
 		uint8_t val;
@@ -2407,18 +2537,22 @@ static void SaveMemoryBin(uint16_t seg, uint32_t ofs1, uint32_t num) {
 }
 
 static void OutputVecTable(char* filename) {
-	FILE* f = fopen(filename, "wt");
+	const std_fs::path vec_table_file = filename;
+	FILE* f = fopen(vec_table_file.string().c_str(), "wt");
 	if (!f)
 	{
 		DEBUG_ShowMsg("DEBUG: Output of interrupt vector table failed.\n");
 		return;
 	}
-
+	DEBUG_ShowMsg("DEBUG: Interrupt vector table file '%s' created.\n",
+	              std_fs::absolute(vec_table_file).string().c_str());
+	
 	for (int i=0; i<256; i++)
 		fprintf(f,"INT %02X:  %04X:%04X\n", i, mem_readw(i*4+2), mem_readw(i*4));
 
 	fclose(f);
-	DEBUG_ShowMsg("DEBUG: Interrupt vector table written to %s.\n", filename);
+	DEBUG_ShowMsg("DEBUG: Interrupt vector table written to %s.\n",
+	              vec_table_file.string().c_str());
 }
 
 #define DEBUG_VAR_BUF_LEN 16

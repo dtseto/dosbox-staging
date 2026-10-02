@@ -58,8 +58,8 @@ static bool swapping_requested;
 void BIOS_SetEquipment(uint16_t equipment);
 
 /* 2 floppys and 2 harddrives, max */
-std::array<std::shared_ptr<imageDisk>, MAX_DISK_IMAGES> imageDiskList;
-std::array<std::shared_ptr<imageDisk>, MAX_SWAPPABLE_DISKS> diskSwap;
+std::array<imageDisk*, MAX_DISK_IMAGES> imageDiskList = {};
+std::array<imageDisk*, MAX_SWAPPABLE_DISKS> diskSwap  = {};
 
 unsigned int swapPosition;
 
@@ -164,10 +164,10 @@ uint8_t imageDisk::Read_Sector(uint32_t head,uint32_t cylinder,uint32_t sector,v
 
 uint8_t imageDisk::Read_AbsoluteSector(uint32_t sectnum, void *data)
 {
-	const uint32_t bytenum = sectnum * sector_size;
+	const auto bytenum = check_cast<cross_off_t>(sectnum) * sector_size;
 
 	if (last_action == WRITE || bytenum != current_fpos) {
-		if (fseek(diskimg, bytenum, SEEK_SET) != 0) {
+		if (cross_fseeko(diskimg, bytenum, SEEK_SET) != 0) {
 			LOG_ERR("BIOSDISK: Could not seek to sector %u in file '%s': %s",
 			        sectnum, diskname, strerror(errno));
 			return 0xff;
@@ -190,16 +190,16 @@ uint8_t imageDisk::Write_Sector(uint32_t head,uint32_t cylinder,uint32_t sector,
 
 
 uint8_t imageDisk::Write_AbsoluteSector(uint32_t sectnum, void *data) {
-	uint32_t bytenum;
-
-	bytenum = sectnum * sector_size;
+	const auto bytenum = check_cast<cross_off_t>(sectnum) * sector_size;
 
 	//LOG_MSG("Writing sectors to %ld at bytenum %d", sectnum, bytenum);
 
 	if (last_action == READ || bytenum != current_fpos) {
-		if (fseek(diskimg, bytenum, SEEK_SET) != 0) {
-			LOG_ERR("BIOSDISK: Could not seek to byte %u in file '%s': %s",
-			        bytenum, diskname, strerror(errno));
+		if (cross_fseeko(diskimg, bytenum, SEEK_SET) != 0) {
+			LOG_ERR("BIOSDISK: Could not seek to byte %lld in file '%s': %s",
+			        static_cast<long long int>(bytenum),
+			        diskname,
+			        strerror(errno));
 			return 0xff;
 		}
 	}
@@ -554,7 +554,7 @@ static Bitu INT13_DiskHandler(void) {
 			}
 			CALLBACK_SCF(false);
 		} else {
-			if (drivenum <DOS_DRIVES && (Drives[drivenum] != 0 || drivenum <2)) {
+			if (drivenum <DOS_DRIVES && (Drives[drivenum] != nullptr || drivenum <2)) {
 				if (drivenum <2) {
 					//TODO use actual size (using 1.44 for now).
 					reg_ah = 0x1; // type
@@ -594,10 +594,17 @@ void BIOS_SetupDisks(void) {
 	call_int13=CALLBACK_Allocate();	
 	CALLBACK_Setup(call_int13,&INT13_DiskHandler,CB_INT13,"Int 13 Bios disk");
 	RealSetVec(0x13,CALLBACK_RealPointer(call_int13));
-	for (auto &disk : imageDiskList)
-		disk.reset();
-	for (auto &disk : diskSwap)
-		disk.reset();
+
+	// Clean any the numbered images
+	for (auto &image_ptr : imageDiskList) {
+		DriveManager::CloseNumberedImage(image_ptr);
+		image_ptr = nullptr;
+	}
+
+	// Clear any raw disk images
+	diskSwap.fill(nullptr);
+	DriveManager::CloseRawFddImages();
+
 	diskparm0 = CALLBACK_Allocate();
 	diskparm1 = CALLBACK_Allocate();
 	swapPosition = 0;

@@ -26,6 +26,10 @@
 #include <map>
 #include <stdexcept>
 
+#if defined(BSD)
+#include <sys/socket.h> // AF_INET
+#endif
+
 #include "dosbox.h"
 #include "ethernet_slirp.h"
 #include "setup.h"
@@ -194,11 +198,11 @@ bool SlirpEthernetConnection::Initialize(Section *dosbox_config)
 
 	/* DHCPv4, BOOTP, TFTP */
 	config.vhostname = CANONICAL_PROJECT_NAME;
-	config.vdnssearch = NULL;
-	config.vdomainname = NULL;
-	config.tftp_server_name = NULL;
-	config.tftp_path = NULL;
-	config.bootfile = NULL;
+	config.vdnssearch = nullptr;
+	config.vdomainname = nullptr;
+	config.tftp_server_name = nullptr;
+	config.tftp_path = nullptr;
+	config.bootfile = nullptr;
 
 	slirp = slirp_new(&config, &slirp_callbacks, this);
 	if (slirp) {
@@ -246,12 +250,12 @@ std::map<int, int> SlirpEthernetConnection::SetupPortForwards(const bool is_udp,
 	inet_pton(AF_INET, "0.0.0.0", &bind_addr);
 
 	// Split the rules first by spaces
-	for (auto &forward_rule : split(port_forward_rules, ' ')) {
+	for (auto &forward_rule : split_with_empties(port_forward_rules, ' ')) {
 		if (forward_rule.empty())
 			continue;
 
 		// Split the rule into host:guest portions
-		auto forward_rule_parts = split(forward_rule, ':');
+		auto forward_rule_parts = split_with_empties(forward_rule, ':');
 		// if only one is provided, then the guest port is the same
 		if (forward_rule_parts.size() == 1)
 			forward_rule_parts.push_back(forward_rule_parts[0]);
@@ -268,7 +272,7 @@ std::map<int, int> SlirpEthernetConnection::SetupPortForwards(const bool is_udp,
 
 		// Process the host and guest portions separately
 		for (const auto &port_range_part : forward_rule_parts) {
-			auto port_range = split(port_range_part, '-');
+			auto port_range = split_with_empties(port_range_part, '-');
 
 			// If only one value is provided, then the start and end are the same
 			if (port_range.size() == 1 && !port_range[0].empty())
@@ -417,7 +421,7 @@ void SlirpEthernetConnection::TimerMod(struct slirp_timer *timer, int64_t expire
 
 void SlirpEthernetConnection::TimersRun()
 {
-	int64_t now = slirp_clock_get_ns(NULL);
+	int64_t now = slirp_clock_get_ns(nullptr);
 	for (struct slirp_timer *timer : timers) {
 		if (timer->expires_ns && timer->expires_ns < now) {
 			timer->expires_ns = 0;

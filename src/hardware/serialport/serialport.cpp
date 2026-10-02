@@ -25,6 +25,7 @@
 #include <string.h>
 #include <tuple>
 
+#include "../../capture/capture.h"
 #include "inout.h"
 #include "pic.h"
 #include "setup.h"
@@ -154,7 +155,7 @@ static void SERIAL_Write(io_port_t port, io_val_t value, io_width_t)
 		case 0x2e8: i=3; break;
 		default: return;
 	}
-	if(serialports[i]==0) return;
+	if(serialports[i]==nullptr) return;
 	
 #if SERIAL_DEBUG
 		const char* const dbgtext[]={"THR","IER","FCR",
@@ -225,7 +226,7 @@ void CSerial::changeLineProperties() {
 static void Serial_EventHandler(uint32_t val)
 {
 	const uint32_t serclassid = val & 0x3;
-	if (serialports[serclassid] != 0) {
+	if (serialports[serclassid] != nullptr) {
 		const auto event_type = static_cast<uint16_t>(val >> 2);
 		serialports[serclassid]->handleEvent(event_type);
 	}
@@ -1017,10 +1018,9 @@ static constexpr std::tuple<uint8_t, uint8_t> baud_to_regs(uint32_t baud_rate)
 	// Cap the lower-bound to 300 baud. Although the first 1950s modem
 	// offered 110 baud, by the time DOS was available 8-bit ISA modems
 	// offered at least 300 and even 1200 baud.
-	baud_rate = std::max(300u, baud_rate);
+	baud_rate = std::max(SerialMinBaudRate, baud_rate);
 
-	constexpr auto max_baud = 115200u;
-	const auto delay_ratio = static_cast<uint16_t>(max_baud / baud_rate);
+	const auto delay_ratio = static_cast<uint16_t>(SerialMaxBaudRate / baud_rate);
 
 	const uint8_t transmit_reg = delay_ratio & 0xff;  // bottom byte
 	const uint8_t interrupt_reg = delay_ratio >> 8;   // top byte
@@ -1145,10 +1145,10 @@ CSerial::CSerial(const uint8_t port_idx, CommandLine *cmd)
 
 
 	if(dbg_serialtraffic|dbg_modemcontrol|dbg_register|dbg_interrupt|dbg_aux)
-		debugfp=CAPTURE_OpenFile("serlog",".serlog.txt");
-	else debugfp=0;
+		debugfp=CAPTURE_CreateFile(CaptureType::SerialLog);
+	else debugfp=nullptr;
 
-	if(debugfp == 0) {
+	if(debugfp == nullptr) {
 		dbg_serialtraffic= 
 		dbg_modemcontrol= 
 		dbg_register=
@@ -1288,6 +1288,14 @@ bool CSerial::Putchar(uint8_t data, bool wait_dsr, bool wait_cts, uint32_t timeo
 	return true;
 }
 
+uint32_t CSerial::GetPortBaudRate() const {
+	if (baud_divider == 0) {
+		return SerialMaxBaudRate;
+	}
+
+	return SerialMaxBaudRate / baud_divider;
+}
+
 class SERIALPORTS final : public Module_base {
 public:
 	SERIALPORTS (Section * configuration):Module_base (configuration) {
@@ -1305,7 +1313,7 @@ public:
 			s_property[6] = '1' + static_cast<char>(i);
 			PropMultiVal* p = section->GetMultiVal(s_property);
 			std::string type = p->GetSection()->Get_string("type");
-			CommandLine cmd(0,p->GetSection()->Get_string("parameters"));
+			CommandLine cmd("", p->GetSection()->Get_string("parameters"));
 			
 			// detect the type
 			if (type=="dummy") {
@@ -1371,7 +1379,7 @@ public:
 		for (uint8_t i = 0; i < SERIAL_MAX_PORTS; ++i) {
 			if (serialports[i]) {
 				delete serialports[i];
-				serialports[i] = 0;
+				serialports[i] = nullptr;
 			}
 		}
 #if C_MODEM
@@ -1386,11 +1394,16 @@ void SERIAL_Destroy(Section *sec)
 {
 	(void)sec; // unused, but required for API compliance
 	delete testSerialPortsBaseclass;
-	testSerialPortsBaseclass = NULL;
+	testSerialPortsBaseclass = nullptr;
 }
 
-void SERIAL_Init (Section * sec) {
+void SERIAL_Init (Section* sec)
+{
+	assert(sec);
+
 	delete testSerialPortsBaseclass;
-	testSerialPortsBaseclass = new SERIALPORTS (sec);
-	sec->AddDestroyFunction (&SERIAL_Destroy, true);
+	testSerialPortsBaseclass = new SERIALPORTS(sec);
+
+	constexpr auto changeable_at_runtime = true;
+	sec->AddDestroyFunction(&SERIAL_Destroy, changeable_at_runtime);
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,8 @@
 #include <string>
 #include <vector>
 
+#include "rect.h"
+
 // ***************************************************************************
 // Initialization, configuration
 // ***************************************************************************
@@ -39,7 +41,7 @@ void MOUSE_AddConfigSection(const config_ptr_t &);
 
 enum class MouseInterfaceId : uint8_t {
 	DOS,  // emulated DOS mouse driver
-	PS2,  // PS/2 mouse (this includes VMware mouse protocol)
+	PS2,  // PS/2 mouse (this includes VMware and VirtualBox protocols)
 	COM1, // serial mouse
 	COM2,
 	COM3,
@@ -59,6 +61,21 @@ enum class MouseMapStatus : uint8_t {
 	Disabled
 };
 
+// Each mouse button has a corresponding fixed identifying value, similar to
+// keyboard scan codes.
+enum class MouseButtonId : uint8_t {
+	Left   = 0,
+	Right  = 1,
+	Middle = 2,
+	Extra1 = 3,
+	Extra2 = 4,
+
+	// Aliases
+	First = Left,
+	Last  = Extra2,
+	None  = UINT8_MAX,
+};
+
 // ***************************************************************************
 // Notifications from external subsystems - all should go via these methods
 // ***************************************************************************
@@ -68,8 +85,8 @@ void MOUSE_EventMoved(const float x_rel, const float y_rel,
 void MOUSE_EventMoved(const float x_rel, const float y_rel,
                       const MouseInterfaceId device_id);
 
-void MOUSE_EventButton(const uint8_t idx, const bool pressed);
-void MOUSE_EventButton(const uint8_t idx, const bool pressed,
+void MOUSE_EventButton(const MouseButtonId button_id, const bool pressed);
+void MOUSE_EventButton(const MouseButtonId button_id, const bool pressed,
                        const MouseInterfaceId device_id);
 
 void MOUSE_EventWheel(const int16_t w_rel);
@@ -83,9 +100,9 @@ void MOUSE_NotifyBooting();
 // and can accept requests from mouse emulation module
 void MOUSE_NotifyReadyGFX();
 
-// Notify that window has lost or gained focus, this tells the mouse
+// Notify whether emulator window is active, this tells the mouse
 // emulation code if it should process mouse events or ignore them
-void MOUSE_NotifyHasFocus(const bool has_focus);
+void MOUSE_NotifyWindowActive(const bool is_active);
 
 // A GUI has to use this function to tell when it takes over or releases
 // the mouse; this will change various settings like raw input (we don't
@@ -93,15 +110,26 @@ void MOUSE_NotifyHasFocus(const bool has_focus);
 // visible while a GUI is running)
 void MOUSE_NotifyTakeOver(const bool gui_has_taken_over);
 
+struct MouseScreenParams {
+	// The draw rectangle in logical units. Note the (x1,y1) upper-left
+	// coordinates can be negative if we're "zooming into" the DOS content
+	// (e.g., in 'relative' viewport mode), in which case the draw rect
+	// extends beyond the dimensions of the screen/window.
+	DosBox::Rect draw_rect = {};
+
+	// New absolute mouse cursor position in logical units
+	int32_t x_abs = 0;
+	int32_t y_abs = 0;
+
+	// Whether the new mode is fullscreen or windowed
+	bool is_fullscreen = false;
+
+	// Whether more than one display was detected
+	bool is_multi_display = false;
+};
+
 // To be called when screen mode changes, emulator window gets resized, etc.
-// clip_x / clip_y - size of the black bars around screen area
-// res_x / res_y   - size of drawing area (in hot OS pixels)
-// x_abs / y_abs   - new absolute mouse cursor position
-// is_fullscreen   - whether the new mode is fullscreen or windowed
-void MOUSE_NewScreenParams(const uint32_t clip_x, const uint32_t clip_y,
-                           const uint32_t res_x, const uint32_t res_y,
-                           const int32_t x_abs, const int32_t y_abs,
-                           const bool is_fullscreen);
+void MOUSE_NewScreenParams(const MouseScreenParams &params);
 
 // Notification that user pressed/released the hotkey combination
 // to capture/release the mouse
@@ -111,25 +139,55 @@ void MOUSE_ToggleUserCapture(const bool pressed);
 // BIOS mouse interface for PS/2 mouse
 // ***************************************************************************
 
-bool MOUSEBIOS_Enable();
-bool MOUSEBIOS_Disable();
-void MOUSEBIOS_SetCallback(const uint16_t pseg, const uint16_t pofs);
-void MOUSEBIOS_Reset();
-bool MOUSEBIOS_SetPacketSize(const uint8_t packet_size);
-bool MOUSEBIOS_SetSampleRate(const uint8_t rate_id);
-void MOUSEBIOS_SetScaling21(const bool enable);
-bool MOUSEBIOS_SetResolution(const uint8_t res_id);
-uint8_t MOUSEBIOS_GetProtocol();
-uint8_t MOUSEBIOS_GetStatus();
-uint8_t MOUSEBIOS_GetResolution();
-uint8_t MOUSEBIOS_GetSampleRate();
+void MOUSEBIOS_Subfunction_C2();
+
+// ***************************************************************************
+// Register-level interface for PS/2 mouse
+// ***************************************************************************
+
+void MOUSEPS2_FlushBuffer();
+bool MOUSEPS2_SendPacket();
 
 // ***************************************************************************
 // DOS mouse driver
 // ***************************************************************************
 
 void MOUSEDOS_BeforeNewVideoMode();
-void MOUSEDOS_AfterNewVideoMode(const bool setmode);
+void MOUSEDOS_AfterNewVideoMode(const bool is_mode_changing);
+
+// ***************************************************************************
+// Virtual Machine Manager (VMware/VirtualBox) PS/2 mouse protocol extensions
+// ***************************************************************************
+
+enum class MouseVmmProtocol : uint8_t {
+	VirtualBox,
+	VmWare,
+};
+
+struct MouseVirtualBoxPointerStatus {
+	uint16_t absolute_x = 0;
+	uint16_t absolute_y = 0;
+};
+
+struct MouseVmWarePointerStatus {
+	uint16_t absolute_x = 0;
+	uint16_t absolute_y = 0;
+
+	uint8_t buttons       = 0;
+	uint8_t wheel_counter = 0;
+};
+
+bool MOUSEVMM_IsSupported(const MouseVmmProtocol protocol);
+
+void MOUSEVMM_Activate(const MouseVmmProtocol protocol);
+void MOUSEVMM_Deactivate(const MouseVmmProtocol protocol);
+void MOUSEVMM_DeactivateAll();
+
+void MOUSEVMM_GetPointerStatus(MouseVirtualBoxPointerStatus& status);
+void MOUSEVMM_GetPointerStatus(MouseVmWarePointerStatus& status);
+
+void MOUSEVMM_SetPointerVisible_VirtualBox(const bool is_visible);
+bool MOUSEVMM_CheckIfUpdated_VmWare();
 
 // ***************************************************************************
 // MOUSECTL.COM / GUI configurator interface
@@ -193,6 +251,8 @@ public:
 	const std::vector<MousePhysicalInfoEntry> &GetInfoPhysical();
 
 	static bool IsNoMouseMode();
+	static bool IsMappingBlockedByDriver();
+	
 	static bool CheckInterfaces(const ListIDs &list_ids);
 	static bool PatternToRegex(const std::string &pattern, std::regex &regex);
 
