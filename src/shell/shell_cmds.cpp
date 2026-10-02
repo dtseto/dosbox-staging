@@ -1148,8 +1148,7 @@ void DOS_Shell::CMD_COPY(char* args)
 		dos.dta(save_dta);
 		return;
 	}
-	 */
-	
+
 	// Gather all sources (extension to copy more then 1 file specified at command line)
 	// Concatenating files go as follows: All parts except for the last bear the concat flag.
 	// This construction allows them to be counted (only the non concat set)
@@ -2640,51 +2639,6 @@ static std::string handle_wildcards(const std::string& wildcards,
 		}
 	}
 	return expanded_name;
-}
-
-void DOS_Shell::CMD_RENAME(char* args)
-{
-	HELP("RENAME");
-
-	const std::string source = DOS_Canonicalize(strip_word(args));
-	const std::string target = strip_word(args);
-	if (source.empty() || target.empty()) {
-		SyntaxError();
-		return;
-	}
-
-	// Second argument must not contain a path
-	if (target.find_first_of("\\:") != std::string::npos) {
-		SyntaxError();
-		return;
-	}
-
-	const std::string path      = source.substr(0, source.rfind('\\') + 1);
-	const DosFilename wildcards = split_extension(target);
-
-	// Search for files matching the first argument (may be multiple files
-	// due to wildcards)
-	for (const std::string& old_filename : search_files(source)) {
-		const DosFilename old_split = split_extension(old_filename);
-
-		DosFilename new_split = {};
-		new_split.name = handle_wildcards(wildcards.name, old_split.name);
-		new_split.ext = handle_wildcards(wildcards.ext, old_split.ext);
-
-		std::string old_fullpath = path + old_filename;
-
-		std::string new_fullpath = path + new_split.name;
-		if (!new_split.ext.empty()) {
-			new_fullpath.push_back('.');
-			new_fullpath.append(new_split.ext);
-		}
-
-		if (!DOS_Rename(old_fullpath.c_str(), new_fullpath.c_str())) {
-			WriteOut("Rename %s -> %s failed\n",
-			         old_fullpath.c_str(),
-			         new_fullpath.c_str());
-		}
-	}
 }
 
 void DOS_Shell::CMD_FOR(char* args)

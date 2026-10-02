@@ -1420,17 +1420,18 @@ void VGA_SetupOther()
 // BOXER-BEGIN: display-mode-controls
 uint8_t boxer_herculesTintMode()
 {
-	return herc_pal;
+	return static_cast<uint8_t>(enum_val(hercules_palette));
 }
 
 void boxer_setHerculesTintMode(uint8_t mode)
 {
-	if (herc_pal == mode)
+	const auto palette = static_cast<MonochromePalette>(mode % 3);
+	if (hercules_palette == palette)
 		return;
 
-	herc_pal = mode % 3;
+	hercules_palette = palette;
 	if (machine == MCH_HERC) {
-		Herc_Palette();
+		VGA_SetHerculesPalette();
 		VGA_DAC_CombineColor(1, 7);
 	}
 }
@@ -1460,8 +1461,8 @@ void boxer_setCGAComponentMode(uint8_t mode)
     cga_comp = COMPOSITE_STATE(mode);
     if (static_cast<uint8_t>(cga_comp) > 2)
         cga_comp = COMPOSITE_STATE::AUTO;
-	if (vga.tandy.mode_control & 0x2)
-		write_cga(0x3d8, vga.tandy.mode_control, io_width_t::byte);
+	if (vga.tandy.mode_control.data & 0x2)
+		write_cga(0x3d8, vga.tandy.mode_control.data, io_width_t::byte);
 }
 
 // BOXER-END: display-mode-controls

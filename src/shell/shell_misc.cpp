@@ -159,10 +159,17 @@ std::string DOS_Shell::ReadCommand()
 		// BOXER-BEGIN: shell-input-injection - Boxer rewrites the line
 		// or takes the shell away from the prompt entirely (eduo
 		// boxer-0.83 pattern: abandon partial line on immediate
-		// execution so Run() can drain Boxer's queue).
+		// execution so Run() can drain Boxer’s queue).
 		bool execute_immediately = false;
-		if (boxer_handleShellCommandInput(this, command, cursor_position,
-		                                  execute_immediately)) {
+		char boxer_command[CMD_MAXLINE] = {};
+		std::strncpy(boxer_command, command.c_str(), CMD_MAXLINE);
+		boxer_command[CMD_MAXLINE - 1] = '\0';
+		auto boxer_cursor_position = static_cast<Bitu>(cursor_position);
+		if (boxer_handleShellCommandInput(this, boxer_command,
+		                                  &boxer_cursor_position,
+		                                  &execute_immediately)) {
+			command = boxer_command;
+			cursor_position = boxer_cursor_position;
 			if (execute_immediately) {
 				return "";
 			}
