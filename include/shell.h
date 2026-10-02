@@ -162,8 +162,10 @@ public:
 	bool SetEnv(const char* entry, const char* new_string);
 
 	//--Added 2013-09-22 by C.W. Betts to let Boxer know that there are no more batch files
+	// BOXER-HOOK: shell-batch-empty - Upstream 0.81 tracks batch files on a
+	// stack; emptiness (not a legacy pointer) is the end-of-batch signal.
 	bool hasNoBatchFiles() const {
-		return !bf;
+		return batchfiles.empty();
 	}
 	//--End of modifications
 
