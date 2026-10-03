@@ -364,9 +364,6 @@ void MIDI_RawOutByte(uint8_t data)
 	// BOXER-HOOK: midi-routing - Boxer routes realtime/channel/sysex output
 	// through its own MIDI stack; upstream availability gating is bypassed
 	// because Boxer manages device selection itself.
-	if (!midi.is_available) {
-		return;
-	}
 
 	if (midi.sysex.start_ms) {
 		const auto passed_ticks = GetTicksSince(midi.sysex.start_ms);
@@ -377,8 +374,8 @@ void MIDI_RawOutByte(uint8_t data)
 
 	const auto is_realtime_message = (data >= MidiStatus::TimingClock);
 	if (is_realtime_message) {
-		midi.realtime_message[0] = data;
-		midi.handler->PlayMsg(midi.realtime_message);
+		uint8_t realtime_message[1] = {data};
+		boxer_sendMIDIMessage(realtime_message);
 		return;
 	}
 
@@ -494,6 +491,7 @@ void MIDI_RawOutByte(uint8_t data)
 			// BOXER-HOOK: midi-routing - channel messages go to Boxer's
 			// MIDI stack; upstream mute/capture/handler path disabled.
 			boxer_sendMIDIMessage(midi.message.msg.data.data());
+			midi.message.pos = 1; // Continue using the current running status.
 #if 0 // upstream channel-message path replaced by Boxer routing above
 			// 3. Determine whether the message should be sent to
 			// the device based on the mute state.
