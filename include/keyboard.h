@@ -20,8 +20,13 @@
 #ifndef DOSBOX_KEYBOARD_H
 #define DOSBOX_KEYBOARD_H
 
+#ifdef __cplusplus
 #include <cstdint>
 #include <vector>
+#else
+#include <stdbool.h>
+#include <stdint.h>
+#endif
 
 enum KBD_KEYS {
 	// clang-format off
@@ -48,6 +53,7 @@ enum KBD_KEYS {
 	KBD_leftbracket, KBD_rightbracket,
 	KBD_semicolon, KBD_quote,
 	KBD_oem102, // usually between SHIFT and Z, has 2 or more symbols (|, \, <, >), depending on layout
+	KBD_extra_lt_gt = KBD_oem102, // Boxer legacy spelling
 	KBD_period, KBD_comma, KBD_slash, KBD_abnt1,
 
 	KBD_printscreen, KBD_pause,
@@ -103,6 +109,7 @@ enum KBD_KEYS {
 // BOXER-HOOK: keyboard-enum-c-compat
 typedef enum KBD_KEYS KBD_KEYS;
 
+#ifdef __cplusplus
 enum class ScanCode : uint8_t {
 	None,
 	AltEscape,
@@ -247,6 +254,7 @@ enum class ScanCode : uint8_t {
 	AltDelete,
 	AltTab = 0xA5,
 };
+#endif
 
 // After calling, it drops all the input until secure mode is enabled - safety
 // measure to prevent malicious user from possibily interupting AUTOEXEC.BAT
@@ -272,6 +280,7 @@ void KEYBOARD_ClrBuffer();
 // #define ENABLE_SCANCODE_SET_2
 // #define ENABLE_SCANCODE_SET_3
 
+#ifdef __cplusplus
 // Retrieve a scancode for the given key, for scancode set 1, 2, or 3
 std::vector<uint8_t> KEYBOARD_GetScanCode1(const KBD_KEYS key_type,
                                            const bool is_pressed);
@@ -283,5 +292,6 @@ std::vector<uint8_t> KEYBOARD_GetScanCode2(const KBD_KEYS key_type,
 std::vector<uint8_t> KEYBOARD_GetScanCode3(const KBD_KEYS key_type,
                                            const bool is_pressed);
 #endif // ENABLE_SCANCODE_SET_3
+#endif // __cplusplus
 
 #endif // DOSBOX_KEYBOARD_H

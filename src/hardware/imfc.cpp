@@ -517,28 +517,28 @@ constexpr bool operator==(const Note& a, const Note& b)
 }
 
 #pragma pack(push, 1)
-struct Fraction {
+struct IMFCFraction {
 	uint8_t value = 0;
 
-	constexpr Fraction() = default;
-	constexpr Fraction(const uint8_t v) : value(v) {}
+	constexpr IMFCFraction() = default;
+	constexpr IMFCFraction(const uint8_t v) : value(v) {}
 };
 #pragma pack(pop)
-static_assert(sizeof(Fraction) == 1, "Fraction needs to be 1 in size!");
+static_assert(sizeof(IMFCFraction) == 1, "Fraction needs to be 1 in size!");
 
-constexpr bool operator==(const Fraction& a, const Fraction& b)
+constexpr bool operator==(const IMFCFraction& a, const IMFCFraction& b)
 {
 	return a.value == b.value;
 }
-static Fraction ZERO_FRACTION(0);
+static IMFCFraction ZERO_FRACTION(0);
 
 #pragma pack(push, 1)
 struct FractionalNote {
-	Fraction fraction = {};
+	IMFCFraction fraction = {};
 	Note note         = {};
 
 	constexpr FractionalNote() = default;
-	constexpr FractionalNote(const Note& nn, const Fraction& nf)
+	constexpr FractionalNote(const Note& nn, const IMFCFraction& nf)
 	        : fraction(nf),
 	          note(nn)
 	{}
@@ -560,7 +560,7 @@ constexpr std::pair<uint8_t, uint8_t> split_uint16_t(const uint16_t value) noexc
 static constexpr FractionalNote to_fractional_note(const uint16_t value) noexcept
 {
 	const auto [note, fraction] = split_uint16_t(value);
-	return {Note(note), Fraction(fraction)};
+	return {Note(note), IMFCFraction(fraction)};
 }
 
 
@@ -10153,11 +10153,11 @@ private:
 	                               YmChannelData* ymChannelData)
 	{
 		ymChannelData->currentlyPlaying = FractionalNote(Note(0),
-		                                                 Fraction(0));
+	                                                 IMFCFraction(0));
 		ymChannelData->portamentoTarget = FractionalNote(Note(0),
-		                                                 Fraction(0));
+	                                                 IMFCFraction(0));
 		ymChannelData->originalFractionAndNoteNumber =
-		        FractionalNote(Note(0), Fraction(0));
+	        FractionalNote(Note(0), IMFCFraction(0));
 		instr->ymChannelData = ymChannelData;
 	}
 
@@ -10445,7 +10445,7 @@ private:
 	// ROM Address: 0x24E1
 	void executeMidiCommand_NoteONOFF_internal_guard(InstrumentParameters* instr,
 	                                                 Note noteNumber,
-	                                                 Fraction fraction,
+	                                                 IMFCFraction fraction,
 	                                                 KeyVelocity velocity,
 	                                                 Duration duration)
 	{
@@ -10457,7 +10457,7 @@ private:
 
 	// ROM Address: 0x24EA
 	void executeMidiCommand_NoteONOFF_internal(InstrumentParameters* instr,
-	                                           Note noteNumber, Fraction fraction,
+	                                           Note noteNumber, IMFCFraction fraction,
 	                                           KeyVelocity velocity,
 	                                           Duration duration)
 	{
@@ -10802,7 +10802,7 @@ private:
 		ymChannelData->portamentoTarget = cropToPlayableRange(
 		        m_lastMidiOnOff_FractionAndNoteNumber,
 		        FractionalNote(Note(instr->voiceDefinition.getTranspose()),
-		                       Fraction(0)));
+	                       IMFCFraction(0)));
 	}
 
 	// ROM Address: 0x273A
@@ -11002,7 +11002,7 @@ private:
 			executeMidiCommand_NoteONOFF_internal_guard(
 			        instr,
 			        Note(m_sp_MidiDataOfMidiCommandInProgress[1]) /* note number */,
-			        Fraction(m_sp_MidiDataOfMidiCommandInProgress[2]) /* fraction */,
+	                       IMFCFraction(m_sp_MidiDataOfMidiCommandInProgress[2]) /* fraction */,
 			        KeyVelocity(m_sp_MidiDataOfMidiCommandInProgress[3]) /* velocity */,
 			        Duration(check_cast<uint16_t>(
 			                m_sp_MidiDataOfMidiCommandInProgress[5] * 128 +

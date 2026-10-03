@@ -31,6 +31,8 @@
 
 CHECK_NARROWING();
 
+#if DOSBOX_HAVE_LIBPNG
+
 PngWriter::~PngWriter()
 {
 	FinalisePng();
@@ -253,3 +255,25 @@ void PngWriter::FinalisePng()
 	png_write_end(png_ptr, end_info_ptr);
 }
 
+#else
+
+// Boxer does not vendor libpng. Keep image capture linkable, but leave PNG
+// output unavailable until the host supplies that optional dependency.
+PngWriter::~PngWriter() = default;
+
+bool PngWriter::InitRgb888(FILE*, const uint16_t, const uint16_t,
+                           const Fraction&, const VideoMode&)
+{
+	return false;
+}
+
+bool PngWriter::InitIndexed8(FILE*, const uint16_t, const uint16_t,
+                             const Fraction&, const VideoMode&, const uint8_t*)
+{
+	return false;
+}
+
+void PngWriter::WriteRow(std::vector<uint8_t>::const_iterator) {}
+void PngWriter::FinalisePng() {}
+
+#endif

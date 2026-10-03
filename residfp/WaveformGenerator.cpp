@@ -94,14 +94,6 @@ const unsigned int SHIFT_REGISTER_FADE_8580R5  =  314300;
  * When the test or reset lines are active the first phase is executed at every cyle
  * until the signal is released triggering the second phase.
  */
-void WaveformGenerator::clock_shift_register(unsigned int bit0)
-{
-    shift_register = (shift_register >> 1) | bit0;
-
-    // New noise waveform output.
-    set_noise_output();
-}
-
 unsigned int WaveformGenerator::get_noise_writeback()
 {
   return

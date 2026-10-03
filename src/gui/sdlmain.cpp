@@ -75,6 +75,29 @@
 #include "vga.h"
 #include "video.h"
 
+// Boxer provides the Cocoa implementations for these legacy presentation
+// hooks. The SDL frontend is compiled for shared core utilities, so keep its
+// definitions under their upstream names instead of remapping them into
+// duplicate boxer_* symbols.
+#undef GFX_Events
+#undef GFX_StartUpdate
+#undef GFX_EndUpdate
+#undef GFX_SetTitle
+#undef GFX_RefreshTitle
+#undef GFX_SetMouseHint
+#undef GFX_SetMouseCapture
+#undef GFX_SetMouseRawInput
+#undef GFX_SetMouseVisibility
+#undef GFX_CenterMouse
+#undef GFX_GetDisplayRefreshRate
+#undef GFX_SetSize
+#undef GFX_GetRGB
+#undef GFX_SetShader
+#undef GFX_GetBestMode
+#undef GFX_MaybeProcessEvents
+#undef GFX_ShowMsg
+#undef MIDI_Available
+
 #if C_OPENGL
 //Define to report opengl errors
 //#define DB_OPENGL_ERROR
@@ -357,6 +380,11 @@ void GFX_RefreshTitle(const bool is_paused = false)
 	GFX_SetTitle(refresh_cycle_count, is_paused);
 }
 
+// The Cocoa host supplies this Boxer seam. Do not remap the upstream SDL
+// implementation's definition through BXCoalface.h, or it collides with the
+// host implementation at compile time.
+#undef GFX_HaveDesktopEnvironment
+
 // Detects if we're running within a desktop environment (or window manager).
 bool GFX_HaveDesktopEnvironment()
 {
@@ -397,8 +425,10 @@ bool GFX_HaveDesktopEnvironment()
 #endif
 }
 
-// Detects if we're running within a desktop environment (or window manager).
-bool GFX_HaveDesktopEnvironment()
+// The upstream source carried a duplicate desktop-environment definition at
+// this point after the Boxer merge. Keep the first definition above as the
+// public API and retain this implementation under a private name.
+static bool gfx_have_desktop_environment_sdl()
 {
 // On BSD and Linux, it's possible that the user is running directly on the
 // console without a windowing environment. For example, SDL can directly
@@ -4563,7 +4593,7 @@ extern void DEBUG_ShutDown(Section * /*sec*/);
 
 void MIXER_CloseAudioDevice(void);
 
-void restart_program(std::vector<std::string> & parameters) {
+static void sdl_restart_program(std::vector<std::string> & parameters) {
 #ifdef WIN32
 	std::string command_line = {};
 	bool first = true;
@@ -4649,7 +4679,7 @@ void restart_program(std::vector<std::string> & parameters) {
 
 void Restart(bool pressed) { // mapper handler
 	(void) pressed; // deliberately unused but required for API compliance
-	restart_program(control->startup_params);
+	sdl_restart_program(control->startup_params);
 }
 
 static void list_glshaders()
@@ -5085,4 +5115,3 @@ int sdl_main(int argc, char* argv[])
 
 	return return_code;
 }
-

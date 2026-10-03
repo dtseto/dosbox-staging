@@ -31,7 +31,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#if defined(HAVE_SYS_XATTR_H)
+#if defined(HAVE_SYS_XATTR_H) || defined(MACOSX)
 #include <sys/xattr.h>
 #endif
 

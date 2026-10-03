@@ -34,7 +34,7 @@
 #include "fraction.h"
 #include "rect.h"
 #include "render.h"
-#include "shader_manager.h"
+#include "../src/gui/shader_manager.h"
 #include "video.h"
 
 // The image rendered in the emulated computer's raw framebuffer as raw pixels

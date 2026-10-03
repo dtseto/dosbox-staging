@@ -39,6 +39,13 @@
 #include "vga.h"
 #include "video.h"
 
+// DOSBox 0.81 expanded the GFX shader and size APIs. Boxer owns these
+// presentation calls through its legacy bridge, so invoke the bridge directly
+// for the v0.81 call sites instead of applying the legacy macros to upstream
+// declarations.
+#undef GFX_SetShader
+#undef GFX_SetSize
+
 Render_t render;
 ScalerLineHandler_t RENDER_DrawLine;
 
@@ -430,18 +437,18 @@ static void render_reset(void)
 	}
 
 	if (GFX_GetRenderingBackend() == RenderingBackend::OpenGl) {
-		GFX_SetShader(get_shader_manager().GetCurrentShaderInfo(),
-		              get_shader_manager().GetCurrentShaderSource());
+		boxer_setShader(get_shader_manager().GetCurrentShaderSource().c_str());
 	}
 
 	const auto render_pixel_aspect_ratio = render.src.pixel_aspect_ratio;
 
-	gfx_flags = GFX_SetSize(render_width_px,
-	                        render_height_px,
-	                        render_pixel_aspect_ratio,
-	                        gfx_flags,
-	                        render.src.video_mode,
-	                        &render_callback);
+	gfx_flags = boxer_prepareForFrameSize(render_width_px,
+	                                      render_height_px,
+	                                      gfx_flags,
+	                                      1.0,
+	                                      1.0,
+	                                      &render_callback,
+	                                      render_pixel_aspect_ratio.ToDouble());
 
 	if (gfx_flags & GFX_CAN_8) {
 		render.scale.outMode = scalerMode8;

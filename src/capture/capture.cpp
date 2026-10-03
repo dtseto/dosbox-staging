@@ -352,6 +352,7 @@ FILE* CAPTURE_CreateFile(const CaptureType type,
 	}
 	return boxer_openCaptureFile(boxer_type, boxer_ext);
 	// BOXER-END: capture-file-routing
+	}
 #if 0
 	if (!maybe_create_capture_dir_and_init_capture_indices()) {
 		return nullptr;
@@ -728,4 +729,3 @@ void CAPTURE_AddConfigSection(const config_ptr_t& conf)
 	init_capture_dosbox_settings(*sec);
 	init_key_mappings();
 }
-

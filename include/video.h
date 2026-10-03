@@ -29,6 +29,10 @@
 #include "setup.h"
 #include "types.h"
 
+namespace DosBox {
+class Rect;
+}
+
 // Pixels and logical units
 // ========================
 //
@@ -76,11 +80,11 @@ enum class RenderingBackend {
 	OpenGl
 };
 
-typedef enum {
+enum GFX_CallBackFunctions_t : int {
 	GFX_CallBackReset,
 	GFX_CallBackStop,
 	GFX_CallBackRedraw
-} GFX_CallBackFunctions_t;
+};
 
 enum class IntegerScalingMode {
 	Off,

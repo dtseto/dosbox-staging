@@ -66,6 +66,36 @@ bool BatchFile::ReadLine(char* lineout)
 	return true;
 }
 
+std::string BatchFile::GetLine()
+{
+	uint8_t data     = 0;
+	std::string line = {};
+
+	while (data != '\n') {
+		const auto result = reader->Read();
+
+		// EOF
+		if (!result) {
+			break;
+		}
+
+		data = *result;
+
+		// Preserve the control characters that are meaningful in batch files,
+		// while retaining the upstream diagnostic for other control bytes.
+		if (data <= UnitSeparator && data != '\t' && data != '\b' &&
+		    data != Esc && data != '\n' && data != '\r') {
+			LOG_DEBUG("Encountered non-standard character: Dec %03u and Hex %#04x",
+			          data,
+			          data);
+		} else {
+			line += data;
+		}
+	}
+
+	return line;
+}
+
 std::string BatchFile::ExpandedBatchLine(std::string_view line) const
 {
 	std::string expanded = {};

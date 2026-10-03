@@ -1219,6 +1219,7 @@ void boxer_setKeyboardLayoutActive(bool active)
 }
 // BOXER-END: keyboard-layout-bridge
 
+#if 0 // DOSBox 0.81 moved country/layout mapping to dos_locale.cpp.
 static const std::map<std::string, Country> country_code_map{
         // clang-format off
 	// reference: https://gitlab.com/FreeDOS/base/keyb_lay/-/blob/master/DOC/KEYB/LAYOUTS/LAYOUTS.TXT
@@ -1458,6 +1459,7 @@ uint16_t assert_codepage(const uint16_t codepage)
 	default: return assert_codepage(default_cp_437);
 	}
 }
+#endif
 
 // Use OS-specific calls to extra the layout and from there convert it into a language
 std::string get_lang_from_host_layout()

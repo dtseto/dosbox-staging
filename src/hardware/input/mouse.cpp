@@ -72,9 +72,6 @@ static struct {
 	// if we have a desktop environment, then we can support uncaptured and seamless modes
 	const bool have_desktop_environment = GFX_HaveDesktopEnvironment();
 
-	// if we have a desktop environment, then we can support uncaptured and seamless modes
-	const bool have_desktop_environment = GFX_HaveDesktopEnvironment();
-
 	bool is_captured  = false; // if GFX was requested to capture mouse
 	bool is_visible   = false; // if GFX was requested to make cursor visible
 	bool is_input_raw = false; // if GFX was requested to provide raw movements

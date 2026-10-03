@@ -30,7 +30,12 @@
 
 #include "render.h"
 
+#if __has_include(<png.h>)
 #include <png.h>
+#define DOSBOX_HAVE_LIBPNG 1
+#else
+#define DOSBOX_HAVE_LIBPNG 0
+#endif
 
 // A row-based PNG writer that also writes the pixel aspect ratio of the image
 // into the standard pHYs PNG chunk.
@@ -65,9 +70,10 @@ private:
 
 	void FinalisePng();
 
+#if DOSBOX_HAVE_LIBPNG
 	png_structp png_ptr    = nullptr;
 	png_infop png_info_ptr = nullptr;
+#endif
 };
 
 #endif
-

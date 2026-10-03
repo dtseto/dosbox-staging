@@ -593,6 +593,7 @@ void MIDI_Unmute()
 	midi.is_muted = false;
 }
 
+#undef MIDI_Available
 bool MIDI_Available()
 {
 	return midi.is_available;
@@ -602,7 +603,7 @@ bool MIDI_Available()
 // rewrites on the MIDI stuff until then to unnecessary work.
 class MIDI final : public Module_base {
 public:
-	MIDI(Section* configuration)
+	MIDI(Section* configuration) : Module_base(configuration)
 	{
 		Section_prop* section = static_cast<Section_prop*>(configuration);
 
@@ -860,4 +861,3 @@ void MIDI_AddConfigSection(const config_ptr_t& conf)
 
 	init_midi_dosbox_settings(*sec);
 }
-
