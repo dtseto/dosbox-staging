@@ -14,7 +14,7 @@ jobs:
     name: PVS-Studio static analyzer
     runs-on: ubuntu-latest
     env:
-      debfile: pvs-studio-7.28.78353.377-amd64.deb
+      debfile: pvs-studio-7.29.79138.387-amd64.deb
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,11 +28,7 @@ jobs:
           ./scripts/log-env.sh
           mkdir -p pvs-package
 
-<<<<<<< HEAD
-      - uses: actions/cache@v3.2.2
-=======
       - uses: actions/cache@v3.3.2
->>>>>>> v0.81.0
         id: cache-pvs
         with:
           path: pvs-package
@@ -50,14 +46,9 @@ jobs:
           sudo dpkg -i "pvs-package/pvs.deb"
           pvs-studio-analyzer credentials "${{ secrets.PvsStudioName }}" "${{ secrets.PvsStudioKey }}"
 
-<<<<<<< HEAD
-      - name:  Cache subprojects
-        uses:  actions/cache@v3.2.2
-=======
       - name: Cache subprojects
         id:   cache-subprojects
         uses: actions/cache@v3.3.2
->>>>>>> v0.81.0
         with:
           path: subprojects.tar
           key: subprojects-${{ hashFiles('subprojects/*.wrap') }}-1
@@ -73,7 +64,7 @@ jobs:
       - name: Build
         run: |
           set -xeu
-          meson setup -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-clang.ini build
+          meson setup -Dbuildtype=debug -Dunit_tests=disabled --native-file=.github/meson/native-clang-15.ini build
           pvs-studio-analyzer trace -- meson compile -C build
 
       - name: Analyze
@@ -113,18 +104,15 @@ jobs:
           rm -rf "${reportdir}/pvs-report.fullhtml"
 
       - name: Upload report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: pvs-analysis-report
           path: pvs-report
+          overwrite: true
 
       - name: Summarize report
         env:
-<<<<<<< HEAD
-          MAX_BUGS: 253
-=======
-          MAX_BUGS: 107
->>>>>>> v0.81.0
+          MAX_BUGS: 109
         run: |
           echo "Full report is included in build Artifacts"
           echo

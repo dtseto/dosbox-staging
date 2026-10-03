@@ -1140,7 +1140,7 @@ void MixerChannel::SetHighPassFilter(const FilterState state)
 
 	if (do_highpass_filter) {
 		log_filter_settings(name,
-		                    "Highpass",
+		                    "High-pass",
 		                    state,
 		                    filters.highpass.order,
 		                    filters.highpass.cutoff_freq);
@@ -1153,35 +1153,59 @@ void MixerChannel::SetLowPassFilter(const FilterState state)
 
 	if (do_lowpass_filter) {
 		log_filter_settings(name,
-		                    "Lowpass",
+		                    "Low-pass",
 		                    state,
 		                    filters.lowpass.order,
 		                    filters.lowpass.cutoff_freq);
 	}
 }
 
-void MixerChannel::ConfigureHighPassFilter(const uint8_t order,
-                                           const uint16_t cutoff_freq)
+static uint16_t clamp_filter_cutoff_freq([[maybe_unused]] const std::string& channel_name,
+                                         const uint16_t cutoff_freq_hz)
 {
+	const auto max_cutoff_freq_hz = check_cast<uint16_t>(
+	        mixer.sample_rate / 2 - 1);
+
+	if (cutoff_freq_hz <= max_cutoff_freq_hz) {
+		return cutoff_freq_hz;
+	} else {
+		LOG_DEBUG(
+		        "%s: Filter cutoff frequency %d Hz is not below half of the "
+		        "sample rate, clamping to %d Hz",
+		        channel_name.c_str(),
+		        cutoff_freq_hz,
+		        max_cutoff_freq_hz);
+
+		return max_cutoff_freq_hz;
+	}
+}
+
+void MixerChannel::ConfigureHighPassFilter(const uint8_t order,
+                                           const uint16_t _cutoff_freq_hz)
+{
+	const auto cutoff_freq_hz = clamp_filter_cutoff_freq(name, _cutoff_freq_hz);
+
 	assert(order > 0 && order <= max_filter_order);
 	for (auto& f : filters.highpass.hpf) {
-		f.setup(order, mixer.sample_rate, cutoff_freq);
+		f.setup(order, mixer.sample_rate, cutoff_freq_hz);
 	}
 
 	filters.highpass.order       = order;
-	filters.highpass.cutoff_freq = cutoff_freq;
+	filters.highpass.cutoff_freq = cutoff_freq_hz;
 }
 
 void MixerChannel::ConfigureLowPassFilter(const uint8_t order,
-                                          const uint16_t cutoff_freq)
+                                          const uint16_t _cutoff_freq_hz)
 {
+	const auto cutoff_freq_hz = clamp_filter_cutoff_freq(name, _cutoff_freq_hz);
+
 	assert(order > 0 && order <= max_filter_order);
 	for (auto& f : filters.lowpass.lpf) {
-		f.setup(order, mixer.sample_rate, cutoff_freq);
+		f.setup(order, mixer.sample_rate, cutoff_freq_hz);
 	}
 
 	filters.lowpass.order       = order;
-	filters.lowpass.cutoff_freq = cutoff_freq;
+	filters.lowpass.cutoff_freq = cutoff_freq_hz;
 }
 
 // Tries to set custom filter settings from the passed in filter preferences.
@@ -1212,37 +1236,32 @@ bool MixerChannel::TryParseAndSetCustomFilter(const std::string_view filter_pref
 	auto set_filter = [&](const std::string& type_pref,
 	                      const std::string& order_pref,
 	                      const std::string& cutoff_freq_pref) {
+		const auto filter_name = (type_pref == "lpf") ? "low-pass"
+		                                              : "high-pass";
+
 		int order;
 		if (!sscanf(order_pref.c_str(), "%d", &order) || order < 1 ||
 		    order > max_filter_order) {
-			LOG_WARNING("%s: Invalid custom filter order: '%s'. Must be an integer between 1 and %d.",
-			            name.c_str(),
-			            order_pref.c_str(),
-			            max_filter_order);
+			LOG_WARNING(
+			        "%s: Invalid custom %s filter order: '%s'. "
+			        "Must be an integer between 1 and %d.",
+			        name.c_str(),
+			        filter_name,
+			        order_pref.c_str(),
+			        max_filter_order);
 			return false;
 		}
 
 		uint16_t cutoff_freq_hz;
 		if (!sscanf(cutoff_freq_pref.c_str(), "%" SCNu16, &cutoff_freq_hz) ||
 		    cutoff_freq_hz <= 0) {
-			LOG_WARNING("%s: Invalid custom filter cutoff frequency: '%s'. Must be a positive number.",
-			            name.c_str(),
-			            cutoff_freq_pref.c_str());
+			LOG_WARNING(
+			        "%s: Invalid custom %s filter cutoff frequency: '%s'. "
+			        "Must be a positive number.",
+			        name.c_str(),
+			        filter_name,
+			        cutoff_freq_pref.c_str());
 			return false;
-		}
-
-		const uint16_t max_cutoff_freq_hz = check_cast<uint16_t>(
-		        (do_zoh_upsample ? zoh_upsampler.target_freq : sample_rate) / 2 -
-		        1);
-
-		if (cutoff_freq_hz > max_cutoff_freq_hz) {
-			LOG_WARNING("%s: Invalid custom filter cutoff frequency: '%s'. "
-			            "Must be lower than half the sample rate; clamping to %d Hz.",
-			            name.c_str(),
-			            cutoff_freq_pref.c_str(),
-			            max_cutoff_freq_hz);
-
-			cutoff_freq_hz = max_cutoff_freq_hz;
 		}
 
 		if (type_pref == "lpf") {
@@ -2721,7 +2740,12 @@ static bool init_sdl_sound(Section_prop* section)
 		LOG_WARNING("MIXER: SDL changed the requested sample rate of %d to %d Hz",
 		            mixer.sample_rate.load(),
 		            obtained.freq);
+
 		mixer.sample_rate = check_cast<uint16_t>(obtained.freq);
+		set_section_property_value(
+		        "mixer",
+		        "rate",
+		        format_string("%d", mixer.sample_rate.load()));
 	}
 
 	// Does SDL want a different blocksize?
@@ -2731,7 +2755,11 @@ static bool init_sdl_sound(Section_prop* section)
 		LOG_WARNING("MIXER: SDL changed the requested blocksize of %u to %u frames",
 		            mixer.blocksize,
 		            obtained_blocksize);
+
 		mixer.blocksize = obtained_blocksize;
+		set_section_property_value("mixer",
+		                           "blocksize",
+		                           format_string("%d", mixer.blocksize));
 	}
 
 	LOG_MSG("MIXER: Negotiated %u-channel %u Hz audio of %u-frame blocks",

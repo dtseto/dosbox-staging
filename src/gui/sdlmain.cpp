@@ -1456,6 +1456,8 @@ static SDL_Window* SetWindowMode(const RenderingBackend rendering_backend,
 
 		GFX_RefreshTitle();
 
+		SDL_RaiseWindow(sdl.window);
+
 		if (!fullscreen) {
 			goto finish;
 		}
@@ -1499,8 +1501,6 @@ finish:
 	// Force redraw after changing the window
 	if (sdl.draw.callback)
 		sdl.draw.callback(GFX_CallBackRedraw);
-
-	SDL_RaiseWindow(sdl.window);
 
 	// Ensure the time to change window modes isn't counted against
 	// our paced timing. This is a rare event that depends on host
@@ -2283,6 +2283,18 @@ uint8_t GFX_SetSize(const int render_width_px, const int render_height_px,
 		                       sdl.rendering_backend);
 	}
 
+#if C_OPENGL
+    if (sdl.rendering_backend == RenderingBackend::OpenGl) {
+        static auto last_vsync_state = VsyncState::Unset;
+        const auto vsync_state = static_cast<VsyncState>(SDL_GL_GetSwapInterval());
+        if (last_vsync_state != vsync_state) {
+            last_vsync_state = vsync_state;
+            const auto vsync_state_str = vsync_state_as_string(vsync_state);
+            LOG_INFO("OPENGL: VSync state: %s", vsync_state_str);
+        }
+    }
+#endif
+
 	if (retFlags) {
 		GFX_Start();
 	}
@@ -2862,10 +2874,9 @@ static void clean_up_sdl_resources()
 static void GUI_ShutDown(Section *)
 {
 	GFX_Stop();
+
 	if (sdl.draw.callback)
 		(sdl.draw.callback)( GFX_CallBackStop );
-	if (sdl.desktop.fullscreen)
-		GFX_SwitchFullScreen();
 
 	GFX_SetMouseCapture(false);
 	GFX_SetMouseVisibility(true);

@@ -264,7 +264,7 @@ static int E2_incr_table[4][9] = {
 
 static const char * CardType()
 {
-	constexpr std::array<const char *, 8> types = {"NONE",   "SB1",
+	constexpr std::array<const char *, 8> types = {"SB",     "SB1",
 	                                               "SBPRO1", "SB2",
 	                                               "SBPRO2", "UNASSIGNED",
 	                                               "SB16",   "GB"};
@@ -339,25 +339,28 @@ static void InitializeSpeakerState()
 	}
 }
 
-static void log_filter_config(const char *output_type, const FilterType filter)
+static void log_filter_config(const char* channel_name, const char* output_type,
+                              const FilterType filter)
 {
+	// clang-format off
 	static const std::map<FilterType, std::string> filter_name_map = {
-	        {FilterType::SB1, "Sound Blaster 1.0"},
-	        {FilterType::SB2, "Sound Blaster 2.0"},
+	        {FilterType::SB1,    "Sound Blaster 1.0"},
+	        {FilterType::SB2,    "Sound Blaster 2.0"},
 	        {FilterType::SBPro1, "Sound Blaster Pro 1"},
 	        {FilterType::SBPro2, "Sound Blaster Pro 2"},
-	        {FilterType::SB16, "Sound Blaster 16"},
+	        {FilterType::SB16,   "Sound Blaster 16"},
 	        {FilterType::Modern, "Modern"},
 	};
+	// clang-format on
 
 	if (filter == FilterType::None) {
-		LOG_MSG("%s: %s filter disabled", CardType(), output_type);
+		LOG_MSG("%s: %s filter disabled", channel_name, output_type);
 	} else {
 		auto it = filter_name_map.find(filter);
 		if (it != filter_name_map.end()) {
 			auto filter_type = it->second;
 			LOG_MSG("%s: %s %s output filter enabled",
-			        CardType(),
+			        channel_name,
 			        filter_type.c_str(),
 			        output_type);
 		}
@@ -437,19 +440,11 @@ static std::optional<FilterType> determine_filter_type(const std::string &filter
 	return {};
 }
 
-static void configure_sb_filter(mixer_channel_t channel,
-                                const std::string &filter_prefs,
-                                const bool filter_always_on, const SB_TYPES sb_type)
+static void configure_sb_filter_for_model(mixer_channel_t channel,
+                                          const std::string& filter_prefs,
+                                          const bool filter_always_on,
+                                          const SB_TYPES sb_type)
 {
-	// A bit unfortunate, but we need to enable the ZOH upsampler and the
-	// correct upsample rate first for the filter cutoff frequency
-	// validation to work correctly.
-	channel->SetZeroOrderHoldUpsamplerTargetFreq(native_dac_rate_hz);
-	channel->SetResampleMethod(ResampleMethod::ZeroOrderHoldAndResample);
-
-	if (channel->TryParseAndSetCustomFilter(filter_prefs))
-		return;
-
 	const auto filter_prefs_parts = split(filter_prefs);
 
 	const auto filter_choice = filter_prefs_parts.empty()
@@ -471,19 +466,21 @@ static void configure_sb_filter(mixer_channel_t channel,
 		config.zoh_rate_hz     = native_dac_rate_hz;
 	};
 
-	const auto filter_type = determine_filter_type(filter_choice, sb_type);
+	const auto filter_type = [&]() {
+		if (const auto maybe_filter_type = determine_filter_type(filter_choice,
+		                                                         sb_type)) {
+			return *maybe_filter_type;
+		} else {
+			LOG_WARNING("%s: Invalid 'sb_filter' setting: '%s', using 'modern'",
+			            CardType(),
+			            filter_choice.c_str());
 
-	if (!filter_type) {
-		LOG_WARNING("%s: Invalid 'sb_filter' setting: '%s', using 'off'",
-		            CardType(),
-		            filter_choice.c_str());
+			set_section_property_value("sblaster", "sb_filter", "modern");
+			return FilterType::Modern;
+		}
+	}();
 
-		channel->SetHighPassFilter(FilterState::Off);
-		channel->SetLowPassFilter(FilterState::Off);
-		return;
-	}
-
-	switch (*filter_type) {
+	switch (filter_type) {
 	case FilterType::None: enable_zoh_upsampler(); break;
 
 	case FilterType::SB1:
@@ -517,18 +514,37 @@ static void configure_sb_filter(mixer_channel_t channel,
 		break;
 	}
 
-	log_filter_config("DAC", *filter_type);
+	constexpr auto OutputType = "DAC";
+	log_filter_config(CardType(), OutputType, filter_type);
 	set_filter(channel, config);
 }
 
-static void configure_opl_filter(mixer_channel_t channel,
-                                 const std::string &filter_prefs,
-                                 const SB_TYPES sb_type)
+static void configure_sb_filter(mixer_channel_t channel,
+                                const std::string& filter_prefs,
+                                const bool filter_always_on, const SB_TYPES sb_type)
 {
 	assert(channel);
-	if (channel->TryParseAndSetCustomFilter(filter_prefs))
-		return;
 
+	// A bit unfortunate, but we need to enable the ZOH upsampler and the
+	// correct upsample rate first for the filter cutoff frequency
+	// validation to work correctly.
+	channel->SetZeroOrderHoldUpsamplerTargetFreq(native_dac_rate_hz);
+	channel->SetResampleMethod(ResampleMethod::ZeroOrderHoldAndResample);
+
+	if (!channel->TryParseAndSetCustomFilter(filter_prefs)) {
+		// Not a custom filter setting; try to parse it as a
+		// model-specific setting.
+		configure_sb_filter_for_model(channel,
+		                              filter_prefs,
+		                              filter_always_on,
+		                              sb_type);
+	}
+}
+
+static void configure_opl_filter_for_model(mixer_channel_t opl_channel,
+                                           const std::string& filter_prefs,
+                                           const SB_TYPES sb_type)
+{
 	const auto filter_prefs_parts = split(filter_prefs);
 
 	const auto filter_choice = filter_prefs_parts.empty()
@@ -544,23 +560,32 @@ static void configure_opl_filter(mixer_channel_t channel,
 		config.lpf_cutoff_freq_hz = cutoff_freq_hz;
 	};
 
-	const auto filter_type = determine_filter_type(filter_choice, sb_type);
-
-	if (!filter_type) {
-		if (filter_choice != "off")
-			LOG_WARNING("%s: Invalid 'opl_filter' setting: '%s', using 'off'",
+	const auto filter_type = [&]() {
+		if (const auto maybe_filter_type = determine_filter_type(filter_choice,
+		                                                         sb_type)) {
+			return *maybe_filter_type;
+		} else {
+			LOG_WARNING("%s: Invalid 'opl_filter' setting: '%s', using 'auto'",
 			            CardType(),
 			            filter_choice.c_str());
 
-		channel->SetHighPassFilter(FilterState::Off);
-		channel->SetLowPassFilter(FilterState::Off);
-		return;
-	}
+			set_section_property_value("sblaster", "opl_filter", "auto");
+
+			if (const auto filter_type = determine_filter_type("auto", sb_type);
+			    filter_type) {
+				return *filter_type;
+			} else {
+				assert(false);
+				return FilterType::None;
+			}
+		}
+	}();
 
 	// The filter parameters have been tweaked by analysing real hardware
 	// recordings. The results are virtually indistinguishable from the real
 	// thing by ear only.
-	switch (*filter_type) {
+	switch (filter_type)
+	{
 	case FilterType::None:
 	case FilterType::SB16:
 	case FilterType::Modern: break;
@@ -572,8 +597,22 @@ static void configure_opl_filter(mixer_channel_t channel,
 	case FilterType::SBPro2: enable_lpf(1, 8000); break;
 	}
 
-	log_filter_config(ChannelName::Opl, *filter_type);
-	set_filter(channel, config);
+	constexpr auto OutputType = "OPL";
+	log_filter_config(ChannelName::Opl, OutputType, filter_type);
+	set_filter(opl_channel, config);
+}
+
+static void configure_opl_filter(mixer_channel_t opl_channel,
+                                 const std::string& filter_prefs,
+                                 const SB_TYPES sb_type)
+{
+	assert(opl_channel);
+
+	if (!opl_channel->TryParseAndSetCustomFilter(filter_prefs)) {
+		// Not a custom filter setting; try to parse it as a
+		// model-specific setting.
+		configure_opl_filter_for_model(opl_channel, filter_prefs, sb_type);
+	}
 }
 
 static void SB_RaiseIRQ(SB_IRQS type)
@@ -2122,69 +2161,63 @@ static void SBLASTER_CallBack(uint32_t len)
 	}
 }
 
-SB_TYPES find_sbtype()
+static SB_TYPES determine_sbtype(const std::string& pref)
 {
-	const auto sect = static_cast<Section_prop *>(control->GetSection("sblaster"));
-	assert(sect);
+	if (pref == "gb") {
+		return SBT_GB;
 
-	const std::string pref = sect->Get_string("sbtype");
-
-	// Default
-	auto sbtype = SB_TYPES::SBT_NONE;
-
-	// Newest to oldest
-	if (pref == "sb16") {
-		sbtype = SBT_16;
-	} else if (pref == "sbpro2") {
-		sbtype = SBT_PRO2;
-	} else if (pref == "sbpro1") {
-		sbtype = SBT_PRO1;
-	} else if (pref == "sb2") {
-		sbtype = SBT_2;
 	} else if (pref == "sb1") {
-		sbtype = SBT_1;
-	} else if (pref == "gb") {
-		sbtype = SBT_GB;
+		return SBT_1;
+
+	} else if (pref == "sb2") {
+		return SBT_2;
+
+	} else if (pref == "sbpro1") {
+		return SBT_PRO1;
+
+	} else if (pref == "sbpro2") {
+		return SBT_PRO2;
+
+	} else if (pref == "sb16") {
+		// Invalid settings result in defaulting to 'sb16'
+		return SBT_16;
+
 	}
-	return sbtype;
+	// "falsey" setting ("off", "none", "false", etc.)
+	return SBT_NONE;
 }
 
-OplMode find_oplmode()
+static OplMode determine_oplmode(const std::string& pref, const SB_TYPES sb_type)
 {
-	const auto sect = static_cast<Section_prop *>(control->GetSection("sblaster"));
-	assert(sect);
+	if (pref == "cms") {
+		return OplMode::Cms;
 
-	const std::string pref = sect->Get_string("oplmode");
-
-	// Default
-	auto opl_mode = OplMode::None;
-
-	// Newest to oldest
-	if (pref == "opl3gold") {
-		opl_mode = OplMode::Opl3Gold;
-	} else if (pref == "opl3") {
-		opl_mode = OplMode::Opl3;
-	} else if (pref == "dualopl2") {
-		opl_mode = OplMode::DualOpl2;
 	} else if (pref == "opl2") {
-		opl_mode = OplMode::Opl2;
-	} else if (pref == "cms") {
-		opl_mode = OplMode::Cms;
-	}
+		return OplMode::Opl2;
 
-	// Else assume auto
-	else {
-		switch (find_sbtype()) {
-		case SBT_16:
-		case SBT_PRO2: opl_mode = OplMode::Opl3; break;
-		case SBT_PRO1: opl_mode = OplMode::DualOpl2; break;
-		case SBT_2:
-		case SBT_1: opl_mode = OplMode::Opl2; break;
-		case SBT_GB: opl_mode = OplMode::Cms; break;
-		case SBT_NONE: opl_mode = OplMode::None; break;
+	} else if (pref == "dualopl2") {
+		return OplMode::DualOpl2;
+
+	} else if (pref == "opl3") {
+		return OplMode::Opl3;
+
+	} else if (pref == "opl3gold") {
+		return OplMode::Opl3Gold;
+
+	} else if (pref == "auto") {
+		// Invalid settings result in defaulting to 'auto'
+		switch (sb_type) {
+		case SBT_GB: return OplMode::Cms;
+		case SBT_1: return OplMode::Opl2;
+		case SBT_2: return OplMode::Opl2;
+		case SBT_PRO1: return OplMode::DualOpl2;
+		case SBT_PRO2: return OplMode::Opl3;
+		case SBT_16: return OplMode::Opl3;
+		case SBT_NONE: return OplMode::None;
 		}
 	}
-	return opl_mode;
+	// "falsey" setting ("off", "none", "false", etc.)
+	return OplMode::None;
 }
 
 void SBLASTER_ShutDown(Section*);
@@ -2254,8 +2287,8 @@ public:
 		sb.mixer.enabled=section->Get_bool("sbmixer");
 		sb.mixer.stereo=false;
 
-		sb.type = find_sbtype();
-		oplmode = find_oplmode();
+		sb.type = determine_sbtype(section->Get_string("sbtype"));
+		oplmode = determine_oplmode(section->Get_string("oplmode"), sb.type);
 
 		switch (oplmode) {
 		case OplMode::None:

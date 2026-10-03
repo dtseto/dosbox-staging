@@ -1442,7 +1442,20 @@ PixelFormat VGA_ActivateHardwareCursor()
 // A single point to set total drawn lines and update affected delay values
 static void setup_line_drawing_delays(const uint32_t total_lines)
 {
-	vga.draw.parts_total = total_lines;
+	const auto conf    = control->GetSection("dosbox");
+	const auto section = static_cast<Section_prop*>(conf);
+	assert(section);
+
+	if (vga.draw.mode == PART && !section->Get_bool("vga_render_per_scanline")) {
+		// Render the screen in 4 parts; this was the legacy DOSBox behaviour.
+		// A few games needs this (e.g., Deus, Ishar 3, Robinson's Requiem,
+		// Time Travelers) and would crash at startup with per-scanline
+		// rendering enabled. This is most likely due to some VGA emulation
+		// deficiency.
+		vga.draw.parts_total = 4;
+	} else {
+		vga.draw.parts_total = total_lines;
+	}
 
 	vga.draw.delay.parts = vga.draw.delay.vdend / vga.draw.parts_total;
 
@@ -1819,35 +1832,27 @@ static UpdatedTimings update_vga_timings(const VgaTimings& timings)
 	return {horiz_display_end, vert_display_end, vblank_skip};
 }
 
-static bool is_vga_scan_doubling()
+static bool is_vga_scan_doubling_bit_set()
 {
-	// Scan doubling on VGA is generally achieved in one of two ways,
-	// depending on the video mode:
+	// Scan doubling on VGA can be achieved in two ways:
 	//
-	// 1) The 16-colour VGA mode, and all CGA, EGA and VESA modes set the
-	//    Scan Doubling bit to 1.
+	// 1) 16-colour VGA modes and all CGA, EGA and VESA modes that require
+	//    scan doubling set the Scan Doubling bit of the Maximum Scanline
+	//    Register to 1. This method works with text modes too.
 	//
 	// 2) Mode 13h (320x200 256-colours) and its endless tweak-mode variants
-	//    (e.g. 320x240, 320x400, 360x240, 256x256, 320x191, etc.) set the
-	//    Maximum Scan Line value to 1 (0 means no line doubling, 1 means
-	//    line doubling; this actually sets the number of line-repeats and
-	//    can contain higher values for line-tripling, quadrupling, etc.,
-	//    but nothing seems to use these higher repeat counts). Note this
-	//    value used for different purposes in text modes (it contains the
-	//    height of the character cell in pixels minus 1), so we need to
-	//    make sure we're in a graphics mode.
+	//    (e.g., 320x240, 320x400, 360x240, 256x256, 320x191, etc.) set the
+	//    Maximum Scan Line value of the Maximum Scan Line register to 1 (0
+	//    means no line doubling, 1 means line doubling, 2 tripling, 3
+	//    quadrupling, and so on).
 	//
-	// These two doublings can be probably "stacked" on real hardware, but
-	// in real life they never seem to be used together (barring some demo
-	// effects, perhaps).
+	//    Note this value is used for a different purpose in text modes (it
+	//    contains the height of the character cell in pixels minus 1), so
+	//    this second method only works in graphics modes.
 	//
-	// We're only checking for case 1) here.
+	// We're only checking for method #1 here.
 	//
-	const auto is_scan_doubled = IS_VGA_ARCH &&
-	                             vga.attr.mode_control.is_graphics_enabled &&
-	                             vga.crtc.maximum_scan_line.is_scan_doubling_enabled;
-
-	return is_scan_doubled;
+	return IS_VGA_ARCH && vga.crtc.maximum_scan_line.is_scan_doubling_enabled;
 }
 
 static constexpr auto display_aspect_ratio = Fraction(4, 3);
@@ -1919,8 +1924,13 @@ ImageInfo setup_drawing()
 
 	const auto vga_timings = calculate_vga_timings();
 
-	if (is_vga_scan_doubling() && !(vga.mode == M_CGA2 || vga.mode == M_CGA4)) {
-		vga.draw.address_line_total *= 2;
+	if (is_vga_scan_doubling_bit_set()) {
+		const auto fake_double_scanned_mode = (vga.mode == M_CGA2 ||
+		                                       vga.mode == M_CGA4 ||
+		                                       vga.mode == M_TEXT);
+		if (!fake_double_scanned_mode) {
+			vga.draw.address_line_total *= 2;
+		}
 	}
 
 	if (!IS_EGAVGA_ARCH) {
@@ -2050,6 +2060,12 @@ ImageInfo setup_drawing()
 		return pcjr_or_tga();
 	};
 
+	// All Tandy modes have a height of 200.
+	// Some games (ex. Impossible Mission II) fiddle with vga.other.vdend
+	// The result of this should be rendering a short (by height) image in the horizonal center with black on the top/bottom.
+	// Use this hard-coded value when calculating pixel aspect ratio so this effect looks correct.
+	constexpr uint16_t CgaTandyAspectHeight = 200;
+
 	switch (vga.mode) {
 	case M_LIN4:
 	case M_LIN8:
@@ -2103,20 +2119,20 @@ ImageInfo setup_drawing()
 		default: assert(false);
 		}
 
-		double_width = is_pixel_doubling && vga.draw.pixel_doubling_enabled;
+		double_width = is_pixel_doubling && vga.draw.pixel_doubling_allowed;
 
 		// No need to actually render double-scanned for VGA modes other
 		// than 13h (and its tweak-mode variants; we'll just fake it with
 		// `double_height`.
-		if (is_vga_scan_doubling()) {
+		if (is_vga_scan_doubling_bit_set()) {
 			video_mode.is_double_scanned_mode = true;
 
 			vga.draw.is_double_scanning = true;
 			vga.draw.address_line_total /= 2;
 
 			video_mode.height  = vert_end / 2;
-			double_height      = vga.draw.double_scanning_enabled;
-			forced_single_scan = !vga.draw.double_scanning_enabled;
+			double_height      = vga.draw.scan_doubling_allowed;
+			forced_single_scan = !vga.draw.scan_doubling_allowed;
 		} else {
 			video_mode.height = vert_end;
 		}
@@ -2154,33 +2170,47 @@ ImageInfo setup_drawing()
 		video_mode.graphics_standard = GraphicsStandard::Vga;
 		video_mode.color_depth       = ColorDepth::IndexedColor256;
 
-		const auto is_double_scanning =
-		        (vga.crtc.maximum_scan_line.maximum_scan_line > 0);
+		const bool num_scanline_repeats = vga.crtc.maximum_scan_line.maximum_scan_line;
 
-		video_mode.is_double_scanned_mode = is_double_scanning;
+		// We assume the two scanline doubling methods cannot be stacked, but
+		// not sure if this is true.
+		video_mode.is_double_scanned_mode = (num_scanline_repeats > 0 ||
+		                                     is_vga_scan_doubling_bit_set());
 
 		render_pixel_aspect_ratio = calc_pixel_aspect_from_timings(vga_timings);
 
 		video_mode.width = horiz_end * 4;
 		render_width     = video_mode.width;
 
-		// We only render "baked-in" double scanning (when we literally render
-		// twice as many rows) for the M_VGA modes and M_EGA modes on emulated
-		// VGA adapters only; for everything else, we "fake double-scan" on
-		// VGA (render single-scanned, then double the image vertically with a
-		// scaler).
-		if (is_double_scanning) {
-			video_mode.height  = vert_end / 2;
-			forced_single_scan = !vga.draw.double_scanning_enabled;
+		// We only render "baked-in" double scanning (when we literally
+		// render twice as many rows) for the M_VGA modes and M_EGA
+		// modes on emulated VGA adapters only; for everything else, we
+		// "fake double-scan" on VGA (render single-scanned, then double
+		// the image vertically with a scaler).
 
-			if (vga.draw.double_scanning_enabled) {
+		if (video_mode.is_double_scanned_mode) {
+			video_mode.height  = vert_end / 2;
+
+			// Some rare demos set up odd Maximum Scan Line CRTC register
+			// values; for example, Show by Majic 12 uses the value 4 during
+			// the zoom-rotator part in the intro to set up "scanline
+			// quintupling". That's right, every scanline is repeated 4 times,
+			// resulting in a total number of 5 scanlines per "logical pixel"!
+			//
+			// We're forcing such scanline repeating even in forced single
+			// scan mode to yield correct results.
+			const auto is_odd_address_line_total = vga.draw.address_line_total & 1;
+
+			if (vga.draw.scan_doubling_allowed || is_odd_address_line_total) {
 				vga.draw.is_double_scanning = true;
 				render_height        = video_mode.height * 2;
 				rendered_double_scan = true;
+				forced_single_scan   = false;
 			} else {
 				vga.draw.address_line_total /= 2;
 				render_height = video_mode.height;
 				render_pixel_aspect_ratio /= 2;
+				forced_single_scan = true;
 			}
 		} else { // single scan
 			video_mode.height = vert_end;
@@ -2197,7 +2227,7 @@ ImageInfo setup_drawing()
 		// More information here:
 		// https://github.com/joncampbell123/dosbox-x/issues/951
 		//
-		if (vga.draw.pixel_doubling_enabled) {
+		if (vga.draw.pixel_doubling_allowed) {
 			double_width = true;
 		} else {
 			render_pixel_aspect_ratio *= 2;
@@ -2253,7 +2283,7 @@ ImageInfo setup_drawing()
 		render_width     = video_mode.width;
 
 		double_width = vga.seq.clocking_mode.is_pixel_doubling &&
-		               vga.draw.pixel_doubling_enabled;
+		               vga.draw.pixel_doubling_allowed;
 
 		if (IS_VGA_ARCH) {
 			render_pixel_aspect_ratio = calc_pixel_aspect_from_timings(
@@ -2264,12 +2294,21 @@ ImageInfo setup_drawing()
 			// on emulated VGA adapters only; for everything else, we "fake
 			// double-scan" on VGA (render single-scanned, then double the
 			// image vertically with a scaler).
-			if (is_vga_scan_doubling()) {
-				video_mode.is_double_scanned_mode = true;
-				video_mode.height = vert_end / 2;
-				forced_single_scan = !vga.draw.double_scanning_enabled;
+			//
+			const bool num_scanline_repeats =
+			        vga.crtc.maximum_scan_line.maximum_scan_line;
 
-				if (vga.draw.double_scanning_enabled) {
+			// We assume the two scanline doubling methods cannot be
+			// stacked, but not sure if this is true.
+			video_mode.is_double_scanned_mode =
+			        (num_scanline_repeats > 0 ||
+			         is_vga_scan_doubling_bit_set());
+
+			if (video_mode.is_double_scanned_mode) {
+				video_mode.height = vert_end / 2;
+				forced_single_scan = !vga.draw.scan_doubling_allowed;
+
+				if (vga.draw.scan_doubling_allowed) {
 					vga.draw.is_double_scanning = true;
 					render_height = video_mode.height * 2;
 					rendered_double_scan = true;
@@ -2284,7 +2323,7 @@ ImageInfo setup_drawing()
 			}
 
 			if (vga.seq.clocking_mode.is_pixel_doubling &&
-			    !vga.draw.pixel_doubling_enabled) {
+			    !vga.draw.pixel_doubling_allowed) {
 				render_pixel_aspect_ratio *= 2;
 			}
 
@@ -2322,14 +2361,14 @@ ImageInfo setup_drawing()
 				video_mode.width = horiz_end * 8;
 				render_width     = video_mode.width;
 			} else {
-				double_width = vga.draw.pixel_doubling_enabled;
+				double_width = vga.draw.pixel_doubling_allowed;
 				video_mode.width = horiz_end * 4;
 				render_width     = video_mode.width;
 			}
 			VGA_DrawLine = VGA_Draw_4BPP_Line;
 
 		} else { // low-bandwidth
-			double_width     = vga.draw.pixel_doubling_enabled;
+			double_width     = vga.draw.pixel_doubling_allowed;
 			video_mode.width = horiz_end * 4;
 			render_width     = video_mode.width * 2;
 			rendered_pixel_doubling = true;
@@ -2341,7 +2380,7 @@ ImageInfo setup_drawing()
 		render_height     = video_mode.height;
 
 		render_pixel_aspect_ratio = calc_pixel_aspect_from_dimensions(
-		        render_width, render_height, double_width, double_height);
+		        render_width, CgaTandyAspectHeight, double_width, double_height);
 		break;
 
 	case M_TANDY4:
@@ -2373,13 +2412,13 @@ ImageInfo setup_drawing()
 		*/
 
 		double_width = (video_mode.width < 640) &&
-		               vga.draw.pixel_doubling_enabled;
+		               vga.draw.pixel_doubling_allowed;
 
 		render_width  = video_mode.width;
 		render_height = video_mode.height;
 
 		render_pixel_aspect_ratio = calc_pixel_aspect_from_dimensions(
-		        render_width, render_height, double_width, double_height);
+		        render_width, CgaTandyAspectHeight, double_width, double_height);
 
 		// TODO this seems like overkill; could be probably simplified a
 		// lot
@@ -2411,7 +2450,7 @@ ImageInfo setup_drawing()
 			video_mode.width = vga.draw.blocks * 2;
 
 			double_width = !vga.tandy.mode_control.is_pcjr_640x200_2_color_graphics &&
-			               vga.draw.pixel_doubling_enabled;
+			               vga.draw.pixel_doubling_allowed;
 
 		} else { // Tandy
 			vga.draw.blocks = horiz_end * (vga.tandy.mode.is_tandy_640_dot_graphics
@@ -2420,7 +2459,7 @@ ImageInfo setup_drawing()
 			video_mode.width = vga.draw.blocks * 8;
 
 			double_width = !vga.tandy.mode.is_tandy_640_dot_graphics &&
-			               vga.draw.pixel_doubling_enabled;
+			               vga.draw.pixel_doubling_allowed;
 		}
 
 		video_mode.height = vert_end;
@@ -2429,7 +2468,7 @@ ImageInfo setup_drawing()
 		render_height = video_mode.height;
 
 		render_pixel_aspect_ratio = calc_pixel_aspect_from_dimensions(
-		        render_width, render_height, double_width, double_height);
+		        render_width, CgaTandyAspectHeight, double_width, double_height);
 
 		VGA_DrawLine = VGA_Draw_1BPP_Line;
 		break;
@@ -2459,7 +2498,7 @@ ImageInfo setup_drawing()
 		render_width     = video_mode.width;
 
 		double_width = vga.seq.clocking_mode.is_pixel_doubling &&
-		               vga.draw.pixel_doubling_enabled;
+		               vga.draw.pixel_doubling_allowed;
 
 		if (IS_VGA_ARCH) {
 			video_mode.is_double_scanned_mode = true;
@@ -2467,7 +2506,7 @@ ImageInfo setup_drawing()
 			video_mode.height = vert_end / 2;
 			render_height     = video_mode.height;
 
-			double_height = vga.draw.double_scanning_enabled;
+			double_height = vga.draw.scan_doubling_allowed;
 
 			// We never render true double-scanned CGA modes; we
 			// always fake it even if double scanning is requested
@@ -2476,11 +2515,11 @@ ImageInfo setup_drawing()
 			render_pixel_aspect_ratio = calc_pixel_aspect_from_timings(
 			        vga_timings);
 
-			if (!vga.draw.double_scanning_enabled) {
+			if (!vga.draw.scan_doubling_allowed) {
 				render_pixel_aspect_ratio /= 2;
 			}
 			if (vga.seq.clocking_mode.is_pixel_doubling &&
-			    !vga.draw.pixel_doubling_enabled) {
+			    !vga.draw.pixel_doubling_allowed) {
 				render_pixel_aspect_ratio *= 2;
 			}
 
@@ -2511,7 +2550,7 @@ ImageInfo setup_drawing()
 		video_mode.width  = horiz_end * 8;
 		video_mode.height = vert_end;
 
-		double_width = vga.draw.pixel_doubling_enabled;
+		double_width = vga.draw.pixel_doubling_allowed;
 
 		// Composite emulation is rendered at 2x the horizontal resolution
 		render_width  = video_mode.width * 2;
@@ -2540,7 +2579,7 @@ ImageInfo setup_drawing()
 		render_height = video_mode.height;
 
 		render_pixel_aspect_ratio = calc_pixel_aspect_from_dimensions(
-		        render_width, render_height, double_width, double_height);
+		        render_width, CgaTandyAspectHeight, double_width, double_height);
 
 		VGA_DrawLine = VGA_Draw_CGA4_Composite_Line;
 		break;
@@ -2561,7 +2600,7 @@ ImageInfo setup_drawing()
 		render_height = video_mode.height;
 
 		render_pixel_aspect_ratio = calc_pixel_aspect_from_dimensions(
-		        render_width, render_height, double_width, double_height);
+		        render_width, CgaTandyAspectHeight, double_width, double_height);
 
 		VGA_DrawLine = VGA_Draw_CGA2_Composite_Line;
 		break;
@@ -2612,40 +2651,59 @@ ImageInfo setup_drawing()
 
 		vga.draw.blocks = horiz_end;
 
+		double_width = vga.seq.clocking_mode.is_pixel_doubling &&
+		               vga.draw.pixel_doubling_allowed;
+
 		if (IS_VGA_ARCH) {
 			vga.draw.pixels_per_character = vga.seq.clocking_mode.is_eight_dot_mode
 			                                      ? PixelsPerChar::Eight
 			                                      : PixelsPerChar::Nine;
+
 			pixel_format = PixelFormat::BGRX32_ByteArray;
+
+			render_pixel_aspect_ratio = calc_pixel_aspect_from_timings(
+			        vga_timings);
+
+			// Text mode double scanning can only be done by setting
+			// the Double Scanning bit.
+			video_mode.is_double_scanned_mode = is_vga_scan_doubling_bit_set();
+
+			video_mode.width = horiz_end * vga.draw.pixels_per_character;
+
+			if (video_mode.is_double_scanned_mode) {
+				video_mode.height = vert_end / 2;
+
+				if (vga.draw.scan_doubling_allowed) {
+					double_height = true;
+				} else {
+					render_pixel_aspect_ratio /= 2;
+				}
+			} else { // single scan
+				video_mode.height = vert_end;
+			}
+
+			render_width  = video_mode.width;
+			render_height = video_mode.height;
 
 			VGA_DrawLine = draw_text_line_from_dac_palette;
 
 		} else { // M_EGA
 			vga.draw.pixels_per_character = PixelsPerChar::Eight;
 
+			video_mode.width  = horiz_end * vga.draw.pixels_per_character;
+			video_mode.height = vert_end;
+
+			render_width  = video_mode.width;
+			render_height = video_mode.height;
+
+			render_pixel_aspect_ratio = calc_pixel_aspect_from_dimensions(
+			        render_width, render_height, double_width, double_height);
+
 			VGA_DrawLine = VGA_TEXT_Draw_Line;
 		}
 
-		video_mode.width  = horiz_end * vga.draw.pixels_per_character;
-		video_mode.height = vert_end;
-
-		render_width  = video_mode.width;
-		render_height = video_mode.height;
-
-		double_width = vga.seq.clocking_mode.is_pixel_doubling &&
-		               vga.draw.pixel_doubling_enabled;
-
-		if (IS_VGA_ARCH) {
-			render_pixel_aspect_ratio = calc_pixel_aspect_from_timings(
-			        vga_timings);
-
-		} else { // M_EGA
-			render_pixel_aspect_ratio = calc_pixel_aspect_from_dimensions(
-			        render_width, render_height, double_width, double_height);
-		}
 		render_pixel_aspect_ratio *= {PixelsPerChar::Eight,
 		                              vga.draw.pixels_per_character};
-
 		break;
 
 	case M_TANDY_TEXT:
@@ -2664,7 +2722,7 @@ ImageInfo setup_drawing()
 		render_height = video_mode.height;
 
 		double_width = !vga.tandy.mode.is_high_bandwidth &&
-		               vga.draw.pixel_doubling_enabled;
+		               vga.draw.pixel_doubling_allowed;
 
 		render_pixel_aspect_ratio = calc_pixel_aspect_from_dimensions(
 		        render_width, render_height, double_width, double_height);
@@ -2856,23 +2914,12 @@ ImageInfo setup_drawing()
 	return img_info;
 }
 
-static void finalise_mode_change()
-{
-	// The assumption is that all mode changes eventually call
-	// VGA_SetupDrawing() which concludes the mode change process.
-	// If this assumption turns out to be false, we'll need to
-	// revisit the logic that resets this flag.
-	vga.mode_change_in_progress = false;
-}
-
 void VGA_SetupDrawing(uint32_t /*val*/)
 {
 	if (vga.mode == M_ERROR) {
 		PIC_RemoveEvents(VGA_VerticalTimer);
 		PIC_RemoveEvents(VGA_PanningLatch);
 		PIC_RemoveEvents(VGA_DisplayStartLatch);
-
-		finalise_mode_change();
 		return;
 	}
 
@@ -2942,8 +2989,6 @@ void VGA_SetupDrawing(uint32_t /*val*/)
 
 		previous_video_mode = image_info.video_mode;
 	}
-
-	finalise_mode_change();
 }
 
 void VGA_KillDrawing(void) {

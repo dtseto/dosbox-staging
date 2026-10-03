@@ -630,64 +630,73 @@ void IMGMOUNT::AddMessages()
 	        "             bytes-per-sector,sectors-per-head,heads,cylinders\n"
 	        "\n"
 	        "Notes:\n"
-	        "  - %s+F4 swaps & mounts the next [color=light-cyan]CDROM-SET[reset] or [color=light-cyan]BOOTIMAGE[reset], if provided.\n"
+			"  - You can use wildcards to mount multiple images, e.g.:\n"
+			"      [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy*.img[reset] -t floppy\n"
+	        "  - [color=yellow]%s+F4[reset] swaps & mounts the next [color=light-cyan]CDROM-SET[reset] or [color=light-cyan]BOOTIMAGE[reset], if provided.\n"
 	        "  - The -ro flag mounts the disk image in read-only (write-protected) mode.\n"
 	        "  - The -ide flag emulates an IDE controller with attached IDE CD drive, useful\n"
 	        "    for CD-based games that need a real DOS environment via bootable HDD image.\n"
 	        "\n"
 	        "Examples:\n"
 #if defined(WIN32)
-	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]C:\\games\\doom.iso[reset] -t cdrom\n"
-	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]cd/quake1.cue[reset] -t cdrom\n"
-	        "  [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy1.img floppy2.img floppy3.img[reset] -t floppy -ro\n"
-	        "  [color=light-green]imgmount[reset] [color=white]C[reset] [color=light-cyan]bootable.img[reset] -t hdd -fs none -size 512,63,32,1023\n"
+	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]C:\\Games\\doom.iso[reset] -t cdrom\n"
 #elif defined(MACOSX)
-	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/Users/USERNAME/games/doom.iso[reset] -t cdrom\n"
-	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]cd/quake1.cue[reset] -t cdrom\n"
-	        "  [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy1.img floppy2.img floppy3.img[reset] -t floppy -ro\n"
-	        "  [color=light-green]imgmount[reset] [color=white]C[reset] [color=light-cyan]bootable.img[reset] -t hdd -fs none -size 512,63,32,1023\n"
+	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/Users/USERNAME/Games/doom.iso[reset] -t cdrom\n"
 #else
 	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/home/USERNAME/games/doom.iso[reset] -t cdrom\n"
+#endif
 	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]cd/quake1.cue[reset] -t cdrom\n"
 	        "  [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy1.img floppy2.img floppy3.img[reset] -t floppy -ro\n"
+	        "  [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy*.img[reset] -t floppy -ro\n"
 	        "  [color=light-green]imgmount[reset] [color=white]C[reset] [color=light-cyan]bootable.img[reset] -t hdd -fs none -size 512,63,32,1023\n"
-#endif
 	);
 
 	MSG_Add("PROGRAM_IMGMOUNT_SPECIFY_DRIVE",
 	        "Must specify drive letter to mount image at.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_SPECIFY2",
-	        "Must specify drive number (0 or 3) to mount image at (0,1=fda,fdb;2,3=hda,hdb).\n");
+	        "Must specify drive number (0 or 3) to mount image at (0,1=fda,fdb; 2,3=hda,hdb).\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_SPECIFY_GEOMETRY",
-	        "For [color=brown]CD-ROM[reset] images:   [color=light-blue]IMGMOUNT drive-letter location-of-image -t iso[reset]\n"
-	        "\n"
-	        "For [color=brown]hardrive[reset] images: Must specify drive geometry for hard drives:\n"
-	        "bytes-per-sector,sectors-per-head,heads,cylinders\n"
-	        "[color=light-blue]IMGMOUNT drive-letter location-of-image -size bps,spc,hpc,cyl[reset]\n");
-	MSG_Add("PROGRAM_IMGMOUNT_STATUS_NONE", "No drive available\n");
+	        "For CD-ROM images:\n"
+	        "  [color=light-green]imgmount[reset] [color=white]DRIVE[reset] [color=light-cyan]IMAGEFILE[reset] -t iso\n"
+	        "For hard drive images, must specify drive geometry:\n"
+	        "  bytes-per-sector,sectors-per-head,heads,cylinders\n"
+	        "  [color=light-green]imgmount[reset] [color=white]DRIVE[reset] [color=light-cyan]IMAGEFILE[reset] -size bps,spc,hpc,cyl\n");
+
+	MSG_Add("PROGRAM_IMGMOUNT_STATUS_NONE", "No drive available.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_IDE_CONTROLLERS_UNAVAILABLE",
 	        "No available IDE controllers. Drive will not have IDE emulation.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_INVALID_IMAGE",
 	        "Could not load image file.\n"
 	        "Check that the path is correct and the image is accessible.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_INVALID_GEOMETRY",
 	        "Could not extract drive geometry from image.\n"
 	        "Use parameter -size bps,spc,hpc,cyl to specify the geometry.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_TYPE_UNSUPPORTED",
 	        "Type '%s' is unsupported. Specify 'floppy', 'hdd', 'cdrom', or 'iso'.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_FORMAT_UNSUPPORTED",
 	        "Format '%s' is unsupported. Specify 'fat', 'iso', or 'none'.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_SPECIFY_FILE",
 	        "Must specify file-image to mount.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_FILE_NOT_FOUND", "Image file not found.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_MOUNT",
-	        "To mount directories, use the [color=light-blue]MOUNT[reset] command, not the [color=light-blue]IMGMOUNT[reset] command.\n");
+	        "To mount directories, use the [color=light-green]MOUNT[reset] command, not the [color=green-blue]IMGMOUNT[reset] command.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_ALREADY_MOUNTED",
 	        "Drive already mounted at that letter.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_CANT_CREATE", "Can't create drive from file.\n");
-	MSG_Add("PROGRAM_IMGMOUNT_MOUNT_NUMBER", "Drive number %d mounted as %s\n");
+	MSG_Add("PROGRAM_IMGMOUNT_MOUNT_NUMBER", "Drive number %d mounted as %s.\n");
+
 	MSG_Add("PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE",
 	        "The image must be on a host or local drive.\n");
-	MSG_Add("PROGRAM_IMGMOUNT_MULTIPLE_NON_CUEISO_FILES",
-	        "Using multiple files is only supported for CUE/ISO images.\n");
 }

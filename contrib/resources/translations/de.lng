@@ -609,7 +609,7 @@ Umgebungsvariable zu überschreiben die normalerweise den Betriebssystem-
 Bildschirmschoner blockiert während DOSBox läuft (Standardmäßig 'auto').
 .
 :CONFIG_LANGUAGE
-Wähle eine Sprache aus: 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl' oder 'ru'
+Wähle eine Sprache aus: 'br', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl' oder 'ru'
 (Standardmäßig nicht voreingestellt; dies entspricht Englisch)
 Anmerkungen:
   - Diese Einstellung hat Vorrang vor der Umgebungsvariable 'LANG', falls
@@ -673,15 +673,30 @@ Videospeicher in MB (1-8) oder KB (256 bis 8192). 'auto' verwendet den
 Standardwert für den verwendeten Videoadapter (Standardwert 'auto'). Siehe den 
 Parameter 'machine' für die Liste der gültigen Optionen je Adapter.
 .
+:CONFIG_VMEM_DELAY
+Emulation des Zugriffszeit auf den Videospeicher (standardmäßig 'off').
+  off:    Deaktiviert Emulation der Videospeicherzugriffszeit (Voreinstellung).
+          Dies ist für die meisten Spiele zu bevorzugen, um Verlangsamungen zu
+          vermeiden.
+  on:     Aktiviert Emulation der Zugriffszeit des Videospeichers (3000 ns).
+          Dies kann helfen, Flimmern in Hercules-, CGA-, EGA- und frühen VGA-
+          Spielen zu reduzieren oder zu eliminieren.
+  <Wert>: Legt die Zugriffszeit in Nanosekunden fest. Der gültige Bereich ist
+          0 bis 20000 ns; 500 bis 5000 ns ist der nützlichste Bereich.
+Hinweis:  Stellen diesen Wert nur bei Bedarf pro Spiel ein, da er den gesamten
+          Emulator verlangsamt.
+
+Übersetzt mit DeepL.com (kostenlose Version)
+.
 :CONFIG_DOS_RATE
-Passe die Bildrate des emulierten Videomodus in Hz an:
+Passe die Bildrate des emulierten Videomodus an.
   default:  Der DOS-Videomodus bestimmt die Rate (empfohlen; Standard).
   host:     Passe die DOS-Rate an die Host-Rate an (siehe Einstellung
             'host_rate').
-  <value>:  Setzt die Rate auf einen exakten Wert, zwischen 24.000 und
+  <Wert>:   Setzt die Rate auf einen exakten Wert, zwischen 24.000 und
             1000.000 (Hz).
-Wir empfehlen die 'Standard'-Rate; andernfalls kannst du sie für jedes Spiel
-einzeln testen und einstellen.
+Hinweis:    Wir empfehlen die 'Standard'-Rate; andernfalls kannst du sie für
+            jedes Spiel einzeln testen und einstellen.
 .
 :CONFIG_VESA_MODES
 Steuert die Auswahl der angebotenen VESA 1.2 und 2.0 Modi:
@@ -698,6 +713,11 @@ Steuert die Auswahl der angebotenen VESA 1.2 und 2.0 Modi:
 :CONFIG_VGA_8DOT_FONT
 Verwende 8 Pixel breite Schriftarten auf VGA-Adaptern
 (standardmäßig deaktiviert).
+.
+:CONFIG_VGA_RENDER_PER_SCANLINE
+Emuliert akkurates per-scanline VGA-Rendering (standardmäßig aktiviert):
+Derzeit müssen Sie dies für einige Spiele deaktivieren, da sie sonst beim
+Start abstürzen (z.B. Deus, Ishar 3, Robinson's Requiem, Time Warriors).
 .
 :CONFIG_SPEED_MODS
 Erlaube Änderungen, die die Leistung verbessern (standardmäßig aktiviert).
@@ -1732,7 +1752,8 @@ entspricht, verwendet.
 
 .
 :CONFIG_KEYBOARDLAYOUT
-Sprachcode des Tastaturlayouts oder 'auto' (Standard 'auto').
+Tastaturbelegungscode (standardmäßig 'auto'), z.B. 'us' für US-Englisch; andere
+mögliche Werte sind die gleichen, die auch von FreeDOS akzeptiert werden.
 .
 :CONFIG_EXPAND_SHELL_VARIABLE
 Aktiviere die Erweiterung von Umgebungsvariablen wie %PATH%
@@ -1750,8 +1771,15 @@ Datei, die die Liste der Anwendungen und der zugewiesenen DOS-Versionen
 enthält, in einem tabulatorgetrenntem Format, die von SETVER.EXE als
 dauerhafter Speicher verwendet wird (standardmäßig leer).
 .
+:CONFIG_PCJR_MEMORY_CONFIG
+PCjr-Speicherlayout (standardmäßig 'expanded').
+expanded:  640 KB Gesamtspeicher mit Anwendungen, die über 128 KB liegen.
+           Kompatibel mit den meisten Spielen.
+standard:  128 KB Gesamtspeicher mit Anwendungen, die unter 96 KB liegen.
+           Erforderlich für einige ältere Spiele (z. B. Jumpman, Troll).
+.
 :CONFIG_IPX
-Aktiviert IPX über UDP/IP Emulation (standarmäßig aktiviert).
+Aktiviert IPX über UDP/IP Emulation (standarmäßig deaktiviert).
 .
 :CONFIG_NE2000
 Aktiviere die Emulation einer Novell NE2000-Netzwerkkarte in einem software-
@@ -2088,7 +2116,7 @@ Image-Datei ist schreibgeschützt! Dies könnte Probleme verursachen.
 Dieser Befehl bootet DOSBox von einem Disketten- oder Festplattenimage.
 
 Für diesen Befehl kann man eine Reihe von Disketten angeben, die man durch
-Drücken von %s+F4 wechseln kann, -l gibt das eingebundene Laufwerk an,
+Drücken von [color=yellow]%s+F4[reset] wechseln kann, -l gibt das eingebundene Laufwerk an,
 von dem gebootet werden soll. Wenn kein Laufwerksbuchstabe angegeben wird,
 wird von Laufwerk A: gebootet. Die einzigen bootfähigen Laufwerks-
 buchstaben sind A, C und D. Zum Booten von einer Festplatte Laufwerk (C oder D)
@@ -2206,7 +2234,9 @@ Wobei:
   [color=light-cyan]BOOT-IMAGE[reset]  bootfähiges Disk-Image mit der angegebenen -size GEOMETRIE:
               Bytes pro Sektor, Sektoren pro Kopf, Köpfe, Zylinder
 Anmerkungen:
-  - %s+F4 wechselt & mountet die nächste(n) [color=light-cyan]CD-ROM(S)[reset] oder [color=light-cyan]BOOT-IMAGE[reset].
+  - Du kannst Platzhalter verwenden, um mehrere Images zu mounten, z.B.:
+      [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy*.img[reset] -t floppy
+  - [color=yellow]%s+F4[reset] wechselt & mountet die nächste(n) [color=light-cyan]CD-ROM(S)[reset] oder [color=light-cyan]BOOT-IMAGE[reset].
   - Mit dem Flag -ro wird das Disk-Image schreibgeschützt gemountet.
   - Der Parameter -ide emuliert eine IDE CD-Laufwerk, nützlich für CD-basierte
     Programme, die ein echtes DOS über ein Boot-Image benötigen.
@@ -2214,6 +2244,7 @@ Beispiele:
   [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/Benutzer/NAME/games/doom.iso[reset] -t cdrom
   [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]cd/quake1.cue[reset] -t cdrom
   [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]Disk1.img Disk2.img Disk3.img[reset] -t floppy -ro
+  [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy*.img[reset] -t floppy -ro
   [color=light-green]imgmount[reset] [color=white]C[reset] [color=light-cyan]bootimage.img[reset] -t hdd -fs none -size 512,63,32,1023
 
 .
@@ -2228,15 +2259,16 @@ unter der das Image eingebunden werden soll (0,1=fda,fdb;2,3=hda,hdb).
 
 .
 :PROGRAM_IMGMOUNT_SPECIFY_GEOMETRY
-Für [color=brown]CD-ROM[reset]-Images:   [color=light-blue]IMGMOUNT Laufwerksbuchstabe Speicherort des Images -t iso[reset]
+Für CD-ROM-Images:
+[color=light-green]imgmount[reset] [color=white]DRIVE[reset] [color=light-cyan]IMAGEFILE[reset] -t iso
 
-Für [color=brown]Festplattenabbilder[reset]: Bei Festplatten muss die Laufwerksgeometrie angegeben werden:
-Bytes-pro-Sektor, Sektoren-pro-Kopf, Köpfe, Zylinder
-[color=light-blue]IMGMOUNT Laufwerksbuchstabe Speicherort des Images -size bps,spc,hpc,cyl[reset]
+Bei Festplatten-Images muss die Laufwerksgeometrie angegeben werden:
+  Bytes-pro-Sektor, Sektoren-pro-Kopf, Köpfe, Zylinder
+  [color=light-green]imgmount[reset] [color=white]DRIVE[reset] [color=light-cyan]IMAGEFILE[reset] -size bps,spc,hpc,cyl
 
 .
 :PROGRAM_IMGMOUNT_STATUS_NONE
-Kein Laufwerk vorhanden
+Kein Laufwerk vorhanden.
 
 .
 :PROGRAM_IMGMOUNT_IDE_CONTROLLERS_UNAVAILABLE
@@ -2270,7 +2302,7 @@ Image-Datei nicht gefunden.
 
 .
 :PROGRAM_IMGMOUNT_MOUNT
-Um Verzeichnisse einzubinden, verwende den Befehl [color=light-blue]MOUNT[reset], nicht den Befehl [color=light-blue]IMGMOUNT[reset].
+Um Verzeichnisse einzubinden, verwende den Befehl [color=light-green]MOUNT[reset], nicht den Befehl [color=light-green]IMGMOUNT[reset].
 
 .
 :PROGRAM_IMGMOUNT_ALREADY_MOUNTED
@@ -2282,15 +2314,11 @@ Kann das Laufwerk nicht aus der Datei erstellen.
 
 .
 :PROGRAM_IMGMOUNT_MOUNT_NUMBER
-Laufwerk Nummer %d eingebunden als %s
+Laufwerk Nummer %d eingebunden als %s.
 
 .
 :PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE
 Das Image muss auf einem Host- oder lokalen Laufwerk liegen.
-
-.
-:PROGRAM_IMGMOUNT_MULTIPLE_NON_CUEISO_FILES
-Die Verwendung mehrerer Dateien wird nur für CUE/ISO-Images unterstützt.
 
 .
 :PROGRAM_INTRO_HELP
@@ -2494,23 +2522,27 @@ Keine oder ungültige Zeichentabellendatei für Layout %s
 Lädt ein Programm in einen Speicherbereich und führt es dann aus.
 
 Verwendung:
-  [color=light-green]loadfix[reset] [color=light-cyan]PROGRAMM[reset] [color=white][PARAMETER][reset]
+  [color=light-green]loadfix[reset] [color=white][-SIZE][reset] [color=light-cyan]PROGRAMM[reset] [color=white][PARAMETER][reset]
   [color=light-green]loadfix[reset] [/d] (oder [/f])[reset]
 
 Wobei:
-  [color=light-cyan]PROGRAMM[reset] ist das zu ladende Programm, optional mit Parametern.
+  [color=light-cyan]PROGRAMM[reset]        ist das zu ladende Programm, optional mit Parametern.
+  [color=white]-SIZE[reset] SIZE gibt die Anzahl der zuzuweisenden Kilobytes an /d (oder /f) Gibt den zuvor zugewiesenen Speicher frei.
 
 Anmerkungen:
-  Die häufigsten Anwendungsfälle für diesen Befehl sind DOS-Spiele oder
-  Programme die entweder die Fehlermeldung '[color=white]Packed File Corrupt[reset]' oder
-  '[color=white]Not enough memory'[reset] (z.B. von einigen Programmen aus den 1980er Jahren wie
-  California Games II), wenn sie ausgeführt werden. Wenn du [color=light-green]loadfix[reset] ohne ein
-  Argument ausführst, wird deinem Programm lediglich Speicher zugewiesen. Du
-  kannst den Speicher mit der Option /d oder /f wieder freigeben, nach
-  Programmende.
+  - Der häufigste Anwendungsfall dieses Befehls ist die Verbesserung von
+    Spielen wie California Games II und Wing Commander 2, die [color=white]
+    "Packed File Corrupt"[reset] oder [color=white]"Not enough memory"[reset] Fehlermeldungen anzeigen.
+
+  - Wenn du [color=light-green]loadfix[reset] ohne ein
+    Argument ausführst, wird deinem Programm lediglich Speicher zugewiesen. Du
+    kannst den Speicher mit der Option /d oder /f wieder freigeben, nach
+    Programmende.
 
 Beispiele:
-  [color=light-green]loadfix[reset] [color=light-cyan]programm[reset] [color=white]parameter[reset]
+  [color=light-green]loadfix[reset] [color=light-cyan]wc2[reset]
+  [color=light-green]loadfix[reset] [color=white]-32[reset] [color=light-cyan]wc2[reset]
+  [color=light-green]loadfix[reset] [color=white]-128[reset]
   [color=light-green]loadfix[reset] /d
 
 .
@@ -3625,7 +3657,7 @@ auf lokalen Laufwerken zu verwenden.
 
 .
 :SHELL_STARTUP_END
-║ [color=yellow]https://dosbox-staging.github.io[color=white]                                    ║
+║ [color=yellow]https://www.dosbox-staging.org[color=white]                                      ║
 ╚═════════════════════════════════════════════════════════════════════╝[reset]
 
 

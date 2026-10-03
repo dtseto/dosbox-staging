@@ -865,6 +865,16 @@ Property* Section_prop::Get_prop(int index)
 	return nullptr;
 }
 
+Property* Section_prop::Get_prop(const std::string_view propname)
+{
+	for (Property* property : properties) {
+		if (property->propname == propname) {
+			return property;
+		}
+	}
+	return nullptr;
+}
+
 std::string Section_prop::Get_string(const std::string& _propname) const
 {
 	for (const_it tel = properties.begin(); tel != properties.end(); ++tel) {
@@ -1274,10 +1284,10 @@ Config::~Config()
 	}
 }
 
-Section* Config::GetSection(const std::string& section_name) const
+Section* Config::GetSection(const std::string_view section_name) const
 {
 	for (auto* el : sectionlist) {
-		if (!strcasecmp(el->GetName(), section_name.c_str())) {
+		if (iequals(el->GetName(), section_name)) {
 			return el;
 		}
 	}
@@ -1498,6 +1508,20 @@ bool has_false(const std::string_view setting)
 	return (has_bool && *has_bool == false);
 }
 
+void set_section_property_value(const std::string_view section_name,
+                                const std::string_view property_name,
+                                const std::string_view property_value)
+{
+	auto* sect_updater = static_cast<Section_prop*>(
+	        control->GetSection(section_name));
+	assertm(sect_updater, "Invalid section name");
+
+	auto* property = sect_updater->Get_prop(property_name);
+	assertm(property, "Invalid property name");
+
+	property->SetValue(std::string(property_value));
+}
+
 void Config::ParseEnv()
 {
 #if defined(_MSC_VER) || (defined(__MINGW32__) && defined(__clang__))
@@ -1613,8 +1637,6 @@ void MSG_Init(Section_prop*);
 // -conf's, and finally the local dosbox.conf
 void Config::ParseConfigFiles(const std_fs::path& config_dir)
 {
-	std::string config_file;
-
 	// First: parse the user's primary 'dosbox-staging.conf' config file
 	const bool load_primary_config = !arguments.noprimaryconf;
 

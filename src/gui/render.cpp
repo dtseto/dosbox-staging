@@ -598,8 +598,8 @@ static void setup_scan_and_pixel_doubling()
 	default: assertm(false, "Invalid RenderindBackend value");
 	}
 
-	VGA_EnableVgaDoubleScanning(!force_vga_single_scan);
-	VGA_EnablePixelDoubling(!force_no_pixel_doubling);
+	VGA_AllowVgaScanDoubling(!force_vga_single_scan);
+	VGA_AllowPixelDoubling(!force_no_pixel_doubling);
 }
 
 bool RENDER_MaybeAutoSwitchShader([[maybe_unused]] const DosBox::Rect canvas_size_px,
@@ -1311,9 +1311,7 @@ void RENDER_AddConfigSection(const config_ptr_t& conf)
 
 void RENDER_SyncMonochromePaletteSetting(const enum MonochromePalette palette)
 {
-	const auto string_prop = get_render_section()->GetStringProp(
-	        "monochrome_palette");
-	string_prop->SetValue(to_string(palette));
+	set_section_property_value("render", "monochrome_palette", to_string(palette));
 }
 
 static bool handle_shader_changes()

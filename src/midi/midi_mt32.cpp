@@ -822,6 +822,8 @@ bool MidiHandler_mt32::Open([[maybe_unused]] const char* conf)
 
 		mixer_channel->SetHighPassFilter(FilterState::Off);
 		mixer_channel->SetLowPassFilter(FilterState::Off);
+
+		set_section_property_value("mt32", "mt32_filter", "off");
 	}
 
 	// Double the baseline PCM prebuffer because MIDI is demanding and
@@ -831,7 +833,8 @@ bool MidiHandler_mt32::Open([[maybe_unused]] const char* conf)
 	const auto render_ahead_ms = MIXER_GetPreBufferMs() * 2;
 
 	// Size the out-bound audio frame FIFO
-	assert(sample_rate_hz > 8000); // sane lower-bound of 8 KHz
+	assertm(sample_rate_hz >= 8000, "Sample rate must be at least 8 kHz");
+
 	const auto audio_frames_per_ms = iround(sample_rate_hz / millis_in_second);
 	audio_frame_fifo.Resize(
 	        check_cast<size_t>(render_ahead_ms * audio_frames_per_ms));

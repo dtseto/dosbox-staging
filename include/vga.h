@@ -124,6 +124,10 @@ enum VGAModes {
 constexpr auto NumCgaColors = 16;
 constexpr auto NumVgaColors = 256;
 
+constexpr auto NumVgaSequencerRegisters = 0x05;
+constexpr auto NumVgaGraphicsRegisters  = 0x09;
+constexpr auto NumVgaAttributeRegisters = 0x15;
+
 constexpr auto vesa_2_0_modes_start = 0x120;
 
 constexpr uint16_t EGA_HALF_CLOCK = 1 << 0;
@@ -291,8 +295,35 @@ struct VgaDraw {
 	double custom_refresh_hz  = RefreshRateDosDefault;
 	VgaRateMode dos_rate_mode = VgaRateMode::Default;
 
-	bool double_scanning_enabled = false;
-	bool pixel_doubling_enabled  = false;
+	// If true, double-scanned VGA modes are allowed to be drawn as
+	// double-scanned. For example, the 13h 320x200 mode is drawn as 640x400
+	// (assuming pixel doubling is also allowed).
+	//
+	// If false, double-scanned VGA modes are forced to be drawn as
+	// single-scanned. In other words, video modes are drawn at their "nominal
+	// height". E.g., the 13h 320x200 mode is drawn as 640x200 (assuming pixel
+	// doubling is allowed). The exception to this are the special custom
+	// VGA modes used in some demos that use odd number of scanline repeats
+	// (e.g., 3 or 5); these are always drawn as scan-tripled, quintupled,
+	// etc. even if this flag is false.
+	//
+	// Single scanning is forced by the arcade shaders to achieve the
+	// single-scanned 15 kHz CRT look for double-scanned VGA modes, or by
+	// shaders that treat pixels as flat adjacent rectangles (e.g., the
+	// "sharp" shader and the "no-bilinear" output modes; the double-scanned
+	// and force single-scanned output is exactly identical in these cases,
+	// but single scanning is more performant which matter on low-powered
+	// devices).
+	bool scan_doubling_allowed   = false;
+
+	// If true, less than 640-pixel wide modes are allowed to be draw
+	// pixel-doubled. Used in conjunction with bilinear interpolation or shaders,
+	// this emulates the low dot pitch of PC monitors. For example, 320x200 is
+	// drawn as 640x400 (assuming scan doubling is also enabled).
+	//
+	// If false, no pixel doubling is performed; the content is always drawn
+	// at the "nomimal width" of the video mode.
+	bool pixel_doubling_allowed  = false;
 
 	uint8_t font[64 * 1024] = {};
 	uint8_t* font_tables[2] = {nullptr, nullptr};
@@ -348,7 +379,7 @@ struct VgaS3 {
 	uint8_t reg_55 = 0;
 	uint8_t reg_58 = 0;
 	uint8_t reg_6b = 0; // LFB BIOS scratchpad
-	                    //
+
 	uint8_t ex_hor_overflow = 0;
 	uint8_t ex_ver_overflow = 0;
 
@@ -356,7 +387,7 @@ struct VgaS3 {
 	uint8_t misc_control_2    = 0;
 	uint8_t ext_mem_ctrl      = 0;
 	uint16_t xga_screen_width = 0; // from 640 to 1600
-	                               //
+
 	VGAModes xga_color_mode = {};
 
 	struct clk_t {
@@ -369,7 +400,7 @@ struct VgaS3 {
 	clk_t mclk   = {};
 
 	struct pll_t {
-		// Extended Sequencer Access Rgister SR8 (pp. 124)
+		// Extended Sequencer Access Register SR8 (pp. 124)
 		uint8_t lock = 0;
 
 		// CLKSYN Control 2 Register SR15 (pp. 130)
@@ -1030,9 +1061,11 @@ struct VgaType {
 
 	// Memory for fast (usually 16-colour) rendering,
 	// always twice as big as vmemsize
-	//
 	uint8_t* fastmem  = {};
 	uint32_t vmemsize = 0;
+
+	// How much delay to add to video memory I/O in nanoseconds
+	uint16_t vmem_delay_ns = 0;
 
 #ifdef VGA_KEEP_CHANGES
 	VgaChanges changes = {};
@@ -1059,9 +1092,6 @@ struct VgaType {
 	// that, we stop checking palette changes until the next screen mode
 	// change.
 	bool ega_mode_with_vga_colors = false;
-
-	// Flag to signal that we're in the middle of a mode change.
-	bool mode_change_in_progress = false;
 };
 
 // Hercules & CGA monochrome palette
@@ -1140,9 +1170,8 @@ void VGA_SetOverride(const bool vga_override, const double override_refresh_hz =
 void VGA_LogInitialization(const char* adapter_name, const char* ram_type,
                            const size_t num_modes);
 
-void VGA_ForceSquarePixels(const bool enabled);
-void VGA_EnableVgaDoubleScanning(const bool enabled);
-void VGA_EnablePixelDoubling(const bool enabled);
+void VGA_AllowVgaScanDoubling(const bool allow);
+void VGA_AllowPixelDoubling(const bool allow);
 
 extern VgaType vga;
 

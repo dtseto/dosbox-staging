@@ -432,6 +432,30 @@ static void restart_kbd_disabled_timer()
 // Controller buffer support
 // ***************************************************************************
 
+static uint8_t get_irq_mouse()
+{
+	return IrqNumMouse;
+}
+
+static uint8_t get_irq_keyboard()
+{
+	if (machine == MCH_PCJR) {
+		return IrqNumKbdPcjr;
+	} else {
+		return IrqNumKbdIbmPc;
+	}
+}
+
+static void activate_irqs_if_needed()
+{
+	if (is_data_from_aux && is_irq_active_aux) {
+		PIC_ActivateIRQ(get_irq_mouse());
+	}
+	if (is_data_from_kbd && is_irq_active_kbd) {
+		PIC_ActivateIRQ(get_irq_keyboard());
+	}
+}
+
 static void flush_buffer()
 {
 	is_data_new      = false;
@@ -512,18 +536,7 @@ static void maybe_transfer_buffer()
 	is_data_from_kbd = buffer[idx].is_from_kbd;
 	is_data_new      = true;
 	restart_delay_timer();
-
-	// If needed, activate interrupt
-	if (is_data_from_aux && is_irq_active_aux) {
-		PIC_ActivateIRQ(IrqNumMouse);
-	}
-	if (is_data_from_kbd && is_irq_active_kbd) {
-		if (machine == MCH_PCJR) {
-			PIC_ActivateIRQ(IrqNumKbdPcjr);
-		} else {
-			PIC_ActivateIRQ(IrqNumKbdIbmPc);
-		}
-	}
+	activate_irqs_if_needed();
 }
 
 static void buffer_add(const uint8_t byte,
@@ -729,7 +742,7 @@ static void execute_command(const Command command)
 		buffer_add(0);
 		break;
 	case Command::ReadFwRevision: // 0xa1
-		// Reads the keybaord copntroller firmware
+		// Reads the keyboard controller firmware
 		// revision, always one byte
 		flush_buffer();
 		buffer_add(FirmwareRevision);
@@ -824,7 +837,7 @@ static void execute_command(const Command command)
 		buffer_add(get_input_port());
 		break;
 	case Command::ReadControllerMode: // 0xca
-		// Reads keybaord controller mode
+		// Reads keyboard controller mode
 		// 0x00: ISA (AT)
 		// 0x01: PS/2 (MCA)
 		flush_buffer();
@@ -1006,7 +1019,10 @@ static uint8_t read_data_port(io_port_t, io_width_t) // port 0x60
 	is_data_from_aux = false;
 	is_data_from_kbd = false;
 
-	maybe_transfer_buffer();
+	// Enforce the simulated data transfer delay, as some software
+	// (Tyrian 2000 setup) reads the port without waiting for the
+	// interrupt.
+	restart_delay_timer(PortDelayMs);
 
 	return ret_val;
 }

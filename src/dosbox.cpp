@@ -505,8 +505,8 @@ void DOSBOX_Init()
 	secprop = control->AddSection_prop("dosbox", &DOSBOX_RealInit);
 	pstring = secprop->Add_string("language", always, "");
 	pstring->Set_help(
-	        "Select a language to use: 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl', or 'ru'\n"
-	        "(unset by default; this defaults to English).\n"
+	        "Select a language to use: 'br', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pl',\n"
+	        "or 'ru' (unset by default; this defaults to English).\n"
 	        "Notes:\n"
 	        "  - This setting will override the 'LANG' environment variable, if set.\n"
 	        "  - The bundled 'resources/translations' directory with the executable holds\n"
@@ -587,13 +587,27 @@ void DOSBOX_Init()
 	        "the selected video adapter ('auto' by default). See the 'machine' setting for\n"
 	        "the list of valid options per adapter.");
 
+	pstring = secprop->Add_string("vmem_delay", only_at_start, "off");
+	pstring->Set_help(
+	        "Set video memory access delay emulation ('off' by default).\n"
+	        "  off:      Disable video memory access delay emulation (default).\n"
+	        "            This is preferable for most games to avoid slowdowns.\n"
+	        "  on:       Enable video memory access delay emulation (3000 ns).\n"
+	        "            This can help reduce or eliminate flicker in Hercules,\n"
+	        "            CGA, EGA, and early VGA games.\n"
+	        "  <value>:  Set access delay in nanoseconds. Valid range is 0 to 20000 ns;\n"
+	        "            500 to 5000 ns is the most useful range.\n"
+	        "Note: Only set this on a per-game basis when necessary as it slows down\n"
+	        "      the whole emulator.");
+
 	pstring = secprop->Add_string("dos_rate", when_idle, "default");
 	pstring->Set_help(
-	        "Customize the emulated video mode's frame rate, in Hz:\n"
-	        "  default:  The DOS video mode determines the rate (recommended; default).\n"
+	        "Customize the emulated video mode's frame rate.\n"
+	        "  default:  The DOS video mode determines the rate (default).\n"
 	        "  host:     Match the DOS rate to the host rate (see 'host_rate' setting).\n"
-	        "  <value>:  Sets the rate to an exact value, between 24.000 and 1000.000 (Hz).\n"
-	        "We recommend the 'default' rate; otherwise test and set on a per-game basis.");
+	        "  <value>:  Sets the rate to an exact value in between 24.000 and 1000.000 Hz.\n"
+	        "Note: We recommend the 'default' rate, otherwise test and set on a per-game\n"
+	        "      basis.");
 
 	const char *vesa_modes_choices[] = {"compatible", "all", "halfline", nullptr};
 	pstring = secprop->Add_string("vesa_modes", only_at_start, "compatible");
@@ -605,12 +619,18 @@ void DOSBOX_Init()
 	        "               (default).\n"
 	        "  halfline:    Supports the low-resolution halfline VESA 2.0 mode used by\n"
 	        "               Extreme Assault. Use only if needed, as it's not S3 compatible.\n"
-	        "  all:         All modes for a given video memory size, however some games\n"
-	        "               may not use them properly (flickering) or may need\n"
-	        "               more system memory to use them.");
+	        "  all:         All modes for a given video memory size, however some games may\n"
+	        "               not use them properly (flickering) or may need more system\n"
+	        "               memory to use them.");
 
 	pbool = secprop->Add_bool("vga_8dot_font", only_at_start, false);
 	pbool->Set_help("Use 8-pixel-wide fonts on VGA adapters (disabled by default).");
+
+	pbool = secprop->Add_bool("vga_render_per_scanline", only_at_start, true);
+	pbool->Set_help(
+	        "Emulate accurate per-scanline VGA rendering (enabled by default).\n"
+	        "Currently, you need to disable this for a few games, otherwise they will crash\n"
+	        "at startup (e.g., Deus, Ishar 3, Robinson's Requiem, Time Warriors).");
 
 	pbool = secprop->Add_bool("speed_mods", only_at_start, true);
 	pbool->Set_help(
@@ -1224,7 +1244,8 @@ void DOSBOX_Init()
 	secprop->AddInitFunction(&DOS_KeyboardLayout_Init, changeable_at_runtime);
 	pstring = secprop->Add_string("keyboardlayout", when_idle, "auto");
 	pstring->Set_help(
-	        "Language code of the keyboard layout, or 'auto' ('auto' by default).");
+	        "Keyboard layout code ('auto' by default), i.e. 'us' for US English layout.\n"
+	        "Other possible values are the same as accepted by FreeDOS.");
 
 	// COMMAND.COM settings
 
@@ -1251,6 +1272,17 @@ void DOSBOX_Init()
 	        "tab-separated format, used by SETVER.EXE as a persistent storage\n"
 	        "(empty by default).");
 
+	const char* pcjr_memory_configurations[] = {"expanded", "standard", nullptr};
+	pstring = secprop->Add_string("pcjr_memory_config", only_at_start, "expanded");
+	pstring->Set_values(pcjr_memory_configurations);
+	pstring->Set_help(
+		"PCjr memory layout ('expanded' by default).\n"
+		"  expanded:  640 KB total memory with applications residing above 128 KB.\n"
+		"             Compatible with most games.\n"
+		"  standard:  128 KB total memory with applications residing below 96 KB.\n"
+		"             Required for some older games (e.g., Jumpman, Troll)."
+	);
+
 	// Mscdex
 	secprop->AddInitFunction(&MSCDEX_Init);
 	secprop->AddInitFunction(&DRIVES_Init);
@@ -1258,7 +1290,7 @@ void DOSBOX_Init()
 #if C_IPX
 	secprop = control->AddSection_prop("ipx", &IPX_Init, changeable_at_runtime);
 	pbool = secprop->Add_bool("ipx", when_idle, false);
-	pbool->Set_help("Enable IPX over UDP/IP emulation (enabled by default).");
+	pbool->Set_help("Enable IPX over UDP/IP emulation (disabled by default).");
 #endif
 
 #if C_SLIRP

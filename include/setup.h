@@ -45,6 +45,10 @@ std::optional<bool> parse_bool_setting(const std::string_view setting);
 bool has_true(const std::string_view setting);
 bool has_false(const std::string_view setting);
 
+void set_section_property_value(const std::string_view section_name,
+                                const std::string_view property_name,
+                                const std::string_view property_value);
+
 class Hex {
 private:
 	int value;
@@ -396,6 +400,8 @@ public:
 	                                      const std::string& sep);
 
 	Property* Get_prop(int index);
+
+	Property* Get_prop(const std::string_view propname);
 
 	int Get_int(const std::string& _propname) const;
 
