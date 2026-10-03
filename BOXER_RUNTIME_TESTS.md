@@ -4,7 +4,7 @@
 
 This suite protects Boxer/MaddTheSane behavior while DOSBox Staging is upgraded. It complements `BOXER_PATCHES.md`: that manifest explains the production changes, while these tests invoke the changed production entry points and record Boxer-visible outcomes. `boxer-compat-local:BOXER_TEST_COVERAGE.md` remains historical source-contract coverage; it is not evidence that a runtime path was executed.
 
-The current integration under test is the DOSBox v0.80.0 merge checkpoint at `78fea163c`; the prior v0.79.1 integration evidence remains anchored at `92281b3ee732508334b6d96df81d37e2780428ec`.
+The current integration under test is the DOSBox Staging v0.81.0 merge checkpoint at `fd23acfab`; the prior v0.79.1 integration evidence remains anchored at `92281b3ee732508334b6d96df81d37e2780428ec`.
 
 ## Architecture
 
@@ -13,8 +13,7 @@ Shared behavioral expectation
         |
         +-- DOSBox079Adapter -> v0.79.1 production sources/entry points
         +-- DOSBox080Adapter -> deliberately unavailable pending API comparison
-                +-- DOSBox0800Adapter, if a maintenance difference requires it
-                +-- DOSBox0801Adapter, if a maintenance difference requires it
+        +-- DOSBox081Adapter -> v0.81.0 production sources/entry points
 ```
 
 Expectations live in `Boxer Integration Tests/SharedBehavior`. Process execution, ordered events, clean-state checks, and adapter contracts live in `RuntimeHarnessSupport`. An adapter maps source locations and entry points; it must not alter expected behavior.
@@ -39,8 +38,9 @@ Each runtime harness compiles an unmodified production source into a child execu
 | Boxer-integrated v0.80.0 | Future | Not available | Pass except documented upstream mouse defect where applicable |
 | Official v0.80.1 | Unverified | Not run | Boxer expectations fail because integration is absent; restored acceleration detected |
 | Boxer-integrated v0.80.1 | Future | Not available | All shared tests pass |
+| Boxer-integrated v0.81.0 (`fd23acfab`) | `DOSBox081Adapter` | Source-layout and marker contracts pass; runtime API migration in progress | Adapt v0.79 fake signatures to v0.81 `std::array`, string-view, batch-stack, and capture/keyboard layouts |
 
-`DOSBox080Adapter` intentionally advertises no supported versions until v0.80.0 and v0.80.1 signatures and source layouts have been compared. Do not add runtime version branches to shared tests.
+`DOSBox080Adapter` intentionally advertises no supported versions until v0.80.0 and v0.80.1 signatures and source layouts have been compared. `DOSBox081Adapter` is the active v0.81 mapping; it relocates keyboard to `src/hardware/input/keyboard.cpp`, mouse to `src/hardware/input/mouse.cpp`, capture routing to `src/capture/capture.cpp`, and maps capture creation to `CAPTURE_CreateFile`. Do not add runtime version branches to shared tests.
 
 ## Current runtime evidence
 
