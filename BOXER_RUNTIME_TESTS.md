@@ -210,6 +210,18 @@ Manual v0.80.0 validation subsequently confirmed that Boxer mouse detection is n
 
 Physical controller behavior, real MIDI/MT-32 output, audible audio, Cocoa/Metal presentation and frame pacing, fullscreen/window transitions, real printer UI/output, real removable-media handling, and user-facing localization selection remain manual. Automated fakes should protect routing and lifecycle semantics without claiming those physical or presentation checks.
 
+## v0.81.2 post-merge runtime fixes
+
+The following production fixes were required after the v0.81.2 merge and were manually verified in a fresh debug launch. They must remain visible during the eventual v0.81.2 production-test pass:
+
+| Fix | Commits | Verification and follow-up |
+|---|---|---|
+| Cocoa canvas dimensions replace SDL window-size queries | Submodule `6b818a517`; parent `9119301e` | Build-for-testing and DOS startup passed without the zero-sized canvas assertions. Add a production-linked render bridge test proving a positive canvas before VGA/shader initialization. |
+| Boxer mouse activation and window-active notification | Parent `fe4a44b6`, `2bf2cbfd` | Mouse events reached DOSBox after a fresh launch. Add deterministic bridge coverage for activation and event acceptance; physical pointer/capture behavior remains manual. |
+| Boxer MIDI autodetection and running-status parser | Submodule `47a322662`; parent `54811054` | MT-32 SysEx reached Boxer, `Conclusive MT-32 sysex` was logged, the MT-32 mixer ran at 32000 Hz, and the LCD overlay reached `showMT32BezelForMessage:`. Add a mutation-guarded MIDI harness covering unavailable upstream handlers, SysEx routing, and running-status reset. |
+
+These fixes are not regression “behavior changes” to be hidden by skips. The remaining automated tests should fail when the bridge/remapping or parser-reset lines are removed. The About Boxer investigation changed no source and requires no test entry.
+
 ## v0.80.1 pre-adaptation merge checkpoint (2026-09-11)
 
 Official DOSBox Staging `v0.80.1` (`5c9161dc2397a898ff1dc4c83c4df8ac9a14b1cc`) merged cleanly into the documented v0.80.0 integration at `f503493bdc60626498da14170372f2ad36fc4d26`; there were no textual conflicts or unresolved markers. The first Xcode build-for-testing attempt reached linking and failed only for `GFX_HaveDesktopEnvironment()` and `GFX_CenterMouse()`. These are new v0.80.1 mouse-host boundaries implemented by upstream SDL code but absent from Boxer's Cocoa host replacement. They are classified as intentional upstream redesign/adapter drift and are retained as the explicit pre-adaptation failure for the following mouse checkpoint. No tests could run from this intermediate state.
