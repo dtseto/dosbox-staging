@@ -91,6 +91,7 @@
 #undef GFX_CenterMouse
 #undef GFX_GetDisplayRefreshRate
 #undef GFX_SetSize
+#undef GFX_GetCanvasSizeInPixels
 #undef GFX_GetRGB
 #undef GFX_SetShader
 #undef GFX_GetBestMode
