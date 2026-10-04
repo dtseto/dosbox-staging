@@ -307,7 +307,11 @@ static void output_note_off_for_active_notes(const uint8_t channel)
 				                    note_off_msg_len,
 				                    msg.data.data());
 			}
-			midi.handler->PlayMsg(msg);
+			// BOXER-HOOK: midi-routing - Boxer owns the host MIDI handler.
+			// `midi.handler` is intentionally null when the DOSBox backend is
+			// bypassed, so synthetic note-offs must follow the same route as
+			// the original channel message.
+			boxer_sendMIDIMessage(msg.data.data());
 		}
 	}
 }
