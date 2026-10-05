@@ -69,6 +69,16 @@ typedef struct BXDOSBoxShellBridgeCallbacks {
     void (*didEndBatchFile)(uintptr_t shell, const char *path);
 } BXDOSBoxShellBridgeCallbacks;
 
+typedef struct BXDOSBoxFilesystemBridgeCallbacks {
+    bool (*shouldShowFileWithName)(const char *name);
+    bool (*shouldAllowWriteAccessToPath)(const char *path, uintptr_t drive);
+    void (*didCreateLocalFile)(const char *path, uintptr_t drive);
+    void (*didRemoveLocalFile)(const char *path, uintptr_t drive);
+    bool (*createLocalDir)(const char *path, uintptr_t drive);
+    void (*driveDidMount)(uint8_t driveIndex);
+    void (*driveDidUnmount)(uint8_t driveIndex);
+} BXDOSBoxFilesystemBridgeCallbacks;
+
 void boxer_registerDOSBoxAudioBridge(const BXDOSBoxAudioBridgeCallbacks *callbacks);
 #if defined(BXDOSBOX_PRODUCTION) || defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBridge(void);
@@ -78,6 +88,8 @@ void boxer_registerDOSBoxInputBridge(const BXDOSBoxInputBridgeCallbacks *callbac
 const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBridge(void);
 void boxer_registerDOSBoxShellBridge(const BXDOSBoxShellBridgeCallbacks *callbacks);
 const BXDOSBoxShellBridgeCallbacks *boxer_registeredDOSBoxShellBridge(void);
+void boxer_registerDOSBoxFilesystemBridge(const BXDOSBoxFilesystemBridgeCallbacks *callbacks);
+const BXDOSBoxFilesystemBridgeCallbacks *boxer_registeredDOSBoxFilesystemBridge(void);
 #endif
 
 #ifdef __cplusplus

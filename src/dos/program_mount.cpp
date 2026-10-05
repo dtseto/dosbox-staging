@@ -33,6 +33,9 @@
 #include "shell.h"
 #include "string_utils.h"
 
+#define BXDOSBOX_FILESYSTEM_CALLSITE 1
+#include "../../include/BXDOSBoxFilesystemCompatibility.h"
+
 void MOUNT::Move_Z(char new_z)
 {
 	const char new_drive_z = toupper(new_z);
@@ -477,3 +480,5 @@ void MOUNT::AddMessages() {
 	MSG_Add("PROGRAM_MOUNT_OVERLAY_STATUS","Overlay %s on drive %c mounted.\n");
 	MSG_Add("PROGRAM_MOUNT_MOVE_Z_ERROR_1", "Can't move drive Z. Drive %c is mounted already.\n");
 }
+
+#undef BXDOSBOX_FILESYSTEM_CALLSITE

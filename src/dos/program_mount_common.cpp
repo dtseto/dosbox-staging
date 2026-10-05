@@ -24,6 +24,9 @@
 #include "drives.h"
 #include "support.h"
 
+#define BXDOSBOX_FILESYSTEM_CALLSITE 1
+#include "../../include/BXDOSBoxFilesystemCompatibility.h"
+
 Bitu ZDRIVE_NUM = 25;
 
 const char *UnmountHelper(char umount)
@@ -98,3 +101,5 @@ void AddMountTypeMessages() {
 	MSG_Add("MOUNT_TYPE_VIRTUAL", "internal virtual drive");
 	MSG_Add("MOUNT_TYPE_UNKNOWN", "unknown drive");
 }
+
+#undef BXDOSBOX_FILESYSTEM_CALLSITE

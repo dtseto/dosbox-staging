@@ -38,6 +38,9 @@
 #include "shell.h"
 #include "string_utils.h"
 
+#define BXDOSBOX_FILESYSTEM_CALLSITE 1
+#include "../../include/BXDOSBoxFilesystemCompatibility.h"
+
 void IMGMOUNT::ListImgMounts(void)
 {
 	const std::string header_drive = MSG_Get("PROGRAM_MOUNT_STATUS_DRIVE");
@@ -569,3 +572,5 @@ void IMGMOUNT::AddMessages() {
 	MSG_Add("PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE", "The image must be on a host or local drive.\n");
 	MSG_Add("PROGRAM_IMGMOUNT_MULTIPLE_NON_CUEISO_FILES", "Using multiple files is only supported for cue/iso images.\n");
 }
+
+#undef BXDOSBOX_FILESYSTEM_CALLSITE

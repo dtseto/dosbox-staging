@@ -46,6 +46,9 @@
 #include "cross.h"
 #include "inout.h"
 
+#define BXDOSBOX_FILESYSTEM_CALLSITE 1
+#include "../../include/BXDOSBoxFilesystemCompatibility.h"
+
 bool localDrive::FileCreate(DOS_File * * file,char * name,uint16_t /*attributes*/) {
 //TODO Maybe care for attributes but not likely
 	char newname[CROSS_LEN];
@@ -1021,3 +1024,5 @@ Bits cdromDrive::UnMount(void) {
 	}
 	return 2;
 }
+
+#undef BXDOSBOX_FILESYSTEM_CALLSITE
