@@ -558,15 +558,20 @@ mixer_channel_t MIXER_FindChannel(const char *name)
 void MixerChannel::RecalcCombinedVolume()
 {
 	const auto *audio_bridge = boxer_registeredDOSBoxAudioBridge();
+	const auto master_volume = [audio_bridge](const BXDOSBoxAudioChannel channel) {
+		return audio_bridge && audio_bridge->masterVolume
+		             ? audio_bridge->masterVolume(channel)
+		             : 1.0f;
+	};
 	combined_volume_scalar.left = user_volume_scalar.left *
 	                              app_volume_scalar.left *
 	                              mixer.master_volume.left * db0_volume_scalar *
-	                              audio_bridge->masterVolume(BXDOSBoxAudioChannelLeft);
+	                              master_volume(BXDOSBoxAudioChannelLeft);
 
 	combined_volume_scalar.right = user_volume_scalar.right *
 	                               app_volume_scalar.right *
 	                               mixer.master_volume.right * db0_volume_scalar *
-	                               audio_bridge->masterVolume(BXDOSBoxAudioChannelRight);
+	                               master_volume(BXDOSBoxAudioChannelRight);
 }
 
 void MixerChannel::SetUserVolume(const float left, const float right)
@@ -2447,9 +2452,15 @@ private:
 		MIXER_LockAudioDevice();
 
 		constexpr auto master_channel_string = "[color=cyan]MASTER[reset]";
+		const auto *audio_bridge = boxer_registeredDOSBoxAudioBridge();
+		const auto master_volume = [audio_bridge](const BXDOSBoxAudioChannel channel) {
+			return audio_bridge && audio_bridge->masterVolume
+			             ? audio_bridge->masterVolume(channel)
+			             : 1.0f;
+		};
 		const AudioFrame boxer_master_volume = {
-		        boxer_registeredDOSBoxAudioBridge()->masterVolume(BXDOSBoxAudioChannelLeft),
-		        boxer_registeredDOSBoxAudioBridge()->masterVolume(BXDOSBoxAudioChannelRight)};
+		        master_volume(BXDOSBoxAudioChannelLeft),
+		        master_volume(BXDOSBoxAudioChannelRight)};
 
 		show_channel(convert_ansi_markup(master_channel_string),
 		             boxer_master_volume,

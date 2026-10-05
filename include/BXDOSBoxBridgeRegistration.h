@@ -33,14 +33,14 @@ typedef struct BXDOSBoxAudioBridgeCallbacks {
 } BXDOSBoxAudioBridgeCallbacks;
 
 void boxer_registerDOSBoxAudioBridge(const BXDOSBoxAudioBridgeCallbacks *callbacks);
-#ifdef BXDOSBOX_BRIDGE_IMPLEMENTATION
+#if defined(BXDOSBOX_PRODUCTION) || defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBridge(void);
 #endif
 
 #ifdef __cplusplus
 }
 
-#ifndef BXDOSBOX_BRIDGE_IMPLEMENTATION
+#if !defined(BXDOSBOX_PRODUCTION) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 /*
  * Compatibility fallback for DOSBox-only harnesses. The production Boxer
  * target supplies the registered table from BXCoalfaceAudio.mm; lightweight
