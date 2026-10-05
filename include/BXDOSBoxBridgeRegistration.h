@@ -32,9 +32,20 @@ typedef struct BXDOSBoxAudioBridgeCallbacks {
     void (*suggestMIDIHandler)(const char *handlerName, const char *configParams);
 } BXDOSBoxAudioBridgeCallbacks;
 
+typedef struct BXDOSBoxPrinterBridgeCallbacks {
+    bool (*isInitialized)(uintptr_t port);
+    uintptr_t (*readData)(uintptr_t port, uintptr_t width);
+    uintptr_t (*readControl)(uintptr_t port, uintptr_t width);
+    uintptr_t (*readStatus)(uintptr_t port, uintptr_t width);
+    void (*writeData)(uintptr_t port, uintptr_t value, uintptr_t width);
+    void (*writeControl)(uintptr_t port, uintptr_t value, uintptr_t width);
+} BXDOSBoxPrinterBridgeCallbacks;
+
 void boxer_registerDOSBoxAudioBridge(const BXDOSBoxAudioBridgeCallbacks *callbacks);
 #if defined(BXDOSBOX_PRODUCTION) || defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBridge(void);
+void boxer_registerDOSBoxPrinterBridge(const BXDOSBoxPrinterBridgeCallbacks *callbacks);
+const BXDOSBoxPrinterBridgeCallbacks *boxer_registeredDOSBoxPrinterBridge(void);
 #endif
 
 #ifdef __cplusplus
@@ -53,6 +64,14 @@ void boxer_sendMIDISysex(uint8_t *message, size_t length) BXDOSBOX_WEAK;
 float boxer_masterVolume(BXDOSBoxAudioChannel channel) BXDOSBOX_WEAK;
 void boxer_updateVolumes(void) BXDOSBOX_WEAK;
 void boxer_suggestMIDIHandler(std::string const &handlerName, const char *configParams) BXDOSBOX_WEAK;
+extern "C" {
+bool boxer_PRINTER_isInited(uintptr_t port) BXDOSBOX_WEAK;
+uintptr_t boxer_PRINTER_readdata(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
+uintptr_t boxer_PRINTER_readcontrol(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
+uintptr_t boxer_PRINTER_readstatus(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
+void boxer_PRINTER_writedata(uintptr_t port, uintptr_t value, uintptr_t width) BXDOSBOX_WEAK;
+void boxer_PRINTER_writecontrol(uintptr_t port, uintptr_t value, uintptr_t width) BXDOSBOX_WEAK;
+}
 
 static inline void boxer_bridgeSuggestMIDIHandler(const char *handlerName, const char *configParams)
 {
@@ -91,6 +110,28 @@ static inline const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBri
 #endif
     return &callbacks;
 }
+
+static inline const BXDOSBoxPrinterBridgeCallbacks *boxer_registeredDOSBoxPrinterBridge(void)
+{
+    static const BXDOSBoxPrinterBridgeCallbacks callbacks = {
+        boxer_PRINTER_isInited,
+        boxer_PRINTER_readdata,
+        boxer_PRINTER_readcontrol,
+        boxer_PRINTER_readstatus,
+        boxer_PRINTER_writedata,
+        boxer_PRINTER_writecontrol
+    };
+    return &callbacks;
+}
+#endif
+
+#if defined(BXDOSBOX_PRINTER_CALLSITE) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
+#define boxer_PRINTER_isInited(port) boxer_registeredDOSBoxPrinterBridge()->isInitialized(port)
+#define boxer_PRINTER_readdata(port, width) boxer_registeredDOSBoxPrinterBridge()->readData(port, width)
+#define boxer_PRINTER_readcontrol(port, width) boxer_registeredDOSBoxPrinterBridge()->readControl(port, width)
+#define boxer_PRINTER_readstatus(port, width) boxer_registeredDOSBoxPrinterBridge()->readStatus(port, width)
+#define boxer_PRINTER_writedata(port, value, width) boxer_registeredDOSBoxPrinterBridge()->writeData(port, value, width)
+#define boxer_PRINTER_writecontrol(port, value, width) boxer_registeredDOSBoxPrinterBridge()->writeControl(port, value, width)
 #endif
 #endif
 
