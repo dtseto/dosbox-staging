@@ -41,11 +41,22 @@ typedef struct BXDOSBoxPrinterBridgeCallbacks {
     void (*writeControl)(uintptr_t port, uintptr_t value, uintptr_t width);
 } BXDOSBoxPrinterBridgeCallbacks;
 
+typedef struct BXDOSBoxInputBridgeCallbacks {
+    uintptr_t (*numKeyCodesInPasteBuffer)(void);
+    bool (*continueListeningForKeyEvents)(void);
+    bool (*getNextKeyCodeInPasteBuffer)(uint16_t *outKeyCode, bool consumeKey);
+    void (*setCapsLockActive)(bool active);
+    void (*setNumLockActive)(bool active);
+    void (*setScrollLockActive)(bool active);
+} BXDOSBoxInputBridgeCallbacks;
+
 void boxer_registerDOSBoxAudioBridge(const BXDOSBoxAudioBridgeCallbacks *callbacks);
 #if defined(BXDOSBOX_PRODUCTION) || defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBridge(void);
 void boxer_registerDOSBoxPrinterBridge(const BXDOSBoxPrinterBridgeCallbacks *callbacks);
 const BXDOSBoxPrinterBridgeCallbacks *boxer_registeredDOSBoxPrinterBridge(void);
+void boxer_registerDOSBoxInputBridge(const BXDOSBoxInputBridgeCallbacks *callbacks);
+const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBridge(void);
 #endif
 
 #ifdef __cplusplus
@@ -71,6 +82,12 @@ uintptr_t boxer_PRINTER_readcontrol(uintptr_t port, uintptr_t width) BXDOSBOX_WE
 uintptr_t boxer_PRINTER_readstatus(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
 void boxer_PRINTER_writedata(uintptr_t port, uintptr_t value, uintptr_t width) BXDOSBOX_WEAK;
 void boxer_PRINTER_writecontrol(uintptr_t port, uintptr_t value, uintptr_t width) BXDOSBOX_WEAK;
+uintptr_t boxer_numKeyCodesInPasteBuffer(void) BXDOSBOX_WEAK;
+bool boxer_continueListeningForKeyEvents(void) BXDOSBOX_WEAK;
+bool boxer_getNextKeyCodeInPasteBuffer(uint16_t *outKeyCode, bool consumeKey) BXDOSBOX_WEAK;
+void boxer_setCapsLockActive(bool active) BXDOSBOX_WEAK;
+void boxer_setNumLockActive(bool active) BXDOSBOX_WEAK;
+void boxer_setScrollLockActive(bool active) BXDOSBOX_WEAK;
 }
 
 static inline void boxer_bridgeSuggestMIDIHandler(const char *handlerName, const char *configParams)
@@ -123,6 +140,19 @@ static inline const BXDOSBoxPrinterBridgeCallbacks *boxer_registeredDOSBoxPrinte
     };
     return &callbacks;
 }
+
+static inline const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBridge(void)
+{
+    static const BXDOSBoxInputBridgeCallbacks callbacks = {
+        boxer_numKeyCodesInPasteBuffer,
+        boxer_continueListeningForKeyEvents,
+        boxer_getNextKeyCodeInPasteBuffer,
+        boxer_setCapsLockActive,
+        boxer_setNumLockActive,
+        boxer_setScrollLockActive
+    };
+    return &callbacks;
+}
 #endif
 
 #if defined(BXDOSBOX_PRINTER_CALLSITE) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
@@ -132,6 +162,15 @@ static inline const BXDOSBoxPrinterBridgeCallbacks *boxer_registeredDOSBoxPrinte
 #define boxer_PRINTER_readstatus(port, width) boxer_registeredDOSBoxPrinterBridge()->readStatus(port, width)
 #define boxer_PRINTER_writedata(port, value, width) boxer_registeredDOSBoxPrinterBridge()->writeData(port, value, width)
 #define boxer_PRINTER_writecontrol(port, value, width) boxer_registeredDOSBoxPrinterBridge()->writeControl(port, value, width)
+#endif
+
+#if defined(BXDOSBOX_INPUT_CALLSITE) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
+#define boxer_numKeyCodesInPasteBuffer() boxer_registeredDOSBoxInputBridge()->numKeyCodesInPasteBuffer()
+#define boxer_continueListeningForKeyEvents() boxer_registeredDOSBoxInputBridge()->continueListeningForKeyEvents()
+#define boxer_getNextKeyCodeInPasteBuffer(outKeyCode, consumeKey) boxer_registeredDOSBoxInputBridge()->getNextKeyCodeInPasteBuffer(outKeyCode, consumeKey)
+#define boxer_setCapsLockActive(active) boxer_registeredDOSBoxInputBridge()->setCapsLockActive(active)
+#define boxer_setNumLockActive(active) boxer_registeredDOSBoxInputBridge()->setNumLockActive(active)
+#define boxer_setScrollLockActive(active) boxer_registeredDOSBoxInputBridge()->setScrollLockActive(active)
 #endif
 #endif
 

@@ -27,6 +27,9 @@
 #include "inout.h"
 #include "dos_inc.h"
 
+#define BXDOSBOX_INPUT_CALLSITE 1
+#include "../../include/BXDOSBoxBridgeRegistration.h"
+
 static callback_number_t call_int16 = 0;
 static callback_number_t call_irq1  = 0;
 static callback_number_t call_irq6  = 0;
@@ -666,3 +669,5 @@ void BIOS_SetupKeyboard(void) {
 		//	iret
 	}
 }
+
+#undef BXDOSBOX_INPUT_CALLSITE

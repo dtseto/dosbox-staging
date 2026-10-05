@@ -36,6 +36,9 @@ using sv = std::string_view;
 #include "setup.h"
 #include "string_utils.h"
 
+#define BXDOSBOX_INPUT_CALLSITE 1
+#include "../../include/BXDOSBoxBridgeRegistration.h"
+
 // The default codepage for DOS
 constexpr uint16_t default_cp_437 = 437;
 constexpr auto default_country    = Country::United_States;
@@ -1847,3 +1850,5 @@ void DOS_KeyboardLayout_Init(Section *sec)
 	const auto settings = static_cast<const Section_prop *>(sec);
 	set_country_from_pref(settings->Get_int("country"));
 }
+
+#undef BXDOSBOX_INPUT_CALLSITE

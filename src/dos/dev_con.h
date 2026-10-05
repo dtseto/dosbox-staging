@@ -18,6 +18,9 @@
 
 #include "dos_inc.h"
 
+#define BXDOSBOX_INPUT_CALLSITE 1
+#include "../../include/BXDOSBoxBridgeRegistration.h"
+
 #include <cstring>
 
 #include "../ints/int10.h"
@@ -443,5 +446,7 @@ void device_CON::Output(uint8_t chr) {
 			}
 		}
 		INT10_TeletypeOutputAttr(chr,ansi.attr,true);
-	} else INT10_TeletypeOutput(chr,7);
+ } else INT10_TeletypeOutput(chr,7);
  }
+
+#undef BXDOSBOX_INPUT_CALLSITE

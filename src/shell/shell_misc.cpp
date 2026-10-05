@@ -31,6 +31,9 @@
 #include "string_utils.h"
 #include "../ints/int10.h"
 
+#define BXDOSBOX_INPUT_CALLSITE 1
+#include "../../include/BXDOSBoxBridgeRegistration.h"
+
 DOS_Shell::~DOS_Shell() {
 	bf.reset();
 }
@@ -767,3 +770,5 @@ const char *DOS_Shell::Which(const char *name) const
 	}
 	return 0;
 }
+
+#undef BXDOSBOX_INPUT_CALLSITE
