@@ -48,6 +48,8 @@
 // BOXER-HOOK: mt32-config-section
 // BOXER-HOOK: parallel-config-section
 #include "BXMIDIConfig.hpp"
+#define BXDOSBOX_RUNLOOP_CALLSITE 1
+#include "../include/BXDOSBoxRunLoopCompatibility.h"
 //--End of modifications
 #include "hardware.h"
 #include "inout.h"
@@ -345,6 +347,8 @@ void DOSBOX_RunMachine()
         // BOXER-END: runloop-context
 	};
 }
+
+#undef BXDOSBOX_RUNLOOP_CALLSITE
 
 static void DOSBOX_UnlockSpeed( bool pressed ) {
 	static bool autoadjust = false;

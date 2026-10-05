@@ -79,6 +79,12 @@ typedef struct BXDOSBoxFilesystemBridgeCallbacks {
     void (*driveDidUnmount)(uint8_t driveIndex);
 } BXDOSBoxFilesystemBridgeCallbacks;
 
+typedef struct BXDOSBoxRunLoopBridgeCallbacks {
+    bool (*shouldContinue)(void);
+    void (*willStartWithContextInfo)(void **contextInfo);
+    void (*didFinishWithContextInfo)(void *contextInfo);
+} BXDOSBoxRunLoopBridgeCallbacks;
+
 void boxer_registerDOSBoxAudioBridge(const BXDOSBoxAudioBridgeCallbacks *callbacks);
 #if defined(BXDOSBOX_PRODUCTION) || defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBridge(void);
@@ -90,6 +96,8 @@ void boxer_registerDOSBoxShellBridge(const BXDOSBoxShellBridgeCallbacks *callbac
 const BXDOSBoxShellBridgeCallbacks *boxer_registeredDOSBoxShellBridge(void);
 void boxer_registerDOSBoxFilesystemBridge(const BXDOSBoxFilesystemBridgeCallbacks *callbacks);
 const BXDOSBoxFilesystemBridgeCallbacks *boxer_registeredDOSBoxFilesystemBridge(void);
+void boxer_registerDOSBoxRunLoopBridge(const BXDOSBoxRunLoopBridgeCallbacks *callbacks);
+const BXDOSBoxRunLoopBridgeCallbacks *boxer_registeredDOSBoxRunLoopBridge(void);
 #endif
 
 #ifdef __cplusplus
