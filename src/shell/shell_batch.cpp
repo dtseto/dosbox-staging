@@ -18,6 +18,9 @@
 
 #include "shell.h"
 
+#define BXDOSBOX_SHELL_CALLSITE 1
+#include "../../include/BXDOSBoxShellCompatibility.h"
+
 #include <climits>
 #include <stdlib.h>
 #include <string.h>
@@ -295,3 +298,5 @@ void BatchFile::Shift()
 {
 	cmd->Shift(1);
 }
+
+#undef BXDOSBOX_SHELL_CALLSITE

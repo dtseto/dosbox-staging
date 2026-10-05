@@ -50,6 +50,25 @@ typedef struct BXDOSBoxInputBridgeCallbacks {
     void (*setScrollLockActive)(bool active);
 } BXDOSBoxInputBridgeCallbacks;
 
+typedef struct BXDOSBoxShellBridgeCallbacks {
+    void (*willStart)(uintptr_t shell);
+    void (*didFinish)(uintptr_t shell);
+    bool (*shouldContinue)(uintptr_t shell);
+    bool (*shouldRunCommand)(uintptr_t shell, char *command, char *arguments);
+    bool (*handleCommandInput)(uintptr_t shell, char *line, uintptr_t *cursorPosition, bool *executeImmediately);
+    bool (*hasPendingCommands)(uintptr_t shell);
+    bool (*executeNextPendingCommand)(uintptr_t shell);
+    void (*didReturnToShell)(uintptr_t shell);
+    void (*willStartAutoexec)(uintptr_t shell);
+    bool (*shouldDisplayStartupMessages)(uintptr_t shell);
+    void (*willReadCommandInputFromHandle)(uintptr_t shell, uint16_t handle);
+    void (*didReadCommandInputFromHandle)(uintptr_t shell, uint16_t handle);
+    void (*willExecuteFileAtDOSPath)(uintptr_t shell, const char *path, const char *arguments);
+    void (*didExecuteFileAtDOSPath)(uintptr_t shell, const char *path);
+    void (*willBeginBatchFile)(uintptr_t shell, const char *path, const char *arguments);
+    void (*didEndBatchFile)(uintptr_t shell, const char *path);
+} BXDOSBoxShellBridgeCallbacks;
+
 void boxer_registerDOSBoxAudioBridge(const BXDOSBoxAudioBridgeCallbacks *callbacks);
 #if defined(BXDOSBOX_PRODUCTION) || defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBridge(void);
@@ -57,6 +76,8 @@ void boxer_registerDOSBoxPrinterBridge(const BXDOSBoxPrinterBridgeCallbacks *cal
 const BXDOSBoxPrinterBridgeCallbacks *boxer_registeredDOSBoxPrinterBridge(void);
 void boxer_registerDOSBoxInputBridge(const BXDOSBoxInputBridgeCallbacks *callbacks);
 const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBridge(void);
+void boxer_registerDOSBoxShellBridge(const BXDOSBoxShellBridgeCallbacks *callbacks);
+const BXDOSBoxShellBridgeCallbacks *boxer_registeredDOSBoxShellBridge(void);
 #endif
 
 #ifdef __cplusplus

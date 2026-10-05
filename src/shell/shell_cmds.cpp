@@ -21,6 +21,9 @@
 
 #include "shell.h"
 
+#define BXDOSBOX_SHELL_CALLSITE 1
+#include "../../include/BXDOSBoxShellCompatibility.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -236,6 +239,8 @@ void DOS_Shell::CMD_CLS(char *args)
 		CALLBACK_RunRealInt(0x10);
 	}
 }
+
+#undef BXDOSBOX_SHELL_CALLSITE
 
 void DOS_Shell::CMD_DELETE(char * args) {
 	// BOXER-HOOK: delete-help-if-no-args

@@ -19,6 +19,9 @@
 
 #include "shell.h"
 
+#define BXDOSBOX_SHELL_CALLSITE 1
+#include "../../include/BXDOSBoxShellCompatibility.h"
+
 #include <list>
 #include <memory>
 #include <stdarg.h>
@@ -1666,3 +1669,5 @@ void SHELL_Init() {
 	delete first_shell;
 	first_shell = nullptr; // Make clear that it shouldn't be used anymore
 }
+
+#undef BXDOSBOX_SHELL_CALLSITE
