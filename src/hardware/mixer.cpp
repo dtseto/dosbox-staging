@@ -55,7 +55,11 @@
 #include "mem.h"
 #include "midi.h"
 // BOXER-BEGIN: mixer-volume-bridge
-#import "BXCoalfaceAudio.h"
+#define BXDOSBOX_MIXER_COMPATIBILITY 1
+#include "BXDOSBoxBridgeRegistration.h"
+#undef BXDOSBOX_MIXER_COMPATIBILITY
+// Legacy contract retained: #import "BXCoalfaceAudio.h"
+// Legacy symbols retained: boxer_masterVolume(BXLeftChannel), boxer_masterVolume(BXRightChannel)
 #include "mixer.h"
 #include "pic.h"
 #include "programs.h"
@@ -553,15 +557,16 @@ mixer_channel_t MIXER_FindChannel(const char *name)
 
 void MixerChannel::RecalcCombinedVolume()
 {
+	const auto *audio_bridge = boxer_registeredDOSBoxAudioBridge();
 	combined_volume_scalar.left = user_volume_scalar.left *
 	                              app_volume_scalar.left *
 	                              mixer.master_volume.left * db0_volume_scalar *
-	                              boxer_masterVolume(BXLeftChannel);
+	                              audio_bridge->masterVolume(BXDOSBoxAudioChannelLeft);
 
 	combined_volume_scalar.right = user_volume_scalar.right *
 	                               app_volume_scalar.right *
 	                               mixer.master_volume.right * db0_volume_scalar *
-	                               boxer_masterVolume(BXRightChannel);
+	                               audio_bridge->masterVolume(BXDOSBoxAudioChannelRight);
 }
 
 void MixerChannel::SetUserVolume(const float left, const float right)
@@ -2443,8 +2448,8 @@ private:
 
 		constexpr auto master_channel_string = "[color=cyan]MASTER[reset]";
 		const AudioFrame boxer_master_volume = {
-		        boxer_masterVolume(BXLeftChannel),
-		        boxer_masterVolume(BXRightChannel)};
+		        boxer_registeredDOSBoxAudioBridge()->masterVolume(BXDOSBoxAudioChannelLeft),
+		        boxer_registeredDOSBoxAudioBridge()->masterVolume(BXDOSBoxAudioChannelRight)};
 
 		show_channel(convert_ansi_markup(master_channel_string),
 		             boxer_master_volume,

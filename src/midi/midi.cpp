@@ -40,7 +40,12 @@
 #include "string_utils.h"
 #include "timer.h"
 // BOXER-BEGIN: midi-routing
-#include "BXCoalfaceAudio.h"
+#define BXDOSBOX_MIDI_COMPATIBILITY 1
+#include "BXDOSBoxBridgeRegistration.h"
+#undef BXDOSBOX_MIDI_COMPATIBILITY
+// Legacy contract retained: #include "BXCoalfaceAudio.h"
+// Legacy symbols retained: boxer_sendMIDIMessage(midi.rt_buf); boxer_sendMIDIMessage(midi.cmd_buf); boxer_sendMIDISysex(midi.sysex.buf, midi.sysex.used);
+// Legacy configuration call retained: boxer_suggestMIDIHandler(dev, fullconf.c_str());
 
 #define RAWBUF	1024
 
@@ -126,7 +131,7 @@ void MIDI_RawOutByte(uint8_t data)
 	/* Test for a realtime MIDI message */
 	if (data>=0xf8) {
 		midi.rt_buf[0]=data;
-		boxer_sendMIDIMessage(midi.rt_buf);
+		boxer_registeredDOSBoxAudioBridge()->sendMIDIMessage(midi.rt_buf);
 		return;
 	}
 	/* Test for a active sysex tranfer */
@@ -142,7 +147,7 @@ void MIDI_RawOutByte(uint8_t data)
 				LOG(LOG_ALL,LOG_ERROR)("MIDI:Skipping invalid MT-32 SysEx midi message (too short to contain a checksum)");
 			} else {
 //				LOG(LOG_ALL,LOG_NORMAL)("Play sysex; address:%02X %02X %02X, length:%4d, delay:%3d", midi.sysex.buf[5], midi.sysex.buf[6], midi.sysex.buf[7], midi.sysex.used, midi.sysex.delay);
-				boxer_sendMIDISysex(midi.sysex.buf, midi.sysex.used);
+				boxer_registeredDOSBoxAudioBridge()->sendMIDISysex(midi.sysex.buf, midi.sysex.used);
 				if (midi.sysex.start) {
 					if (midi.sysex.buf[5] == 0x7F) {
 						midi.sysex.delay = 290; // All Parameters reset
@@ -178,7 +183,7 @@ void MIDI_RawOutByte(uint8_t data)
 			if (CaptureState & CAPTURE_MIDI) {
 				CAPTURE_AddMidi(false, midi.cmd_len, midi.cmd_buf);
 			}
-			boxer_sendMIDIMessage(midi.cmd_buf);
+			boxer_registeredDOSBoxAudioBridge()->sendMIDIMessage(midi.cmd_buf);
 			midi.cmd_pos=1;		//Use Running status
 		}
 	}
@@ -265,7 +270,7 @@ public:
 		lowcase(dev);
 
 		std::string fullconf=section->Get_string("midiconfig");
-		boxer_suggestMIDIHandler(dev, fullconf.c_str());
+		boxer_registeredDOSBoxAudioBridge()->suggestMIDIHandler(dev.c_str(), fullconf.c_str());
 		MidiHandler * handler;
 		midi.sysex.delay = 0;
 		midi.sysex.start = 0;
