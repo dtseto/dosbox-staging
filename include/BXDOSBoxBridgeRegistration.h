@@ -85,6 +85,18 @@ typedef struct BXDOSBoxRunLoopBridgeCallbacks {
     void (*didFinishWithContextInfo)(void *contextInfo);
 } BXDOSBoxRunLoopBridgeCallbacks;
 
+typedef struct BXDOSBoxRenderingBridgeCallbacks {
+    void (*applyRenderingStrategy)(void);
+    uintptr_t (*prepareForFrameSize)(uintptr_t width, uintptr_t height, uintptr_t flags,
+                                     double scaleX, double scaleY, uintptr_t callback,
+                                     double pixelAspect);
+    uintptr_t (*idealOutputMode)(uintptr_t flags);
+    bool (*startFrame)(uint8_t **pixels, int *pitch);
+    void (*finishFrame)(const uint16_t *dirtyBlocks);
+    uintptr_t (*getRGBPaletteEntry)(uint8_t red, uint8_t green, uint8_t blue);
+    void (*setShader)(const char *source);
+} BXDOSBoxRenderingBridgeCallbacks;
+
 void boxer_registerDOSBoxAudioBridge(const BXDOSBoxAudioBridgeCallbacks *callbacks);
 #if defined(BXDOSBOX_PRODUCTION) || defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBridge(void);
@@ -98,6 +110,8 @@ void boxer_registerDOSBoxFilesystemBridge(const BXDOSBoxFilesystemBridgeCallback
 const BXDOSBoxFilesystemBridgeCallbacks *boxer_registeredDOSBoxFilesystemBridge(void);
 void boxer_registerDOSBoxRunLoopBridge(const BXDOSBoxRunLoopBridgeCallbacks *callbacks);
 const BXDOSBoxRunLoopBridgeCallbacks *boxer_registeredDOSBoxRunLoopBridge(void);
+void boxer_registerDOSBoxRenderingBridge(const BXDOSBoxRenderingBridgeCallbacks *callbacks);
+const BXDOSBoxRenderingBridgeCallbacks *boxer_registeredDOSBoxRenderingBridge(void);
 #endif
 
 #ifdef __cplusplus

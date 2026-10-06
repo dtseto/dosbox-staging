@@ -43,6 +43,9 @@
 #include "vga.h"
 #include "video.h"
 
+#define BXDOSBOX_RENDERING_CALLSITE 1
+#include "../../include/BXDOSBoxRenderingCompatibility.h"
+
 #include "render_scalers.h"
 
 Render_t render;
@@ -803,3 +806,5 @@ void RENDER_Init(Section *sec)
 
 	MAPPER_AddHandler(ReloadShader, SDL_SCANCODE_F2, PRIMARY_MOD, "reloadshader", "Reload Shader");
 }
+
+#undef BXDOSBOX_RENDERING_CALLSITE
