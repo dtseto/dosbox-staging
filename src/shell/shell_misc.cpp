@@ -407,7 +407,6 @@ void DOS_Shell::InputCommand(char * line) {
 			break;
 		default:
 			if (l_completion.size()) l_completion.clear();
-			// BOXER-BEGIN: input-command-bounds
 			// Never write past the end of the CMD_MAXLINE line buffer:
 			// when size is exhausted (0, e.g. after an injected command
 			// or Return) ignore further phantom input instead of
