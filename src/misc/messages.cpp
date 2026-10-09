@@ -21,6 +21,12 @@
 
 #include "dosbox.h"
 
+// BOXER-BEGIN: diagnostics-bridge
+#define BXDOSBOX_DIAGNOSTICS_CALLSITE 1
+#include "../../include/BXDOSBoxDiagnosticsCompatibility.h"
+#undef BXDOSBOX_DIAGNOSTICS_CALLSITE
+// BOXER-END: diagnostics-bridge
+
 #include <clocale>
 #include <cstdio>
 #include <cstdlib>

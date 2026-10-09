@@ -93,6 +93,13 @@ typedef struct BXDOSBoxRenderingBridgeCallbacks {
     void (*setShader)(const char *source);
 } BXDOSBoxRenderingBridgeCallbacks;
 
+typedef struct BXDOSBoxDiagnosticsBridgeCallbacks {
+    const char *(*localizedStringForKey)(const char *key);
+    void (*logMessage)(const char *message);
+    void (*fatalError)(const char *functionName, const char *fileName, int lineNumber,
+                       const char *message);
+} BXDOSBoxDiagnosticsBridgeCallbacks;
+
 void boxer_registerDOSBoxAudioBridge(const BXDOSBoxAudioBridgeCallbacks *callbacks);
 /*
  * Registration copies the callback table by value. Passing NULL is ignored;
@@ -114,6 +121,8 @@ void boxer_registerDOSBoxRunLoopBridge(const BXDOSBoxRunLoopBridgeCallbacks *cal
 const BXDOSBoxRunLoopBridgeCallbacks *boxer_registeredDOSBoxRunLoopBridge(void);
 void boxer_registerDOSBoxRenderingBridge(const BXDOSBoxRenderingBridgeCallbacks *callbacks);
 const BXDOSBoxRenderingBridgeCallbacks *boxer_registeredDOSBoxRenderingBridge(void);
+void boxer_registerDOSBoxDiagnosticsBridge(const BXDOSBoxDiagnosticsBridgeCallbacks *callbacks);
+const BXDOSBoxDiagnosticsBridgeCallbacks *boxer_registeredDOSBoxDiagnosticsBridge(void);
 #endif
 
 #ifdef __cplusplus
