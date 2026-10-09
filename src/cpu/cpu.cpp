@@ -31,8 +31,10 @@
 #include "lazyflags.h"
 #include "support.h"
 
-extern void GFX_RefreshTitle();
-extern void GFX_SetTitle(const int32_t cycles, const bool paused = false);
+#if defined(BXDOSBOX_PRODUCTION)
+#define BXDOSBOX_EVENT_CALLSITE 1
+#include "../../include/BXDOSBoxEventCompatibility.h"
+#endif
 
 #if 1
 #undef LOG

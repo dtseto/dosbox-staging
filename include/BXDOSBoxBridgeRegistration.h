@@ -81,6 +81,18 @@ typedef struct BXDOSBoxRunLoopBridgeCallbacks {
     void (*didFinishWithContextInfo)(void *contextInfo);
 } BXDOSBoxRunLoopBridgeCallbacks;
 
+typedef struct BXDOSBoxEventBridgeCallbacks {
+    bool (*processEvents)(void);
+    void (*handleTitleChange)(int32_t cycles, bool paused);
+    void (*refreshTitle)(void);
+    void (*setMouseHint)(uintptr_t hint);
+    void (*setMouseCapture)(bool captured);
+    void (*setMouseRawInput)(bool rawInput);
+    void (*setMouseVisibility)(bool visible);
+    bool (*hasDesktopEnvironment)(void);
+    void (*centerMouse)(void);
+} BXDOSBoxEventBridgeCallbacks;
+
 typedef struct BXDOSBoxRenderingBridgeCallbacks {
     void (*applyRenderingStrategy)(void);
     uintptr_t (*prepareForFrameSize)(uintptr_t width, uintptr_t height, uintptr_t flags,
@@ -119,6 +131,8 @@ void boxer_registerDOSBoxFilesystemBridge(const BXDOSBoxFilesystemBridgeCallback
 const BXDOSBoxFilesystemBridgeCallbacks *boxer_registeredDOSBoxFilesystemBridge(void);
 void boxer_registerDOSBoxRunLoopBridge(const BXDOSBoxRunLoopBridgeCallbacks *callbacks);
 const BXDOSBoxRunLoopBridgeCallbacks *boxer_registeredDOSBoxRunLoopBridge(void);
+void boxer_registerDOSBoxEventBridge(const BXDOSBoxEventBridgeCallbacks *callbacks);
+const BXDOSBoxEventBridgeCallbacks *boxer_registeredDOSBoxEventBridge(void);
 void boxer_registerDOSBoxRenderingBridge(const BXDOSBoxRenderingBridgeCallbacks *callbacks);
 const BXDOSBoxRenderingBridgeCallbacks *boxer_registeredDOSBoxRenderingBridge(void);
 void boxer_registerDOSBoxDiagnosticsBridge(const BXDOSBoxDiagnosticsBridgeCallbacks *callbacks);

@@ -32,6 +32,11 @@
 
 const char * RunningProgram="DOSBOX";
 
+#if defined(BXDOSBOX_PRODUCTION)
+#define BXDOSBOX_EVENT_CALLSITE 1
+#include "../../include/BXDOSBoxEventCompatibility.h"
+#endif
+
 #ifdef _MSC_VER
 #pragma pack(1)
 #endif
@@ -64,8 +69,8 @@ struct EXE_Header {
 #define OVERLAY 3
 
 
-extern void GFX_RefreshTitle();
-extern void GFX_SetTitle(const int32_t cycles, const bool paused = false);
+#define BXDOSBOX_EVENT_CALLSITE 1
+#include "../../include/BXDOSBoxEventCompatibility.h"
 
 void DOS_UpdatePSPName(void) {
 	DOS_MCB mcb(dos.psp()-1);

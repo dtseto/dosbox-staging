@@ -50,6 +50,12 @@
 #include "BXMIDIConfig.hpp"
 #define BXDOSBOX_RUNLOOP_CALLSITE 1
 #include "../include/BXDOSBoxRunLoopCompatibility.h"
+#if defined(BXDOSBOX_PRODUCTION)
+// BOXER-BEGIN: event-mouse-title-bridge
+#define BXDOSBOX_EVENT_CALLSITE 1
+#include "../include/BXDOSBoxEventCompatibility.h"
+// BOXER-END: event-mouse-title-bridge
+#endif
 //--End of modifications
 #include "hardware.h"
 #include "inout.h"

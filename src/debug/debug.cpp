@@ -51,6 +51,11 @@ using namespace std;
 #include "keyboard.h"
 #include "setup.h"
 
+#if defined(BXDOSBOX_PRODUCTION)
+#define BXDOSBOX_EVENT_CALLSITE 1
+#include "../../include/BXDOSBoxEventCompatibility.h"
+#endif
+
 SDL_Window *GFX_GetSDLWindow(void);
 
 int old_cursor_state;

@@ -35,6 +35,11 @@
 #include "pic.h"
 #include "video.h"
 
+#if defined(BXDOSBOX_PRODUCTION)
+#define BXDOSBOX_EVENT_CALLSITE 1
+#include "../../include/BXDOSBoxEventCompatibility.h"
+#endif
+
 CHECK_NARROWING();
 
 static callback_number_t int74_ret_callback = 0;
