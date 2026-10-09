@@ -54,7 +54,14 @@ static inline const BXDOSBoxRenderingBridgeCallbacks *boxer_registeredDOSBoxRend
         boxer_renderingBridgeStartFrame,
         boxer_renderingBridgeFinishFrame,
         boxer_renderingBridgeGetRGBPaletteEntry,
-        boxer_renderingBridgeSetShader
+        boxer_renderingBridgeSetShader,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
     };
     return &callbacks;
 }

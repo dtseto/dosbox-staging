@@ -103,6 +103,13 @@ typedef struct BXDOSBoxRenderingBridgeCallbacks {
     void (*finishFrame)(const uint16_t *dirtyBlocks);
     uintptr_t (*getRGBPaletteEntry)(uint8_t red, uint8_t green, uint8_t blue);
     void (*setShader)(const char *source);
+    uint8_t (*herculesTintMode)(void);
+    void (*setHerculesTintMode)(uint8_t mode);
+    double (*cgaCompositeHueOffset)(void);
+    void (*setCGACompositeHueOffset)(double offset);
+    uint8_t (*cgaComponentMode)(void);
+    void (*setCGAComponentMode)(uint8_t mode);
+    int (*getDisplayRefreshRate)(void);
 } BXDOSBoxRenderingBridgeCallbacks;
 
 typedef struct BXDOSBoxDiagnosticsBridgeCallbacks {
