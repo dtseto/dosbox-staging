@@ -41,7 +41,7 @@
 #include "timer.h"
 // BOXER-BEGIN: midi-routing
 #define BXDOSBOX_MIDI_COMPATIBILITY 1
-#include "BXDOSBoxBridgeRegistration.h"
+#include "BXDOSBoxLegacyCompatibility.h"
 #undef BXDOSBOX_MIDI_COMPATIBILITY
 // Legacy contract retained: #include "BXCoalfaceAudio.h"
 // Legacy symbols retained: boxer_sendMIDIMessage(midi.rt_buf); boxer_sendMIDIMessage(midi.cmd_buf); boxer_sendMIDISysex(midi.sysex.buf, midi.sysex.used);

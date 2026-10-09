@@ -30,7 +30,7 @@
 // Upstream risk: Upstream printer backends would bypass Boxer's print session
 // UI and output pipeline.
 #define BXDOSBOX_PRINTER_CALLSITE 1
-#include "BXDOSBoxBridgeRegistration.h"
+#include "BXDOSBoxLegacyCompatibility.h"
 #undef BXDOSBOX_PRINTER_CALLSITE
 // Legacy contract retained: #import "BXCoalface.h"
 // Legacy symbols retained: boxer_PRINTER_isInited, boxer_PRINTER_writedata

@@ -11,10 +11,6 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-#include <string>
-#endif
-
-#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -98,6 +94,12 @@ typedef struct BXDOSBoxRenderingBridgeCallbacks {
 } BXDOSBoxRenderingBridgeCallbacks;
 
 void boxer_registerDOSBoxAudioBridge(const BXDOSBoxAudioBridgeCallbacks *callbacks);
+/*
+ * Registration copies the callback table by value. Passing NULL is ignored;
+ * it does not unregister an existing table. Accessors lazily install the
+ * Boxer host defaults on first use, and the copied function pointers must
+ * remain callable for the lifetime of the DOSBox session.
+ */
 #if defined(BXDOSBOX_PRODUCTION) || defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBridge(void);
 void boxer_registerDOSBoxPrinterBridge(const BXDOSBoxPrinterBridgeCallbacks *callbacks);
@@ -116,117 +118,6 @@ const BXDOSBoxRenderingBridgeCallbacks *boxer_registeredDOSBoxRenderingBridge(vo
 
 #ifdef __cplusplus
 }
-
-#if !defined(BXDOSBOX_PRODUCTION) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
-/*
- * Compatibility fallback for DOSBox-only harnesses. The production Boxer
- * target supplies the registered table from BXCoalfaceAudio.mm; lightweight
- * runtime harnesses can continue providing the legacy symbols directly.
- */
-#define BXDOSBOX_WEAK __attribute__((weak))
-bool boxer_MIDIAvailable(void) BXDOSBOX_WEAK;
-void boxer_sendMIDIMessage(uint8_t *message) BXDOSBOX_WEAK;
-void boxer_sendMIDISysex(uint8_t *message, size_t length) BXDOSBOX_WEAK;
-float boxer_masterVolume(BXDOSBoxAudioChannel channel) BXDOSBOX_WEAK;
-void boxer_updateVolumes(void) BXDOSBOX_WEAK;
-void boxer_suggestMIDIHandler(std::string const &handlerName, const char *configParams) BXDOSBOX_WEAK;
-extern "C" {
-bool boxer_PRINTER_isInited(uintptr_t port) BXDOSBOX_WEAK;
-uintptr_t boxer_PRINTER_readdata(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
-uintptr_t boxer_PRINTER_readcontrol(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
-uintptr_t boxer_PRINTER_readstatus(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
-void boxer_PRINTER_writedata(uintptr_t port, uintptr_t value, uintptr_t width) BXDOSBOX_WEAK;
-void boxer_PRINTER_writecontrol(uintptr_t port, uintptr_t value, uintptr_t width) BXDOSBOX_WEAK;
-uintptr_t boxer_numKeyCodesInPasteBuffer(void) BXDOSBOX_WEAK;
-bool boxer_continueListeningForKeyEvents(void) BXDOSBOX_WEAK;
-bool boxer_getNextKeyCodeInPasteBuffer(uint16_t *outKeyCode, bool consumeKey) BXDOSBOX_WEAK;
-void boxer_setCapsLockActive(bool active) BXDOSBOX_WEAK;
-void boxer_setNumLockActive(bool active) BXDOSBOX_WEAK;
-void boxer_setScrollLockActive(bool active) BXDOSBOX_WEAK;
-}
-
-static inline void boxer_bridgeSuggestMIDIHandler(const char *handlerName, const char *configParams)
-{
-    boxer_suggestMIDIHandler(std::string(handlerName), configParams);
-}
-
-static inline const BXDOSBoxAudioBridgeCallbacks *boxer_registeredDOSBoxAudioBridge(void)
-{
-#if defined(BXDOSBOX_MIXER_COMPATIBILITY)
-    static const BXDOSBoxAudioBridgeCallbacks callbacks = {
-        NULL,
-        NULL,
-        NULL,
-        boxer_masterVolume,
-        NULL,
-        NULL
-    };
-#elif defined(BXDOSBOX_MIDI_COMPATIBILITY)
-    static const BXDOSBoxAudioBridgeCallbacks callbacks = {
-        boxer_MIDIAvailable,
-        boxer_sendMIDIMessage,
-        boxer_sendMIDISysex,
-        NULL,
-        NULL,
-        boxer_bridgeSuggestMIDIHandler
-    };
-#else
-    static const BXDOSBoxAudioBridgeCallbacks callbacks = {
-        boxer_MIDIAvailable,
-        boxer_sendMIDIMessage,
-        boxer_sendMIDISysex,
-        boxer_masterVolume,
-        boxer_updateVolumes,
-        boxer_bridgeSuggestMIDIHandler
-    };
-#endif
-    return &callbacks;
-}
-
-static inline const BXDOSBoxPrinterBridgeCallbacks *boxer_registeredDOSBoxPrinterBridge(void)
-{
-    static const BXDOSBoxPrinterBridgeCallbacks callbacks = {
-        boxer_PRINTER_isInited,
-        boxer_PRINTER_readdata,
-        boxer_PRINTER_readcontrol,
-        boxer_PRINTER_readstatus,
-        boxer_PRINTER_writedata,
-        boxer_PRINTER_writecontrol
-    };
-    return &callbacks;
-}
-
-static inline const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBridge(void)
-{
-    static const BXDOSBoxInputBridgeCallbacks callbacks = {
-        boxer_numKeyCodesInPasteBuffer,
-        boxer_continueListeningForKeyEvents,
-        boxer_getNextKeyCodeInPasteBuffer,
-        boxer_setCapsLockActive,
-        boxer_setNumLockActive,
-        boxer_setScrollLockActive
-    };
-    return &callbacks;
-}
-#endif
-
-#if defined(BXDOSBOX_PRINTER_CALLSITE) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
-#define boxer_PRINTER_isInited(port) boxer_registeredDOSBoxPrinterBridge()->isInitialized(port)
-#define boxer_PRINTER_readdata(port, width) boxer_registeredDOSBoxPrinterBridge()->readData(port, width)
-#define boxer_PRINTER_readcontrol(port, width) boxer_registeredDOSBoxPrinterBridge()->readControl(port, width)
-#define boxer_PRINTER_readstatus(port, width) boxer_registeredDOSBoxPrinterBridge()->readStatus(port, width)
-#define boxer_PRINTER_writedata(port, value, width) boxer_registeredDOSBoxPrinterBridge()->writeData(port, value, width)
-#define boxer_PRINTER_writecontrol(port, value, width) boxer_registeredDOSBoxPrinterBridge()->writeControl(port, value, width)
-#endif
-
-#if defined(BXDOSBOX_INPUT_CALLSITE) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
-#define boxer_numKeyCodesInPasteBuffer() boxer_registeredDOSBoxInputBridge()->numKeyCodesInPasteBuffer()
-#define boxer_continueListeningForKeyEvents() boxer_registeredDOSBoxInputBridge()->continueListeningForKeyEvents()
-#define boxer_getNextKeyCodeInPasteBuffer(outKeyCode, consumeKey) boxer_registeredDOSBoxInputBridge()->getNextKeyCodeInPasteBuffer(outKeyCode, consumeKey)
-#define boxer_setCapsLockActive(active) boxer_registeredDOSBoxInputBridge()->setCapsLockActive(active)
-#define boxer_setNumLockActive(active) boxer_registeredDOSBoxInputBridge()->setNumLockActive(active)
-#define boxer_setScrollLockActive(active) boxer_registeredDOSBoxInputBridge()->setScrollLockActive(active)
-#endif
 #endif
 
 #endif /* BXDOSBoxBridgeRegistration_h */

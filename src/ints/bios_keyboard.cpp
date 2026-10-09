@@ -28,7 +28,7 @@
 #include "dos_inc.h"
 
 #define BXDOSBOX_INPUT_CALLSITE 1
-#include "../../include/BXDOSBoxBridgeRegistration.h"
+#include "../../include/BXDOSBoxLegacyCompatibility.h"
 
 static callback_number_t call_int16 = 0;
 static callback_number_t call_irq1  = 0;

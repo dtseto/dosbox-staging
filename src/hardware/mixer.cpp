@@ -56,7 +56,7 @@
 #include "midi.h"
 // BOXER-BEGIN: mixer-volume-bridge
 #define BXDOSBOX_MIXER_COMPATIBILITY 1
-#include "BXDOSBoxBridgeRegistration.h"
+#include "BXDOSBoxLegacyCompatibility.h"
 #undef BXDOSBOX_MIXER_COMPATIBILITY
 // Legacy contract retained: #import "BXCoalfaceAudio.h"
 // Legacy symbols retained: boxer_masterVolume(BXLeftChannel), boxer_masterVolume(BXRightChannel)

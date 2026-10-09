@@ -37,7 +37,7 @@ using sv = std::string_view;
 #include "string_utils.h"
 
 #define BXDOSBOX_INPUT_CALLSITE 1
-#include "../../include/BXDOSBoxBridgeRegistration.h"
+#include "../../include/BXDOSBoxLegacyCompatibility.h"
 
 // The default codepage for DOS
 constexpr uint16_t default_cp_437 = 437;

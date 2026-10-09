@@ -19,7 +19,7 @@
 #include "dos_inc.h"
 
 #define BXDOSBOX_INPUT_CALLSITE 1
-#include "../../include/BXDOSBoxBridgeRegistration.h"
+#include "../../include/BXDOSBoxLegacyCompatibility.h"
 
 #include <cstring>
 
