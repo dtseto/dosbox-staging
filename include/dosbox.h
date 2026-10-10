@@ -24,7 +24,7 @@
 #include "types.h"
 class Section;
 // BOXER-BEGIN: coalface-remaps
-#include "BXCoalface.h"
+#include "BXDOSBoxCoalfaceCompatibility.h"
 // BOXER-END: coalface-remaps
 
 #include <memory>
