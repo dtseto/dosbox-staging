@@ -10,4 +10,7 @@
 
 #include "BXCoalface.h"
 
+// Keep this legacy fatal remap inside the DOSBox-only compatibility boundary.
+#define E_Exit(format,...) boxer_die(__PRETTY_FUNCTION__, __FILE__, __LINE__, format, ##__VA_ARGS__)
+
 #endif /* BXDOSBoxCoalfaceCompatibility_h */
