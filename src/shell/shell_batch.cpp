@@ -29,7 +29,6 @@
 #include "string_utils.h"
 
 // BOXER-HOOK: batch-lifecycle-bridge
-#include "BXCoalface.h"
 // Permitted ASCII control characters in batch files
 constexpr uint8_t BACKSPACE = 8;
 constexpr uint8_t CARRIAGE_RETURN = '\r';
