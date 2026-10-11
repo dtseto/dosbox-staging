@@ -19,6 +19,9 @@
 
 #include "dosbox.h"
 
+#define BXDOSBOX_RENDERING_CALLSITE 1
+#include "../../include/BXDOSBoxRenderingCompatibility.h"
+
 #include <cassert>
 #include <cmath>
 #include <cstdlib>

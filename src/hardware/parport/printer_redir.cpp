@@ -29,7 +29,8 @@
 // data register reads/writes instead of writing to DOSBox-host files directly.
 // Upstream risk: Upstream printer backends would bypass Boxer's print session
 // UI and output pipeline.
-#import "BXCoalface.h"
+#define BXDOSBOX_PRINTER_CALLSITE 1
+#include "../../../include/BXDOSBoxLegacyCompatibility.h"
 
 // Purpose of this is to pass LPT register access to the virtual printer 
 

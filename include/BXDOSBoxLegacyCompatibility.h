@@ -145,6 +145,12 @@ static inline const BXDOSBoxJoystickBridgeCallbacks *boxer_registeredDOSBoxJoyst
 #define boxer_setJoystickActive(active) boxer_registeredDOSBoxJoystickBridge()->setActive(active)
 #endif
 
+#if !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
+#define BXLeftChannel BXDOSBoxAudioChannelLeft
+#define BXRightChannel BXDOSBoxAudioChannelRight
+#define boxer_masterVolume(channel) boxer_registeredDOSBoxAudioBridge()->masterVolume(channel)
+#endif
+
 #endif /* __cplusplus */
 
 #endif /* BXDOSBoxLegacyCompatibility_h */

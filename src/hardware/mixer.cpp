@@ -45,7 +45,7 @@
 #include "mem.h"
 #include "midi.h"
 // BOXER-BEGIN: mixer-volume-bridge
-#import "BXCoalfaceAudio.h"
+#include "../../include/BXDOSBoxLegacyCompatibility.h"
 #include "mixer.h"
 #include "pic.h"
 #include "setup.h"
@@ -53,8 +53,8 @@
 #include "timer.h"
 #include "tracy.h"
 
-#include "mverb/MVerb.h"
-#include "tal-chorus/ChorusEngine.h"
+#include "../libs/mverb/MVerb.h"
+#include "../libs/tal-chorus/ChorusEngine.h"
 
 CHECK_NARROWING();
 
@@ -2661,6 +2661,11 @@ static void set_mixer_state(const MixerState requested)
 	// When paused, the audio device stops reading frames from our buffer,
 	// so it's imporant that the we no longer queue them, which is why we
 	// use handle_mix_no_sound() (to throw away frames instead of queuing).
+}
+
+void MIXER_SetState(const MixerState state)
+{
+	set_mixer_state(state);
 }
 
 void MIXER_CloseAudioDevice()

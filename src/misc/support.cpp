@@ -138,7 +138,7 @@ char * ScanCMDRemain(char * cmd) {
 }
 
 // BOXER-HOOK: coalface-e-exit - Boxer remaps E_Exit to its Cocoa error
-// handler via BXCoalface.h; the upstream abort implementation stays disabled.
+// handler via the host bridge; the upstream abort implementation stays disabled.
 
 /* Overloaded function to handle different return types of POSIX and GNU
  * strerror_r variants */

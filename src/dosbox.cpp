@@ -21,6 +21,11 @@
 
 #include "dosbox.h"
 
+#define BXDOSBOX_EVENT_CALLSITE 1
+#include "../include/BXDOSBoxEventCompatibility.h"
+#define BXDOSBOX_RUNLOOP_CALLSITE 1
+#include "../include/BXDOSBoxRunLoopCompatibility.h"
+
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>

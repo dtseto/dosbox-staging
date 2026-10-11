@@ -19,6 +19,9 @@
 
 #include "shell.h"
 
+#define BXDOSBOX_SHELL_CALLSITE 1
+#include "../../include/BXDOSBoxShellCompatibility.h"
+
 #include <algorithm>
 #include <cstring>
 #include <memory>
@@ -518,13 +521,18 @@ bool DOS_Shell::ExecuteProgram(std::string_view name, std::string_view args)
 		                             ? echo
 		                             : batchfiles.top().Echo();
 		if (!batchfiles.empty() && !call) {
+			// DOS replaces the current batch file when CALL is not used.  Keep
+			// Boxer's process stack in step with that replacement before dropping
+			// the DOS-side batch frame.
+			char ended_path[DOS_PATHLENGTH + 4] = {};
+			DOS_Canonicalize(batchfiles.top().GetFileName(), ended_path);
+			boxer_shellDidEndBatchFile(this, ended_path);
 			batchfiles.pop();
 		}
 
-		boxer_shellWillBeginBatchFile(this, canonical_path, boxer_args.c_str());
-
 		auto reader = FileReader::GetFileReader(fullname);
 		if (reader) {
+			boxer_shellWillBeginBatchFile(this, canonical_path, boxer_args.c_str());
 			batchfiles.emplace(*this, std::move(*reader), name, args, current_echo);
 		} else {
 			WriteOut("Could not open %s", fullname.c_str());

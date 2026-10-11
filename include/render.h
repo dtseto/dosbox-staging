@@ -113,6 +113,8 @@ struct Render_t {
 	bool updating  = false;
 	bool active    = false;
 	bool fullFrame = true;
+	// Legacy Boxer clients apply their own aspect correction.
+	bool aspect    = true;
 
 	std::string current_shader_name = {};
 	bool force_reload_shader        = false;

@@ -30,7 +30,7 @@
 #include "math_utils.h"
 #include "midi.h"
 // BOXER-HOOK: mixer-volume-bridge-include - Boxer master volume for MIXER display.
-#import "BXCoalfaceAudio.h"
+#include "../../include/BXDOSBoxLegacyCompatibility.h"
 #include "program_more_output.h"
 #include "string_utils.h"
 

@@ -58,7 +58,7 @@
 
 #include "SDL_net.h"
 
-#include "enet/include/enet.h"
+#include "../../libs/enet/include/enet.h"
 
 enum class SocketType {
 	Tcp  = 0, // +SOCK0 modem command

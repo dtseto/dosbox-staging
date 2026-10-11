@@ -13,13 +13,21 @@
 #if defined(BXDOSBOX_PRODUCTION) || defined(BXDOSBOX_FORCE_LEGACY_COMPATIBILITY) || defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 
 #include "config.h"
-#include "video.h"
+#include "types.h"
 
 #include <cstdint>
 #include <cstdio>
 
 class DOS_Drive;
 class DOS_Shell;
+
+/*
+ * video.h defines these later in the normal include graph.  Forward-declare
+ * the callback contract here so this legacy declaration header does not
+ * recursively include video.h through dosbox.h.
+ */
+enum GFX_CallBackFunctions_t : int;
+typedef void (*GFX_CallBack_t)(GFX_CallBackFunctions_t function);
 
 /* This audio hook has a C++ host definition, unlike the older C ABI hooks. */
 bool boxer_MIDIAvailable(void);
@@ -33,6 +41,7 @@ extern "C" {
 Bitu boxer_prepareForFrameSize(Bitu width, Bitu height, Bitu gfx_flags,
                                double scalex, double scaley,
                                GFX_CallBack_t callback, double pixel_aspect);
+void boxer_getCanvasSizeInPixels(int *width, int *height);
 bool boxer_startFrame(uint8_t *&frameBuffer, int &pitch);
 void boxer_finishFrame(const uint16_t *dirtyBlocks);
 Bitu boxer_idealOutputMode(Bitu flags);

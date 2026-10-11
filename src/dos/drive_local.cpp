@@ -46,6 +46,9 @@
 #include "cross.h"
 #include "inout.h"
 
+#define BXDOSBOX_FILESYSTEM_CALLSITE 1
+#include "../../include/BXDOSBoxFilesystemCompatibility.h"
+
 bool localDrive::FileCreate(DOS_File** file, char* name, FatAttributeFlags attributes)
 {
 	// Don't allow overwriting read-only files.

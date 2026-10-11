@@ -382,7 +382,7 @@ void GFX_RefreshTitle(const bool is_paused = false)
 }
 
 // The Cocoa host supplies this Boxer seam. Do not remap the upstream SDL
-// implementation's definition through BXCoalface.h, or it collides with the
+// implementation's definition through the host bridge, or it collides with the
 // host implementation at compile time.
 #undef GFX_HaveDesktopEnvironment
 
@@ -794,6 +794,17 @@ static DosBox::Rect calc_draw_rect_in_pixels(const DosBox::Rect& canvas_size_px)
 static DosBox::Rect get_canvas_size_in_pixels(
         [[maybe_unused]] const RenderingBackend rendering_backend)
 {
+	#if defined(BXDOSBOX_PRODUCTION)
+	int boxer_width = 0;
+	int boxer_height = 0;
+	boxer_getCanvasSizeInPixels(&boxer_width, &boxer_height);
+	if (boxer_width > 0 && boxer_height > 0)
+		return {boxer_width, boxer_height};
+	// Boxer creates its Cocoa video frame after the SDL-independent core has
+	// begun startup. Keep early shader-selection queries valid until then.
+	return {1, 1};
+	#endif
+
 	SDL_Rect canvas_size_px = {};
 #if SDL_VERSION_ATLEAST(2, 26, 0)
 	SDL_GetWindowSizeInPixels(sdl.window, &canvas_size_px.w, &canvas_size_px.h);

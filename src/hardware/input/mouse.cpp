@@ -18,6 +18,8 @@
  */
 
 #include "mouse.h"
+#define BXDOSBOX_EVENT_CALLSITE 1
+#include "../../include/BXDOSBoxEventCompatibility.h"
 #include "mouse_config.h"
 #include "mouse_interfaces.h"
 #include "mouse_manymouse.h"

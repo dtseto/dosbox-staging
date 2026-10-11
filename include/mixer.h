@@ -50,6 +50,8 @@ using MIXER_Handler = std::function<void(uint16_t frames)>;
 
 enum class MixerState { Uninitialized, NoSound, On, Muted };
 
+void MIXER_SetState(const MixerState state);
+
 using work_index_t = uint16_t;
 
 static constexpr work_index_t MixerBufferLength = {16 * 1024};

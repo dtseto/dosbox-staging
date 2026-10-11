@@ -104,6 +104,12 @@ void MOUSE_NotifyReadyGFX();
 // emulation code if it should process mouse events or ignore them
 void MOUSE_NotifyWindowActive(const bool is_active);
 
+// Legacy Boxer name retained at the DOSBox-side compatibility boundary.
+inline void MOUSE_NotifyHasFocus(const bool has_focus)
+{
+	MOUSE_NotifyWindowActive(has_focus);
+}
+
 // A GUI has to use this function to tell when it takes over or releases
 // the mouse; this will change various settings like raw input (we don't
 // want it for the GUI) or cursor visibility (we want the host cursor

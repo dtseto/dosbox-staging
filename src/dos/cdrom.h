@@ -41,7 +41,7 @@
 #include "support.h"
 #include "mem.h"
 #include "mixer.h"
-#include "decoders/SDL_sound.h"
+#include "../libs/decoders/SDL_sound.h"
 #include "sdlcd/SDL_cdrom.h"
 
 // CDROM data and audio format constants

@@ -19,6 +19,9 @@
 
 #include "shell.h"
 
+#define BXDOSBOX_SHELL_CALLSITE 1
+#include "../../include/BXDOSBoxShellCompatibility.h"
+
 #include <fstream>
 #include <list>
 #include <memory>
@@ -388,7 +391,9 @@ void DOS_Shell::RunBatchFile()
 			// BOXER-HOOK: batch-file-ended - Upstream 0.81 ends batch
 			// files by popping the stack (no BatchFile destructor); notify
 			// Boxer here instead so batch-end lifecycle is preserved.
-			boxer_shellDidEndBatchFile(this, batchfiles.top().GetFileName());
+			char ended_path[DOS_PATHLENGTH + 4] = {};
+			DOS_Canonicalize(batchfiles.top().GetFileName(), ended_path);
+			boxer_shellDidEndBatchFile(this, ended_path);
 			batchfiles.pop();
 		}
 	}

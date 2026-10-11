@@ -23,8 +23,6 @@
 #include "logging.h"
 #include "string_utils.h"
 
-// BOXER-HOOK: batch-lifecycle-bridge
-#include "BXCoalface.h"
 // Permitted ASCII control characters in batch files
 constexpr uint8_t Esc           = 27;
 constexpr uint8_t UnitSeparator = 31;

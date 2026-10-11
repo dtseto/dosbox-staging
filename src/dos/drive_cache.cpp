@@ -31,7 +31,8 @@
 
 // BOXER-HOOK: drive-cache-filter-bridge - Boxer filters host metadata entries
 // before DOS short-name cache generation.
-#include "BXCoalface.h"
+#define BXDOSBOX_FILESYSTEM_CALLSITE 1
+#include "../../include/BXDOSBoxFilesystemCompatibility.h"
 
 int fileInfoCounter = 0;
 
