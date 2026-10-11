@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,8 @@
 #if C_MT32EMU
 
 #include <cassert>
-#include <unordered_set>
+#include <map>
+#include <set>
 
 #include "fs_utils.h"
 
@@ -50,52 +51,73 @@ LASynthModel::LASynthModel(const std::string &rom_name,
 	assert(ctrl_full || (ctrl_a && ctrl_b));
 }
 
-std::optional<std_fs::path> LASynthModel::find_rom(const service_t& service,
+// Scans the requested directory for the requested ROM.
+// Uses a static cache of directories and their ROMs to avoid repeat scans.
+std::optional<std_fs::path> LASynthModel::find_rom(const Mt32ServicePtr& service,
                                                    const std_fs::path& dir,
                                                    const Rom* rom)
 {
-	static std::unordered_set<std::string> unknown_files;
 	if (!rom) {
-		return {};
+		return std::nullopt;
 	}
 
-	std::error_code ec;
+	// Named types to make the directory cache self-documenting
+	using RomId     = std::string;
+	using RomsCache = std::map<RomId, std_fs::path>;
+	using DirsCache = std::map<std_fs::path, RomsCache>;
+
+	static DirsCache dirs_cache                 = {};
+	static std::set<std_fs::path> unknown_files = {};
+
+	auto find_rom_in_cache = [&](const RomsCache& roms_cache) {
+		auto it = roms_cache.find(rom->id);
+		return it != roms_cache.end() ? std::optional{it->second}
+		                              : std::nullopt;
+	};
+
+	// Is the requested directory already cached?
+	if (auto it = dirs_cache.find(dir); it != dirs_cache.end()) {
+		return find_rom_in_cache(it->second);
+	}
+
+	// Cache miss: start a new ROM cache for the directory
+	auto& roms_cache = dirs_cache[dir];
+
+	// Scan the directory
+	std::error_code ec = {};
 	for (const auto& entry : std_fs::directory_iterator(dir, ec)) {
 		if (ec) {
 			continue;
 		}
 
-		const std::string filename = std_fs::canonical(entry.path(), ec).string();
-		if (ec) {
+		auto canonical_path = std_fs::canonical(entry.path(), ec);
+		if (ec || unknown_files.contains(canonical_path)) {
 			continue;
 		}
-		mt32emu_rom_info info;
+
+		// Is the file a valid MT32emu ROM?
+		mt32emu_rom_info info = {};
 		if (service->identifyROMFile(&info,
-		                             filename.c_str(),
+		                             canonical_path.string().c_str(),
 		                             nullptr) != MT32EMU_RC_OK) {
-			// Only log unknwon files one time (if not already in the unknown_files set).
-			if (unknown_files.insert(filename).second) {
-				LOG_WARNING("MT32: Unknown file in ROM folder: %s", filename.c_str());
-			}
+
+			LOG_WARNING("MT32: Unknown file in ROM folder: %s",
+			            canonical_path.string().c_str());
+
+			unknown_files.emplace(std::move(canonical_path));
 			continue;
 		}
 
-		const char* rom_id = nullptr;
-		if (rom->type == ROM_TYPE::PCM) {
-			rom_id = info.pcm_rom_id;
-		} else if (rom->type == ROM_TYPE::CONTROL) {
-			rom_id = info.control_rom_id;
-		}
-
-		if (rom_id && rom->id == rom_id) {
-			return entry.path();
-		}
+		// Add the ROM identifier and path to the cache
+		auto rom_id = info.pcm_rom_id ? info.pcm_rom_id : info.control_rom_id;
+		roms_cache.emplace(std::move(rom_id), std::move(canonical_path));
 	}
-	return {};
+
+	return find_rom_in_cache(roms_cache);
 }
 
 // Checks if its ROMs can be positively found in the provided directory
-bool LASynthModel::InDir(const service_t& service, const std_fs::path& dir) const
+bool LASynthModel::InDir(const Mt32ServicePtr& service, const std_fs::path& dir) const
 {
 	assert(service);
 
@@ -109,7 +131,7 @@ bool LASynthModel::InDir(const service_t& service, const std_fs::path& dir) cons
 }
 
 // If present, loads either the full or partial ROMs from the provided directory
-bool LASynthModel::Load(const service_t& service, const std_fs::path& dir) const
+bool LASynthModel::Load(const Mt32ServicePtr& service, const std_fs::path& dir) const
 {
 	if (!service) {
 		return false;
@@ -153,7 +175,7 @@ bool LASynthModel::Load(const service_t& service, const std_fs::path& dir) const
 const char *LASynthModel::GetVersion() const
 {
 	assert(version_pos != std::string::npos);
-	return name.data() + version_pos;
+	return name.c_str() + version_pos;
 }
 
 bool LASynthModel::Matches(const std::string &model_name) const

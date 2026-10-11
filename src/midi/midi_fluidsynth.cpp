@@ -59,7 +59,7 @@ static void init_fluid_dosbox_settings(Section_prop& secprop)
 	        "'soundfonts' directory within your DOSBox configuration directory.\n"
 	        "An optional percentage value after the name will scale the SoundFont's volume.\n"
 	        "This is useful for normalising the volume of different SoundFonts.\n"
-	        "E.g. 'my_soundfont.sf2 50' will attenuate the volume by 50%.\n"
+	        "E.g. 'my_soundfont.sf2 50' will attenuate the volume by 50%%.\n"
 	        "The percentage value can range from 1 to 800.");
 
 	str_prop = secprop.Add_string("fsynth_chorus", when_idle, "auto");
@@ -240,7 +240,7 @@ bool MidiHandlerFluidsynth::Open([[maybe_unused]] const char* conf)
 {
 	Close();
 
-	fluid_settings_ptr_t fluid_settings(new_fluid_settings(),
+	FluidSynthSettingsPtr fluid_settings(new_fluid_settings(),
 	                                    delete_fluid_settings);
 	if (!fluid_settings) {
 		LOG_WARNING("FSYNTH: new_fluid_settings failed");
@@ -256,14 +256,14 @@ bool MidiHandlerFluidsynth::Open([[maybe_unused]] const char* conf)
 	// Per the FluidSynth API, the sample-rate should be part of the
 	// settings used to instantiate the synth, so we use the mixer's native
 	// rate to configure FluidSynth.
-	const auto audio_frame_rate_hz = MIXER_GetSampleRate();
-	ms_per_audio_frame             = millis_in_second / audio_frame_rate_hz;
+	const auto sample_rate_hz = MIXER_GetSampleRate();
+	ms_per_audio_frame        = MillisInSecond / sample_rate_hz;
 
 	fluid_settings_setnum(fluid_settings.get(),
 	                      "synth.sample-rate",
-	                      audio_frame_rate_hz);
+	                      sample_rate_hz);
 
-	fsynth_ptr_t fluid_synth(new_fluid_synth(fluid_settings.get()),
+	FluidSynthPtr fluid_synth(new_fluid_synth(fluid_settings.get()),
 	                         delete_fluid_synth);
 	if (!fluid_synth) {
 		LOG_WARNING("FSYNTH: Failed to create the FluidSynth synthesizer.");
@@ -490,13 +490,15 @@ bool MidiHandlerFluidsynth::Open([[maybe_unused]] const char* conf)
 		        reverb_level);
 	}
 
+	MIXER_LockMixerThread();
+
 	// Setup the mixer callback
 	const auto mixer_callback = std::bind(&MidiHandlerFluidsynth::MixerCallBack,
 	                                      this,
 	                                      std::placeholders::_1);
 
 	auto fluidsynth_channel = MIXER_AddChannel(mixer_callback,
-	                                           audio_frame_rate_hz,
+	                                           sample_rate_hz,
 	                                           ChannelName::FluidSynth,
 	                                           {ChannelFeature::Sleep,
 	                                            ChannelFeature::Stereo,
@@ -529,9 +531,9 @@ bool MidiHandlerFluidsynth::Open([[maybe_unused]] const char* conf)
 	const auto render_ahead_ms = MIXER_GetPreBufferMs() * 2;
 
 	// Size the out-bound audio frame FIFO
-	assertm(audio_frame_rate_hz >= 8000, "Sample rate must be at least 8 kHz");
+	assertm(sample_rate_hz >= 8000, "Sample rate must be at least 8 kHz");
 
-	const auto audio_frames_per_ms = iround(audio_frame_rate_hz / millis_in_second);
+	const auto audio_frames_per_ms = iround(sample_rate_hz / MillisInSecond);
 	audio_frame_fifo.Resize(
 	        check_cast<size_t>(render_ahead_ms * audio_frames_per_ms));
 
@@ -564,6 +566,7 @@ bool MidiHandlerFluidsynth::Open([[maybe_unused]] const char* conf)
 
 	// Start playback
 	is_open = true;
+	MIXER_UnlockMixerThread();
 	return true;
 }
 
@@ -579,6 +582,8 @@ void MidiHandlerFluidsynth::Close()
 	}
 
 	LOG_MSG("FSYNTH: Shutting down");
+
+	MIXER_LockMixerThread();
 
 	if (had_underruns) {
 		LOG_WARNING("FSYNTH: Fix underruns by lowering CPU load, increasing "
@@ -614,9 +619,10 @@ void MidiHandlerFluidsynth::Close()
 	ms_per_audio_frame = 0.0;
 
 	is_open = false;
+	MIXER_UnlockMixerThread();
 }
 
-uint16_t MidiHandlerFluidsynth::GetNumPendingAudioFrames()
+int MidiHandlerFluidsynth::GetNumPendingAudioFrames()
 {
 	const auto now_ms = PIC_FullIndex();
 
@@ -637,7 +643,7 @@ uint16_t MidiHandlerFluidsynth::GetNumPendingAudioFrames()
 	const auto num_audio_frames = iround(ceil(elapsed_ms / ms_per_audio_frame));
 	last_rendered_ms += (num_audio_frames * ms_per_audio_frame);
 
-	return check_cast<uint16_t>(num_audio_frames);
+	return num_audio_frames;
 }
 
 // The request to play the channel message is placed in the MIDI work FIFO
@@ -738,7 +744,7 @@ void MidiHandlerFluidsynth::ApplySysexMessage(const std::vector<uint8_t>& msg)
 
 // The callback operates at the audio frame-level, steadily adding samples to
 // the mixer until the requested numbers of audio frames is met.
-void MidiHandlerFluidsynth::MixerCallBack(const uint16_t requested_audio_frames)
+void MidiHandlerFluidsynth::MixerCallBack(const int requested_audio_frames)
 {
 	assert(mixer_channel);
 
@@ -760,22 +766,23 @@ void MidiHandlerFluidsynth::MixerCallBack(const uint16_t requested_audio_frames)
 	                                                       requested_audio_frames);
 
 	if (has_dequeued) {
-		assert(audio_frames.size() == requested_audio_frames);
-		mixer_channel->AddSamples_sfloat(requested_audio_frames,
-		                                 &audio_frames[0][0]);
-		last_rendered_ms = PIC_FullIndex();
+	assert(check_cast<int>(audio_frames.size()) == requested_audio_frames);
+	mixer_channel->AddSamples_sfloat(requested_audio_frames,
+	                                 &audio_frames[0][0]);
+
+	last_rendered_ms = PIC_AtomicIndex();
 	} else {
 		assert(!audio_frame_fifo.IsRunning());
 		mixer_channel->AddSilence();
 	}
 }
 
-void MidiHandlerFluidsynth::RenderAudioFramesToFifo(const uint16_t num_audio_frames)
+void MidiHandlerFluidsynth::RenderAudioFramesToFifo(const int num_audio_frames)
 {
 	static std::vector<AudioFrame> audio_frames = {};
 
 	// Maybe expand the vector
-	if (audio_frames.size() < num_audio_frames) {
+	if (check_cast<int>(audio_frames.size()) < num_audio_frames) {
 		audio_frames.resize(num_audio_frames);
 	}
 
@@ -877,7 +884,7 @@ MIDI_RC MidiHandlerFluidsynth::ListAll(Program* caller)
 		                          (selected_font == sf2_path.string());
 
 		if (do_highlight) {
-			const auto output = format_string("%s* %s%s\n",
+			const auto output = format_str("%s* %s%s\n",
 			                                  green,
 			                                  line.c_str(),
 			                                  reset);
@@ -931,7 +938,7 @@ MIDI_RC MidiHandlerFluidsynth::ListAll(Program* caller)
 
 static void fluid_init([[maybe_unused]] Section* sec) {}
 
-void FLUID_AddConfigSection(const config_ptr_t& conf)
+void FLUID_AddConfigSection(const ConfigPtr& conf)
 {
 	assert(conf);
 	Section_prop* sec = conf->AddSection_prop("fluidsynth", &fluid_init);

@@ -102,11 +102,17 @@ bool NETClientSocket::SendByteBuffered(uint8_t val)
 	return SendArray(sendbuffer.data(), sendbuffer.size());
 }
 
-NETServerSocket::NETServerSocket()
-{}
+NETServerSocket::NETServerSocket() {}
 
-NETServerSocket::~NETServerSocket()
-{}
+NETServerSocket::~NETServerSocket() {}
+
+void NETServerSocket::Close()
+{
+	// Discard any queued incoming connections
+	while (auto accepted = Accept()) {
+		delete accepted;
+	}
+}
 
 NETServerSocket* NETServerSocket::NETServerFactory(const SocketType socketType,
                                                    const uint16_t port)
@@ -602,7 +608,7 @@ TCPClientSocket::TCPClientSocket(const char *destination, uint16_t port)
 
 	IPaddress openip;
 	//Ancient versions of SDL_net had this as char*. People still appear to be using this one.
-	if (!SDLNet_ResolveHost(&openip,const_cast<char*>(destination),port)) {
+	if (!SDLNet_ResolveHost(&openip, destination, port)) {
 		listensocketset = SDLNet_AllocSocketSet(1);
 		if(!listensocketset) return;
 		mysock = SDLNet_TCP_Open(&openip);

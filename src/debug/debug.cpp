@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -21,15 +21,14 @@
 
 #if C_DEBUG
 
-#include <string.h>
-#include <list>
-#include <vector>
-#include <ctype.h>
+#include <cctype>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
-#include <string>
+#include <list>
 #include <sstream>
-using namespace std;
+#include <string>
+#include <vector>
 
 #include "debug.h"
 #include "cross.h" //snprintf
@@ -101,7 +100,7 @@ bool	exitLoop	= false;
 
 // Heavy Debugging Vars for logging
 #if C_HEAVY_DEBUG
-static ofstream 	cpuLogFile;
+static std::ofstream 	cpuLogFile;
 static bool		cpuLog			= false;
 static int		cpuLogCounter	= 0;
 static int		cpuLogType		= 1;	// log detail
@@ -172,7 +171,7 @@ static void ClearInputLine(void) {
 
 // History stuff
 #define MAX_HIST_BUFFER 50
-static list<string> histBuff = {};
+static std::list<std::string> histBuff = {};
 static auto histBuffPos = histBuff.end();
 
 /***********/
@@ -703,9 +702,14 @@ void CBreakpoint::ShowList(void)
 			else DEBUG_ShowMsg("%02X. BPINT %02X AH=%02X AL=%02X\n",nr,bp->GetIntNr(),bp->GetValue(),bp->GetOther());
 		} else if (bp->GetType()==BKPNT_MEMORY) {
 			DEBUG_ShowMsg("%02X. BPMEM %04X:%04X (%02X)\n",nr,bp->GetSegment(),bp->GetOffset(),bp->GetValue());
-		} else if (bp->GetType()==BKPNT_MEMORY_PROT) {
+		} else if (bp->GetType() == BKPNT_MEMORY_READ) {
+			DEBUG_ShowMsg("%02X. BPMR %04X:%04X\n",
+			              nr,
+			              bp->GetSegment(),
+			              bp->GetOffset());
+		} else if (bp->GetType() == BKPNT_MEMORY_PROT) {
 			DEBUG_ShowMsg("%02X. BPPM %04X:%08X (%02X)\n",nr,bp->GetSegment(),bp->GetOffset(),bp->GetValue());
-		} else if (bp->GetType()==BKPNT_MEMORY_LINEAR ) {
+		} else if (bp->GetType() == BKPNT_MEMORY_LINEAR) {
 			DEBUG_ShowMsg("%02X. BPLM %08X (%02X)\n",nr,bp->GetOffset(),bp->GetValue());
 		}
 		nr++;
@@ -1078,12 +1082,14 @@ bool ParseCommand(char* str) {
 		*idx = toupper(*idx);
 
 	found = trim(found);
-	string s_found(found);
-	istringstream stream(s_found);
-	string command;
+	std::string s_found(found);
+	std::istringstream stream(s_found);
+	std::string command;
 	stream >> command;
-	string::size_type next = s_found.find_first_not_of(' ',command.size());
-	if(next == string::npos) next = command.size();
+	std::string::size_type next = s_found.find_first_not_of(' ', command.size());
+	if (next == std::string::npos) {
+		next = command.size();
+	}
 	(s_found.erase)(0,next);
 	found = const_cast<char*>(s_found.c_str());
 
@@ -1312,7 +1318,8 @@ bool ParseCommand(char* str) {
 		DEBUG_ShowMsg("DEBUG: Logfile '%s' created.\n",
 		              std_fs::absolute(log_cpu_txt).string().c_str());
 		//Initialize log object
-		cpuLogFile << hex << noshowbase << setfill('0') << uppercase;
+		cpuLogFile << std::hex << std::noshowbase << std::setfill('0')
+		           << std::uppercase;
 		cpuLog = true;
 		cpuLogCounter = GetHexValue(found,found);
 
@@ -1924,10 +1931,11 @@ uint32_t DEBUG_CheckKeys(void) {
 		}
 		if (ret<0) return ret;
 		if (ret>0) {
-			if (GCC_UNLIKELY(ret >= CB_MAX))
+			if (ret >= CB_MAX) {
 				ret = 0;
-			else
+			} else {
 				ret = (*CallBack_Handlers[ret])();
+			}
 			if (ret) {
 				exitLoop=true;
 				CPU_Cycles=CPU_CycleLeft=0;
@@ -2213,12 +2221,13 @@ static void LogCPUInfo(void) {
 }
 
 #if C_HEAVY_DEBUG
-static void LogInstruction(uint16_t segValue, uint32_t eipValue, ofstream &out)
+static void LogInstruction(uint16_t segValue, uint32_t eipValue, std::ofstream &out)
 {
 	static char empty[23] = { 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,0 };
 
+	using std::setw;
 	if (cpuLogType == 3) { //Log only cs:ip.
-		out << setw(4) << SegValue(cs) << ":" << setw(8) << reg_eip << endl;
+		out << setw(4) << SegValue(cs) << ":" << setw(8) << reg_eip << std::endl;
 		return;
 	}
 
@@ -2276,7 +2285,7 @@ static void LogInstruction(uint16_t segValue, uint32_t eipValue, ofstream &out)
 		out << " TF:" << GETFLAGBOOL(TF) << " VM:" << GETFLAGBOOL(VM) <<" FLG:" << setw(8) << reg_flags
 		    << " CR0:" << setw(8) << cpu.cr0;
 	}
-	out << endl;
+	out << std::endl;
 }
 #endif
 
@@ -2693,16 +2702,17 @@ void DEBUG_HeavyWriteLogInstruction()
 
 	DEBUG_ShowMsg("DEBUG: Creating cpu log LOGCPU_INT_CD.TXT\n");
 
-	ofstream out("LOGCPU_INT_CD.TXT");
+	std::ofstream out("LOGCPU_INT_CD.TXT");
 	if (!out.is_open()) {
 		DEBUG_ShowMsg("DEBUG: Failed.\n");
 		return;
 	}
-	out << hex << noshowbase << setfill('0') << uppercase;
+	out << std::hex << std::noshowbase << std::setfill('0') << std::uppercase;
 	uint32_t startLog = logCount;
 	do {
 		// Write Instructions
 		TLogInst & inst = logInst[startLog];
+		using std::setw;
 		out << setw(4) << inst.s_cs << ":" << setw(8) << inst.eip << "  "
 		    << inst.dline << "  " << inst.res << " EAX:" << setw(8)<< inst.eax
 		    << " EBX:" << setw(8) << inst.ebx << " ECX:" << setw(8) << inst.ecx
@@ -2713,7 +2723,7 @@ void DEBUG_HeavyWriteLogInstruction()
 		    << " GS:"  << setw(4) << inst.s_gs<< " SS:"  << setw(4) << inst.s_ss
 		    << " CF:"  << inst.c  << " ZF:"   << inst.z  << " SF:"  << inst.s
 		    << " OF:"  << inst.o  << " AF:"   << inst.a  << " PF:"  << inst.p
-		    << " IF:"  << inst.i  << endl;
+		    << " IF:"  << inst.i  << std::endl;
 
 /*		fprintf(f,"%04X:%08X   %s  %s  EAX:%08X EBX:%08X ECX:%08X EDX:%08X ESI:%08X EDI:%08X EBP:%08X ESP:%08X DS:%04X ES:%04X FS:%04X GS:%04X SS:%04X CF:%01X ZF:%01X SF:%01X OF:%01X AF:%01X PF:%01X IF:%01X\n",
 			logInst[startLog].s_cs,logInst[startLog].eip,logInst[startLog].dline,logInst[startLog].res,logInst[startLog].eax,logInst[startLog].ebx,logInst[startLog].ecx,logInst[startLog].edx,logInst[startLog].esi,logInst[startLog].edi,logInst[startLog].ebp,logInst[startLog].esp,
@@ -2750,7 +2760,9 @@ bool DEBUG_HeavyIsBreakpoint(void) {
 			if (value == 0) zero_count++;
 			else zero_count = 0;
 		}
-		if (GCC_UNLIKELY(zero_count == 10)) E_Exit("running zeroed code");
+		if (zero_count == 10) {
+			E_Exit("running zeroed code");
+		}
 	}
 
 	if (skipFirstInstruction) {

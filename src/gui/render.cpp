@@ -1,4 +1,6 @@
 /*
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *
  *  Copyright (C) 2019-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
@@ -77,7 +79,7 @@ uint8_t get_bits_per_pixel(const PixelFormat pf)
 
 static void render_callback(GFX_CallBackFunctions_t function);
 
-static void check_palette(void)
+static void check_palette()
 {
 	// Clean up any previous changed palette data
 	if (render.pal.changed) {
@@ -152,7 +154,7 @@ static void start_line_handler(const void* s)
 		for (Bits x = render.src_start; x > 0;) {
 			const auto src_ptr = reinterpret_cast<const uint8_t*>(src);
 			const auto src_val = read_unaligned_size_t(src_ptr);
-			if (GCC_UNLIKELY(src_val != cache[0])) {
+			if (src_val != cache[0]) {
 				if (!GFX_StartUpdate(render.scale.outWrite,
 				                     render.scale.outPitch)) {
 					RENDER_DrawLine = empty_line_handler;
@@ -192,23 +194,21 @@ static void finish_line_handler(const void* s)
 
 static void clear_cache_handler(const void* src)
 {
-	Bitu x, width;
-	uint32_t *srcLine, *cacheLine;
-	srcLine   = (uint32_t*)src;
-	cacheLine = (uint32_t*)render.scale.cacheRead;
-	width     = render.scale.cachePitch / 4;
-	for (x = 0; x < width; x++) {
+	const uint32_t* srcLine = (const uint32_t*)src;
+	uint32_t* cacheLine     = (uint32_t*)render.scale.cacheRead;
+	Bitu width              = render.scale.cachePitch / 4;
+	for (Bitu x = 0; x < width; x++) {
 		cacheLine[x] = ~srcLine[x];
 	}
 	render.scale.lineHandler(src);
 }
 
-bool RENDER_StartUpdate(void)
+bool RENDER_StartUpdate()
 {
-	if (GCC_UNLIKELY(render.updating)) {
+	if (render.updating) {
 		return false;
 	}
-	if (GCC_UNLIKELY(!render.active)) {
+	if (!render.active) {
 		return false;
 	}
 	if (render.scale.inMode == scalerMode8) {
@@ -224,13 +224,12 @@ bool RENDER_StartUpdate(void)
 
 	// Clearing the cache will first process the line to make sure it's
 	// never the same
-	if (GCC_UNLIKELY(render.scale.clearCache)) {
+	if (render.scale.clearCache) {
 		// LOG_MSG("Clearing cache");
 
 		// Will always have to update the screen with this one anyway,
 		// so let's update already
-		if (GCC_UNLIKELY(!GFX_StartUpdate(render.scale.outWrite,
-		                                  render.scale.outPitch))) {
+		if (!GFX_StartUpdate(render.scale.outWrite, render.scale.outPitch)) {
 			return false;
 		}
 		render.fullFrame        = true;
@@ -240,16 +239,16 @@ bool RENDER_StartUpdate(void)
 		if (render.pal.changed) {
 			// Assume pal changes always do a full screen update
 			// anyway
-			if (GCC_UNLIKELY(!GFX_StartUpdate(render.scale.outWrite,
-			                                  render.scale.outPitch))) {
+			if (!GFX_StartUpdate(render.scale.outWrite,
+			                     render.scale.outPitch)) {
 				return false;
 			}
 			RENDER_DrawLine  = render.scale.linePalHandler;
 			render.fullFrame = true;
 		} else {
 			RENDER_DrawLine = start_line_handler;
-			if (GCC_UNLIKELY(CAPTURE_IsCapturingImage() ||
-			                 CAPTURE_IsCapturingVideo())) {
+			if (CAPTURE_IsCapturingImage() ||
+			    CAPTURE_IsCapturingVideo()) {
 				render.fullFrame = true;
 			} else {
 				render.fullFrame = false;
@@ -260,7 +259,7 @@ bool RENDER_StartUpdate(void)
 	return true;
 }
 
-static void halt_render(void)
+static void halt_render()
 {
 	RENDER_DrawLine = empty_line_handler;
 	GFX_EndUpdate(nullptr);
@@ -268,17 +267,15 @@ static void halt_render(void)
 	render.active   = false;
 }
 
-extern uint32_t PIC_Ticks;
-
 void RENDER_EndUpdate(bool abort)
 {
-	if (GCC_UNLIKELY(!render.updating)) {
+	if (!render.updating) {
 		return;
 	}
 
 	RENDER_DrawLine = empty_line_handler;
 
-	if (GCC_UNLIKELY((CAPTURE_IsCapturingImage() || CAPTURE_IsCapturingVideo()))) {
+	if (CAPTURE_IsCapturingImage() || CAPTURE_IsCapturingVideo()) {
 		bool double_width  = false;
 		bool double_height = false;
 		if (render.src.double_width != render.src.double_height) {
@@ -351,7 +348,7 @@ void RENDER_Reinit()
 
 // BOXER-BEGIN: render-reset-strategy - Boxer overrides render strategy
 // from its Cocoa renderer; applied at each render reset.
-static void render_reset(void)
+static void render_reset()
 {
 	// BOXER-HOOK: render-reset-strategy
 	boxer_applyRenderingStrategy();
@@ -563,39 +560,31 @@ static bool force_no_pixel_doubling = false;
 //  1) Single scanning or no pixel doubling is requested by the OpenGL shader.
 //  2) The interpolation mode is nearest-neighbour in texture output mode.
 //
-// The default `interpolation/sharp.glsl` shader requests both single scanning
-// and no pixel doubling because it scales pixels as flat adjacent rectangles.
-// This not only produces identical output versus double scanning and
-// pixel doubling, but also provides finer integer scaling steps (especially
-// important on sub-4K screens), plus improves performance on low-end systems
-// like the Raspberry Pi.
+// The default `interpolation/sharp.glsl` and `interpolation/nearest.glsl`
+// shaders requests both single scanning and no pixel doubling because it scales
+// pixels as flat adjacent rectangles. This not only produces identical output
+// versus double scanning and pixel doubling, but also provides finer integer
+// scaling steps (especially important on sub-4K screens), plus improves
+// performance on low-end systems like the Raspberry Pi.
 //
 // The same reasoning applies to nearest-neighbour interpolation in texture
 // output mode.
 //
 static void setup_scan_and_pixel_doubling()
 {
-	const auto nearest_neighbour_on = (GFX_GetInterpolationMode() ==
-	                                   InterpolationMode::NearestNeighbour);
-
 	switch (GFX_GetRenderingBackend()) {
-	case RenderingBackend::Texture:
+	case RenderingBackend::Texture: {
+		const auto nearest_neighbour_on = (GFX_GetTextureInterpolationMode() ==
+		                                   InterpolationMode::NearestNeighbour);
+
 		force_vga_single_scan   = nearest_neighbour_on;
 		force_no_pixel_doubling = nearest_neighbour_on;
-		break;
+	} break;
 
 	case RenderingBackend::OpenGl: {
 		const auto shader_info = get_shader_manager().GetCurrentShaderInfo();
-		const auto none_shader_active = (shader_info.name == NoneShaderName);
-
-		const auto double_scan_enabled = (nearest_neighbour_on &&
-		                                  none_shader_active);
-
-		force_vga_single_scan = (shader_info.settings.force_single_scan ||
-		                         double_scan_enabled);
-
-		force_no_pixel_doubling = (shader_info.settings.force_no_pixel_doubling ||
-		                           double_scan_enabled);
+		force_vga_single_scan = shader_info.settings.force_single_scan;
+		force_no_pixel_doubling = shader_info.settings.force_no_pixel_doubling;
 	} break;
 
 	default: assertm(false, "Invalid RenderindBackend value");
@@ -743,7 +732,7 @@ static AspectRatioCorrectionMode get_aspect_ratio_correction_mode_setting()
 		return AspectRatioCorrectionMode::Stretch;
 
 	} else {
-		LOG_WARNING("RENDER: Invalid 'aspect' setting '%s', using 'auto'",
+		LOG_WARNING("RENDER: Invalid 'aspect' setting: '%s', using 'auto'",
 		            mode.c_str());
 		return AspectRatioCorrectionMode::Auto;
 	}
@@ -822,7 +811,7 @@ static std::optional<ViewportSettings> parse_fit_viewport_modes(const std::strin
 		const bool is_out_of_bounds = (w <= 0 || w > desktop.w ||
 		                               h <= 0 || h > desktop.h);
 		if (is_out_of_bounds) {
-			const auto extra_info = format_string(
+			const auto extra_info = format_str(
 			        "Viewport size is outside of the %dx%d desktop bounds",
 			        iroundf(desktop.w),
 			        iroundf(desktop.h));
@@ -919,7 +908,7 @@ static std::optional<ViewportSettings> parse_relative_viewport_modes(const std::
 		};
 
 		if (!is_within_bounds(width_scale)) {
-			const auto extra_info = format_string(
+			const auto extra_info = format_str(
 			        "Horizontal scale must be within the %g-%g%% range",
 			        MinRelativeScaleFactor * 100.0f,
 			        MaxRelativeScaleFactor * 100.0f);
@@ -929,7 +918,7 @@ static std::optional<ViewportSettings> parse_relative_viewport_modes(const std::
 		}
 		if (!is_within_bounds(height_scale)) {
 			LOG_TRACE("****1");
-			const auto extra_info = format_string(
+			const auto extra_info = format_str(
 			        "Vertical scale must be within the %g-%g%% range",
 			        MinRelativeScaleFactor * 100.0f,
 			        MaxRelativeScaleFactor * 100.0f);
@@ -958,7 +947,7 @@ static std::optional<ViewportSettings> parse_relative_viewport_modes(const std::
 
 static std::optional<ViewportSettings> parse_viewport_settings(const std::string& pref)
 {
-	if (starts_with(pref, "relative")) {
+	if (pref.starts_with("relative")) {
 		return parse_relative_viewport_modes(pref);
 	} else {
 		return parse_fit_viewport_modes(pref);
@@ -1021,7 +1010,7 @@ DosBox::Rect RENDER_CalcRestrictedViewportSizeInPixels(const DosBox::Rect& canva
 	}
 }
 
-const std::string RENDER_GetCgaColorsSetting()
+std::string RENDER_GetCgaColorsSetting()
 {
 	return get_render_section()->Get_string("cga_colors");
 }
@@ -1036,9 +1025,56 @@ static void init_render_settings(Section_prop& secprop)
 	int_prop->Set_help(
 	        "Consider capping frame rates using the 'host_rate' setting.");
 
-	auto* string_prop = secprop.Add_string("aspect", always, "auto");
+	auto* string_prop = secprop.Add_string("glshader", always, "crt-auto");
+	string_prop->SetOptionHelp(
+	        "Set an adaptive CRT monitor emulation shader or a regular GLSL shader in OpenGL\n"
+	        "output modes ('crt-auto' by default). Adaptive CRT shader options:\n"
+	        "  crt-auto:               A CRT shader that prioritises developer intent and\n"
+	        "                          how people experienced the game at the time of\n"
+	        "                          release (default). The appropriate shader variant is\n"
+	        "                          automatically selected based the graphics standard of\n"
+	        "                          the current video mode and the viewport size,\n"
+	        "                          irrespective of the 'machine' setting. This means\n"
+	        "                          that even on an emulated VGA card you'll get\n"
+	        "                          authentic single-scanned EGA monitor emulation with\n"
+	        "                          visible \"thick scanlines\" in EGA games.\n"
+	        "  crt-auto-machine:       Similar to 'crt-auto', but this picks a fixed CRT\n"
+	        "                          monitor appropriate for the video adapter configured\n"
+	        "                          via the 'machine' setting. E.g., CGA and EGA games\n"
+	        "                          will appear double-scanned on an emulated VGA\n"
+	        "                          adapter.\n"
+	        "  crt-auto-arcade:        Emulation of an arcade or home computer monitor less\n"
+	        "                          sharp than a typical PC monitor with thick scanlines\n"
+	        "                          in low-resolution modes. This fantasy option does not\n"
+	        "                          exist in real life, but it can be a lot of fun,\n"
+	        "                          especially with DOS ports of Amiga games.\n"
+	        "  crt-auto-arcade-sharp:  A sharper variant of the arcade shader for those who\n"
+	        "                          like the thick scanlines but want to retain the\n"
+	        "                          horizontal sharpness of a typical PC monitor.\n"
+	        "\n"
+	        "Other shader options include (non-exhaustive list):\n"
+	        "  sharp:                  Upscale the image treating the pixels as rectangles.\n"
+	        "                          Results in a sharp image with minimum blur.\n"
+	        "  bilinear:               Upscale the image using bilinear interpolation\n"
+	        "                          (results in a blurry image).\n"
+	        "  nearest:                Upscale the image using nearest-neighbour\n"
+	        "                          interpolation (also known as \"no bilinear\"). Results\n"
+	        "                          in the sharpest possible image at the expense of\n"
+	        "                          uneven pixels (this is less of an issue on high\n"
+	        "                          resolution screens).\n"
+	        "\n"
+	        "Start DOSBox Staging with the '--list-glshaders' command line option to see the\n"
+	        "full list of available shaders. You can also use an absolute or relative path to\n"
+	        "a file. In all cases, you may omit the shader's '.glsl' file extension.");
+	string_prop->SetEnabledOptions({
+#if C_OPENGL
+		"glshader",
+#endif
+	});
+
+	string_prop = secprop.Add_string("aspect", always, "auto");
 	string_prop->Set_help(
-	        "Set the aspect ratio correction mode (enabled by default):\n"
+	        "Set the aspect ratio correction mode ('auto' by default):\n"
 	        "  auto, on:            Apply aspect ratio correction for modern square-pixel\n"
 	        "                       flat-screen displays, so DOS video modes with non-square\n"
 	        "                       pixels appear as they would on a 4:3 display aspect\n"
@@ -1059,18 +1095,16 @@ static void init_render_settings(Section_prop& secprop)
 	        "                       to emulate the horizontal and vertical stretch controls\n"
 	        "                       of CRT monitors.");
 
-	const char* aspect_values[] = {
-	        "auto", "on", "square-pixels", "off", "stretch", nullptr};
-	string_prop->Set_values(aspect_values);
+	string_prop->Set_values({"auto", "on", "square-pixels", "off", "stretch"});
 
 	string_prop = secprop.Add_string("integer_scaling", always, "auto");
 	string_prop->Set_help(
 	        "Constrain the horizontal or vertical scaling factor to the largest integer\n"
-	        "value so the image still fits into the viewport. The configured aspect ratio is\n"
-	        "always maintained according to the 'aspect' and 'viewport' settings, which may\n"
-	        "result in a non-integer scaling factor in the other dimension. If the image is\n"
-	        "larger than the viewport, the integer scaling constraint is auto-disabled (same\n"
-	        "as 'off'). Possible values:\n"
+	        "value so the image still fits into the viewport ('auto' by default). The\n"
+	        "configured aspect ratio is always maintained according to the 'aspect' and\n"
+	        "'viewport' settings, which may result in a non-integer scaling factor in the\n"
+	        "other dimension. If the image is larger than the viewport, the integer scaling\n"
+	        "constraint is auto-disabled (same as 'off'). Possible values:\n"
 	        "  auto:        'vertical' mode auto-enabled for adaptive CRT shaders only\n"
 	        "               (see 'glshader'), otherwise 'off' (default).\n"
 	        "  vertical:    Constrain the vertical scaling factor to integer values.\n"
@@ -1080,15 +1114,13 @@ static void init_render_settings(Section_prop& secprop)
 	        "  off:         No integer scaling constraint is applied; the image fills the\n"
 	        "               viewport while maintaining the configured aspect ratio.");
 
-	const char* integer_scaling_values[] = {
-	        "auto", "vertical", "horizontal", "off", nullptr};
-	string_prop->Set_values(integer_scaling_values);
+	string_prop->Set_values({"auto", "vertical", "horizontal", "off"});
 
-	string_prop = secprop.Add_path("viewport", always, "fit");
+	string_prop = secprop.Add_string("viewport", always, "fit");
 	string_prop->Set_help(
-	        "Set the viewport size (maximum drawable area). The video output is always\n"
-	        "contained within the viewport while taking the configured aspect ratio into\n"
-	        "account (see 'aspect'). Possible values:\n"
+	        "Set the viewport size ('fit' by default). This is the maximum drawable area;\n"
+	        "the video output is always contained within the viewport while taking the\n"
+	        "configured aspect ratio into account (see 'aspect'). Possible values:\n"
 	        "  fit:             Fit the viewport into the available window/screen (default).\n"
 	        "                   There might be padding (black areas) around the image with\n"
 	        "                   'integer_scaling' enabled.\n"
@@ -1096,12 +1128,12 @@ static void init_render_settings(Section_prop& secprop)
 	        "                   (e.g., 960x720). The specified size must not be larger than\n"
 	        "                   the desktop. If it's larger than the window size, it's\n"
 	        "                   scaled to fit within the window.\n"
-	        "  N%:              Similar to 'WxH' but the size is specified as a percentage\n"
+	        "  N%%:              Similar to 'WxH' but the size is specified as a percentage\n"
 	        "                   of the desktop size.\n"
-	        "  relative H% V%:  The viewport is set to a 4:3 aspect ratio rectangle fit into\n"
+	        "  relative H%% V%%:  The viewport is set to a 4:3 aspect ratio rectangle fit into\n"
 	        "                   the available window/screen, then it's scaled by the H and V\n"
 	        "                   horizontal and vertical scaling factors (valid range is from\n"
-	        "                   20% to 300%). The resulting viewport is allowed to extend\n"
+	        "                   20%% to 300%%). The resulting viewport is allowed to extend\n"
 	        "                   beyond the window/screen. Useful to force arbitrary display\n"
 	        "                   aspect ratios with 'aspect = stretch' and to zoom into the\n"
 	        "                   image. This effectively emulates the horizontal and vertical\n"
@@ -1120,17 +1152,15 @@ static void init_render_settings(Section_prop& secprop)
 	        "Works only with the 'hercules' and 'cga_mono' machine types.\n"
 	        "Note: You can also cycle through the available palettes via hotkeys.");
 
-	const char* mono_pal[] = {MonochromePaletteAmber,
-	                          MonochromePaletteGreen,
-	                          MonochromePaletteWhite,
-	                          MonochromePalettePaperwhite,
-	                          nullptr};
-	string_prop->Set_values(mono_pal);
+	string_prop->Set_values({MonochromePaletteAmber,
+	                         MonochromePaletteGreen,
+	                         MonochromePaletteWhite,
+	                         MonochromePalettePaperwhite});
 
 	string_prop = secprop.Add_string("cga_colors", only_at_start, "default");
 	string_prop->Set_help(
-	        "Set the interpretation of CGA RGBI colours. Affects all machine types capable\n"
-	        "of displaying CGA or better graphics. Built-in presets:\n"
+	        "Set the interpretation of CGA RGBI colours ('default' by default). Affects all\n"
+	        "machine types capable of displaying CGA or better graphics. Built-in presets:\n"
 	        "  default:       The canonical CGA palette, as emulated by VGA adapters\n"
 	        "                 (default).\n"
 	        "  tandy <bl>:    Emulation of an idealised Tandy monitor with adjustable brown\n"
@@ -1149,7 +1179,7 @@ static void init_render_settings(Section_prop& secprop)
 	        "                 AGI-interpreter.\n"
 	        "  scumm-amiga:   Palette used by the Amiga ports of LucasArts EGA games.\n"
 	        "  colodore:      Commodore 64 inspired colours based on the Colodore palette.\n"
-	        "  colodore-sat:  Colodore palette with 20% more saturation.\n"
+	        "  colodore-sat:  Colodore palette with 20%% more saturation.\n"
 	        "  dga16:         A modern take on the canonical CGA palette with dialed back\n"
 	        "                 contrast.\n"
 	        "You can also set custom colours by specifying 16 space or comma separated\n"
@@ -1169,7 +1199,6 @@ static void init_render_settings(Section_prop& secprop)
 	        "    or 'viewport' instead, or consider using 'integer_scaling'.\n"
 	        "  - If you used an advanced scaler, consider one of the 'glshader'\n"
 	        "    options instead.");
-
 #if C_OPENGL
 	string_prop = secprop.Add_string("glshader", always, "crt-auto");
 	string_prop->Set_help(
@@ -1280,7 +1309,7 @@ static void decrease_viewport_stretch(const bool pressed)
 	}
 }
 
-void RENDER_AddConfigSection(const config_ptr_t& conf)
+void RENDER_AddConfigSection(const ConfigPtr& conf)
 {
 	assert(conf);
 
@@ -1375,7 +1404,7 @@ void RENDER_Init(Section* sec)
 	aspect_ratio_correction_mode = get_aspect_ratio_correction_mode_setting();
 
 	if (const auto& settings = parse_viewport_settings(
-	            section->Get_string("viewport").c_str());
+	            section->Get_string("viewport"));
 	    settings) {
 		viewport_settings = *settings;
 	} else {

@@ -1,10 +1,13 @@
 #define DOSBoxAppName "DOSBox Staging"
 #define DOSBoxAppDirName "DOSBox Staging"
 #define DOSBoxAppVersion "DOSBOX-STAGING-VERSION"
+#define DOSBoxGitHash "DOSBOX-STAGING-GIT-HASH"
 #define DOSBoxAppInternal "dosbox-staging"
 #define DOSBoxAppURL "https://www.dosbox-staging.org/"
 #define DOSBoxAppExeName "dosbox.exe"
 #define DOSBoxAppExeDebuggerName "dosbox_with_debugger.exe"
+#define DOSBoxAppExeConsoleName "dosbox_with_console.bat"
+#define DOSBoxAppBuildDate GetDateTimeString('yyyymmdd_hhnnss', '', '')
 
 [Setup]
 AppId={{587471B7-02F6-4F25-8D00-70006790653C}
@@ -21,7 +24,7 @@ DisableWelcomePage=no
 DisableProgramGroupPage=yes
 InfoBeforeFile=setup_preamble.txt
 OutputDir=.\
-OutputBaseFilename={#DOSBoxAppInternal}-{#DOSBoxAppVersion}-setup
+OutputBaseFilename={#DOSBoxAppInternal}-windows-x64-{#DOSBoxAppVersion}-{#DOSBoxGitHash}-setup
 SetupIconFile={#DOSBoxAppInternal}.ico
 Compression=lzma
 SolidCompression=yes
@@ -68,14 +71,15 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "program\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#DOSBoxAppExeName}"; DestDir: "{app}"; DestName: "{#DOSBoxAppExeName}"; Flags: ignoreversion;
-Source: "{#DOSBoxAppExeDebuggerName}"; DestDir: "{app}"; DestName: "{#DOSBoxAppExeDebuggerName}"; Flags: ignoreversion;
+Source: "{#DOSBoxAppExeName}"; DestDir: "{app}"; DestName: "{#DOSBoxAppExeName}"; Flags: ignoreversion
+Source: "{#DOSBoxAppExeDebuggerName}"; DestDir: "{app}"; DestName: "{#DOSBoxAppExeDebuggerName}"; Flags: ignoreversion
+Source: "{#DOSBoxAppExeConsoleName}"; DestDir: "{app}"; DestName: "{#DOSBoxAppExeConsoleName}"; Flags: ignoreversion
 Source: "{#DOSBoxAppInternal}.ico"; DestDir: "{app}"; DestName: "{#DOSBoxAppInternal}.ico"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#DOSBoxAppName}"; Filename: "{app}\{#DOSBoxAppExeName}"
-Name: "{group}\{#DOSBoxAppName} (no console window)"; Filename: "{app}\{#DOSBoxAppExeName}"; Parameters: "--noconsole"
-Name: "{group}\{#DOSBoxAppName} (debugger)"; Filename: "{app}\{#DOSBoxAppExeDebuggerName}"
+Name: "{group}\{#DOSBoxAppName} with console"; Filename: "{app}\{#DOSBoxAppExeConsoleName}"; IconFilename: "{app}\{#DOSBoxAppInternal}.ico"
+Name: "{group}\{#DOSBoxAppName} with debugger"; Filename: "{app}\{#DOSBoxAppExeDebuggerName}"
 Name: "{group}\Visit {#DOSBoxAppName} website"; Filename: "{#DOSBoxAppURL}"
 Name: "{autodesktop}\{#DOSBoxAppName}"; Filename: "{app}\{#DOSBoxAppExeName}"; Tasks: desktopicon
 
@@ -86,24 +90,24 @@ Root: HKA; Subkey: "Software\{#DOSBoxAppInternal}"; ValueType: string; ValueName
 
 ; Add context menu entry when right-clicking on a folder
 Root: HKA; Subkey: "Software\Classes\Directory\shell\{#DOSBoxAppInternal}"; ValueType: string; ValueName: ""; ValueData: "Open with {#DOSBoxAppName}"; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletevalue
-Root: HKA; Subkey: "Software\Classes\Directory\shell\{#DOSBoxAppInternal}"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#DOSBoxAppExeName}"",0"; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\Classes\Directory\shell\{#DOSBoxAppInternal}\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#DOSBoxAppExeName}"" --working-dir ""%v"""; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\Directory\shell\{#DOSBoxAppInternal}"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#DOSBoxAppExeConsoleName}"",0"; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\Directory\shell\{#DOSBoxAppInternal}\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#DOSBoxAppExeConsoleName}"" --working-dir ""%v"""; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
 
 Root: HKA; Subkey: "Software\Classes\Directory\shell\{#DOSBoxAppInternal}"; ValueType: none; Check: not WizardIsTaskSelected('contextmenu'); Flags: deletekey
 Root: HKA; Subkey: "Software\Classes\Directory\shell\{#DOSBoxAppInternal}\command"; ValueType: none; Check: not WizardIsTaskSelected('contextmenu'); Flags: deletekey
 
 ; Add context menu when right-clicking on an empty area within a folder
 Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\{#DOSBoxAppInternal}"; ValueType: string; ValueName: ""; ValueData: "Open with {#DOSBoxAppName}"; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletevalue
-Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\{#DOSBoxAppInternal}"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#DOSBoxAppExeName}"",0"; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\{#DOSBoxAppInternal}\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#DOSBoxAppExeName}"" --working-dir ""%v"""; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\{#DOSBoxAppInternal}"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#DOSBoxAppExeConsoleName}"",0"; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\{#DOSBoxAppInternal}\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#DOSBoxAppExeConsoleName}"" --working-dir ""%v"""; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
 
 Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\{#DOSBoxAppInternal}"; ValueType: none; Check: not WizardIsTaskSelected('contextmenu'); Flags: deletekey
 Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\{#DOSBoxAppInternal}\command"; ValueType: none; Check: not WizardIsTaskSelected('contextmenu'); Flags: deletekey
 
 ; Add context menu when right-clicking on `.conf` extension
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.conf\shell\Open with {#DOSBoxAppName}"; ValueType: none; ValueName: ""; ValueData: ""; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletevalue
-Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.conf\shell\Open with {#DOSBoxAppName}"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#DOSBoxAppExeName}"",0"; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.conf\shell\Open with {#DOSBoxAppName}\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#DOSBoxAppExeName}"" --conf ""%1"""; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.conf\shell\Open with {#DOSBoxAppName}"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#DOSBoxAppExeConsoleName}"",0"; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.conf\shell\Open with {#DOSBoxAppName}\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#DOSBoxAppExeConsoleName}"" -conf ""%1"""; Check: WizardIsTaskSelected('contextmenu'); Flags: uninsdeletekey
 
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.conf\shell\Open with {#DOSBoxAppName}"; ValueType: none; Check: not WizardIsTaskSelected('contextmenu'); Flags: deletekey
 Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.conf\shell\Open with {#DOSBoxAppName}\command"; ValueType: none; Check: not WizardIsTaskSelected('contextmenu'); Flags: deletekey

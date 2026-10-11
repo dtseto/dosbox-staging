@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2023  The DOSBox Staging Team
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,21 +27,12 @@
 
 bool is_hex_digits(const std::string_view s) noexcept
 {
-	for (const auto ch : s) {
-		if (!isxdigit(ch)) {
-			return false;
-		}
-	}
-	return true;
+	return std::all_of(s.begin(), s.end(), &isxdigit);
 }
 
 bool is_digits(const std::string_view s) noexcept
 {
-	for (const auto ch : s) {
-		if (!isdigit(ch))
-			return false;
-	}
-	return true;
+	return std::all_of(s.begin(), s.end(), &isdigit);
 }
 
 void strreplace(char *str, char o, char n)
@@ -54,7 +45,9 @@ void strreplace(char *str, char o, char n)
 }
 
 void ltrim(std::string &str) {
-    str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](int c) {return !isspace(c);}));
+	str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](int c) {
+		          return !isspace(c);
+	          }));
 }
 
 char *ltrim(char *str)
@@ -108,13 +101,11 @@ void lowcase(std::string &str)
 std::string replace(const std::string &str, char old_char, char new_char) noexcept
 {
 	std::string new_str = str;
-	for (char &c : new_str)
-		if (c == old_char)
-			c = new_char;
-	return str;
+	std::replace(new_str.begin(), new_str.end(), old_char, new_char);
+	return new_str;
 }
 
-void trim(std::string &str, const char trim_chars[])
+void trim(std::string &str, const std::string_view trim_chars)
 {
 	const auto empty_pfx = str.find_first_not_of(trim_chars);
 	if (empty_pfx == std::string::npos) {
@@ -192,8 +183,9 @@ std::string join_with_commas(const std::vector<std::string>& items,
 
 	std::string result = {};
 
-	const auto and_pair = std::string(" ") + and_conjunction.data() + " ";
-	const auto and_multi = std::string(", ") + and_conjunction.data() + " ";
+	// C++26 should add the missing operator+(std::string, std::string_view)
+	const auto and_pair = std::string(" ").append(and_conjunction) + " ";
+	const auto and_multi = std::string(", ").append(and_conjunction) + " ";
 
 	std::string separator = (num_items == 2u) ? and_pair : ", ";
 
@@ -273,14 +265,14 @@ std::string strip_word(std::string& line)
 	if (line[0] == '"') {
 		size_t end_quote = line.find('"', 1);
 		if (end_quote != std::string::npos) {
-			std::string word = line.substr(1, end_quote - 1);
+			const std::string word = line.substr(1, end_quote - 1);
 			line.erase(0, end_quote + 1);
 			ltrim(line);
 			return word;
 		}
 	}
 	auto end_word = std::find_if(line.begin(), line.end(), [](int c) {return isspace(c);});
-	std::string word(line.begin(), end_word);
+	const std::string word(line.begin(), end_word);
 	if (end_word != line.end()) {
 		++end_word;
 	}
@@ -296,27 +288,9 @@ void strip_punctuation(std::string &str)
 	          str.end());
 }
 
-// TODO in C++20: replace with str.starts_with(prefix)
-bool starts_with(const std::string_view str, const std::string_view prefix) noexcept
-{
-	if (prefix.length() > str.length()) {
-		return false;
-	}
-	return std::equal(prefix.begin(), prefix.end(), str.begin());
-}
-
-// TODO in C++20: replace with str.ends_with(suffix)
-bool ends_with(const std::string_view str, const std::string_view suffix) noexcept
-{
-	if (suffix.length() > str.length()) {
-		return false;
-	}
-	return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
-}
-
 std::string strip_prefix(const std::string_view str, const std::string_view prefix) noexcept
 {
-	if (starts_with(str, prefix)) {
+	if (str.starts_with(prefix)) {
 		return std::string(str.substr(prefix.size()));
 	}
 	return std::string(str);
@@ -324,7 +298,7 @@ std::string strip_prefix(const std::string_view str, const std::string_view pref
 
 std::string strip_suffix(const std::string_view str, const std::string_view suffix) noexcept
 {
-	if (ends_with(str, suffix)) {
+	if (str.ends_with(suffix)) {
 		return std::string(str.substr(0, str.size() - suffix.size()));
 	}
 	return std::string(str);
@@ -333,7 +307,7 @@ std::string strip_suffix(const std::string_view str, const std::string_view suff
 void clear_language_if_default(std::string &l)
 {
 	lowcase(l);
-	if (l.size() < 2 || starts_with(l, "c.") || l == "posix") {
+	if (l.size() < 2 || l.starts_with("c.") || l == "posix") {
 		l.clear();
 	}
 }
@@ -383,7 +357,7 @@ std::optional<float> parse_percentage(const std::string_view s,
                                       const bool is_percent_sign_optional)
 {
 	if (!is_percent_sign_optional) {
-		if (!ends_with(s, "%")) {
+		if (!s.ends_with('%')) {
 			return {};
 		}
 	}
@@ -400,5 +374,20 @@ std::optional<float> parse_percentage_with_optional_percent_sign(const std::stri
 {
 	const auto is_percent_sign_optional = true;
 	return parse_percentage(s, is_percent_sign_optional);
+}
+
+std::string replace_all(const std::string& str, const std::string& from,
+                        const std::string& to)
+{
+	auto new_str = str;
+
+	size_t pos = 0;
+	while ((pos = new_str.find(from, pos)) != std::string::npos) {
+		new_str.replace(pos, from.length(), to);
+
+		// Handles case where `to` is a substring of `from`
+		pos += to.length();
+	}
+	return new_str;
 }
 

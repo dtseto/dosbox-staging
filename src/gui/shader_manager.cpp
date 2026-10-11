@@ -216,15 +216,14 @@ std::deque<std::string> ShaderManager::GenerateShaderInventoryMessage() const
 		} else {
 			pattern = MSG_GetRaw("DOSBOX_HELP_LIST_GLSHADERS_LIST");
 		}
-		inventory.emplace_back(
-		        format_string(pattern, dir.u8string().c_str()));
+		inventory.emplace_back(format_str(pattern, dir.u8string().c_str()));
 
 		while (shader != shaders.end()) {
 			shader->replace_extension("");
 			const auto is_last = (shader + 1 == shaders.end());
 			inventory.emplace_back(file_prefix +
 			                       (is_last ? "`- " : "|- ") +
-			                       shader->u8string());
+			                       shader->string());
 			++shader;
 		}
 		inventory.emplace_back("");
@@ -258,6 +257,12 @@ std::string ShaderManager::MapShaderName(const std::string& name) const
 	// Map shader aliases
 	if (name == "sharp") {
 		return SharpShaderName;
+
+	} else if (name == "bilinear" || name == "none") {
+		return BilinearShaderName;
+
+	} else if (name == "nearest") {
+		return "interpolation/nearest";
 	}
 
 	// Map legacy shader names
@@ -362,6 +367,9 @@ ShaderSettings ShaderManager::ParseShaderSettings(const std::string& shader_name
 
 			} else if (pragma == "force_no_pixel_doubling") {
 				settings.force_no_pixel_doubling = true;
+
+			} else if (pragma == "use_nearest_texture_filter") {
+				settings.texture_filter_mode = TextureFilterMode::Nearest;
 			}
 			++next;
 		}

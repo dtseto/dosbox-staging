@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -126,37 +126,6 @@ TEST(NaturalCompare, AtEndNum)
 	EXPECT_TRUE(natural_compare("Ab999", "aB1000"));
 }
 
-
-TEST(StartsWith, Prefix)
-{
-	EXPECT_TRUE(starts_with("abcd", "ab"));
-	EXPECT_TRUE(starts_with(std::string{"abcd"}, "ab"));
-}
-
-TEST(StartsWith, NotPrefix)
-{
-	EXPECT_FALSE(starts_with("abcd", "xy"));
-	EXPECT_FALSE(starts_with(std::string{"abcd"}, "xy"));
-}
-
-TEST(StartsWith, TooLongPrefix)
-{
-	EXPECT_FALSE(starts_with("ab", "abcd"));
-	EXPECT_FALSE(starts_with(std::string{"ab"}, "abcd"));
-}
-
-TEST(StartsWith, EmptyPrefix)
-{
-	EXPECT_TRUE(starts_with("abcd", ""));
-	EXPECT_TRUE(starts_with(std::string{"abcd"}, ""));
-}
-
-TEST(StartsWith, EmptyString)
-{
-	EXPECT_FALSE(starts_with("", "ab"));
-	EXPECT_FALSE(starts_with(std::string{""}, "ab"));
-}
-
 TEST(SafeSprintF, PreventOverflow)
 {
 	char buf[3];
@@ -244,7 +213,7 @@ TEST(SafeStrlen, FixedSize)
 	EXPECT_EQ(N - 1, safe_strlen(buffer));
 }
 
-TEST(Split_delit, NoBoundingDelims)
+TEST(Split_delim, NoBoundingDelims)
 {
 	const std::vector<std::string> expected({"a", "/b", "/c/d", "/e/f/"});
 	EXPECT_EQ(split_with_empties("a:/b:/c/d:/e/f/", ':'), expected);
@@ -467,11 +436,87 @@ TEST(ParsePercentageWithOptionalPercentSign, Invalid)
 
 TEST(FormatString, Valid)
 {
-	EXPECT_EQ(format_string(""), "");
- 	EXPECT_EQ(format_string("abcd"), "abcd");
-	EXPECT_EQ(format_string("%d", 42), "42");
-	EXPECT_EQ(format_string("%d\0", 42), "42\0");
-	EXPECT_EQ(format_string("%s%d%s", "abcd", 42, "xyz"), "abcd42xyz");
+	EXPECT_EQ(format_str(""), "");
+ 	EXPECT_EQ(format_str("abcd"), "abcd");
+	EXPECT_EQ(format_str("%d", 42), "42");
+	EXPECT_EQ(format_str("%d\0", 42), "42\0");
+	EXPECT_EQ(format_str("%s%d%s", "abcd", 42, "xyz"), "abcd42xyz");
+}
+
+TEST(IsHexDigits, Valid)
+{
+	EXPECT_TRUE(is_hex_digits("0123456789ABCDEF"));
+	EXPECT_TRUE(is_hex_digits("0123456789abcdef"));
+	EXPECT_TRUE(is_hex_digits(""));
+}
+
+TEST(IsHexDigits, Invalid)
+{
+	EXPECT_FALSE(is_hex_digits("0123456789ABCDEFG"));
+	EXPECT_FALSE(is_hex_digits("0123456789abcdefg"));
+}
+
+TEST(IsDigits, Valid)
+{
+	EXPECT_TRUE(is_digits("0123456789"));
+	EXPECT_TRUE(is_digits(""));
+}
+
+TEST(IsDigits, Invalid)
+{
+	EXPECT_FALSE(is_digits("01234567890ABCDEFG"));
+	EXPECT_FALSE(is_digits("01234567890abcdefg"));
+}
+
+TEST(LTrim, Valid) 
+{
+	auto perform_ltrim = [](const std::string& input) {
+		std::string output = input;
+		ltrim(output);
+		return output;
+	};
+	EXPECT_EQ(perform_ltrim("  ABC"), "ABC");
+	EXPECT_EQ(perform_ltrim("ABC"), "ABC");
+	EXPECT_EQ(perform_ltrim("ABC   "), "ABC   ");
+}
+
+TEST(Upcase, Valid) {
+	auto perform_upcase = [](const std::string& input) {
+		std::string output = input;
+		upcase(output);
+		return output;
+	};
+	EXPECT_EQ(perform_upcase("abc"), "ABC");
+	EXPECT_EQ(perform_upcase("ABC"), "ABC");
+	EXPECT_EQ(perform_upcase("aBc"), "ABC");
+}
+
+TEST(Lowcase, Valid)
+{
+	auto perform_lowcase = [](const std::string& input) {
+		std::string output = input;
+		lowcase(output);
+		return output;
+	};
+	EXPECT_EQ(perform_lowcase("abc"), "abc");
+	EXPECT_EQ(perform_lowcase("ABC"), "abc");
+	EXPECT_EQ(perform_lowcase("aBc"), "abc");
+}
+
+TEST(Replace, Valid)
+{
+	EXPECT_EQ(replace("abc", 'c', 'D'), "abD");
+	EXPECT_EQ(replace("abc", 'd', 'D'), "abc");
+	EXPECT_EQ(replace("", 'd', 'D'), "");
+}
+
+TEST(ReplaceAll, Valid)
+{
+	const auto s1 = "%% foo%%bar quz%baz%";
+	EXPECT_EQ(replace_all(s1, "%%", "%"), "% foo%bar quz%baz%");
+
+	const auto s2 = "\nthe quick brown fox jumps\nover the\nlazy dog";
+	EXPECT_EQ(replace_all(s2, "the", "a"), "\na quick brown fox jumps\nover a\nlazy dog");
 }
 
 } // namespace

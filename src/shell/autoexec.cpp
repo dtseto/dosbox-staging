@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include "setup.h"
 #include "shell.h"
 #include "string_utils.h"
+#include "unicode.h"
 
 #include <algorithm>
 #include <iostream>
@@ -214,8 +215,10 @@ static void create_autoexec_bat_dos(const std::string& input_utf8,
                                     const uint16_t code_page)
 {
 	// Convert UTF-8 AUTOEXEC.BAT to DOS code page
-	std::string autoexec_bat_dos = {};
-	utf8_to_dos(input_utf8, autoexec_bat_dos, UnicodeFallback::Box, code_page);
+	const auto autoexec_bat_dos = utf8_to_dos(input_utf8,
+	                                          DosStringConvertMode::WithControlCodes,
+	                                          UnicodeFallback::Box,
+	                                          code_page);
 
 	// Convert the result to a binary format
 	auto autoexec_bat_bin = std::vector<uint8_t>(autoexec_bat_dos.begin(),
@@ -323,9 +326,7 @@ AutoExecModule::AutoExecModule(Section* configuration)
 	const bool exit_arg_exists = arguments->exit;
 
 	// Check if instant-launch is active
-	const bool using_instant_launch_with_executable =
-	        control->GetStartupVerbosity() == Verbosity::InstantLaunch &&
-	        cmdline->HasExecutableName();
+	const bool using_instant_launch_with_executable = cmdline->HasExecutableName();
 
 	// Should we add an 'exit' call to the end of autoexec.bat?
 	const bool should_add_exit = exit_call_exists || exit_arg_exists ||
@@ -339,7 +340,7 @@ AutoExecModule::AutoExecModule(Section* configuration)
 
 	unsigned int index = 1;
 	while (cmdline->FindCommand(index++, argument)) {
-		if (starts_with(argument, "-")) {
+		if (argument.starts_with("-")) {
 			LOG_WARNING("CONFIG: Illegal command line switch '%s'",
 			            argument.c_str());
 			continue;
@@ -354,7 +355,7 @@ AutoExecModule::AutoExecModule(Section* configuration)
 		}
 
 		if (is_directory) {
-			drive_c_directory = Quote + argument + Quote;
+			drive_c_directory  = argument;
 			has_dir_or_command = true;
 			continue;
 		}
@@ -474,7 +475,7 @@ void AutoExecModule::ProcessConfigFile(const Section_line& section,
 		}
 
 		lowcase(tmp);
-		if (tmp.substr(0, 4) != "echo" || !ends_with(tmp, "off")) {
+		if (tmp.substr(0, 4) != "echo" || !tmp.ends_with("off")) {
 			return false;
 		}
 

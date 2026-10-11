@@ -430,11 +430,17 @@ Składnia: [color=light-green]config [/reset]-set [color=light-cyan][SECTION][/r
 :TITLEBAR_CYCLES_MS
 cykli/ms
 .
-:TITLEBAR_HINT_PAUSED
-(PAUZA)
+:TITLEBAR_CYCLES_THROTTLED
+ograniczone
 .
-:TITLEBAR_HINT_NOMOUSE
-tryb bez użycia myszy
+:TITLEBAR_MUTED
+WYCISZONE
+.
+:TITLEBAR_PAUSED
+PAUZA
+.
+:TITLEBAR_HINT_CAPTURED
+mysz przejęta
 .
 :TITLEBAR_HINT_CAPTURED_HOTKEY
 mysz przejęta, wciśnij %s+F10 aby zwolnić
@@ -457,13 +463,36 @@ zintegrowana mysz, wciśnij %s+F10 aby przejąć
 :TITLEBAR_HINT_SEAMLESS_HOTKEY_MIDDLE
 zintegrowana mysz, wciśnij %s+F10 lub środkowy przycisk aby przejąć
 .
-:CONFIG_FULLSCREEN
-Uruchom na pełnym ekranie (domyślnie wyłączone).
-Skróty klawiszowe do zarządzania oknem można wyświetlić poleceniem 'intro'.
+:CONFIGITEM_OUTPUT_OPENGL_DEFAULT
+Wybór wyjścia obrazu (domyślnie 'opengl').
+Jedynie 'opengl' obsługuje shadery, więc jest to zalecany wybór. 'texture'
+jest zalecane jedynie jedynie w rzadkich sytuacjach braku lub nieprawidłowo
+działającego sterownika OpenGL.
+.
+:CONFIGITEM_OUTPUT_TEXTURE_DEFAULT
+Wybór wyjścia obrazu (domyślnie 'texture').
+.
+:CONFIGITEM_OUTPUT_OPENGL
+  opengl:     Używa sterownika OpenGL.
+.
+:CONFIGITEM_OUTPUT_TEXTURE
+  texture:    Używa tekstury biblioteki SDL z interpolacją bilinearną.
+.
+:CONFIGITEM_OUTPUT_TEXTURENB
+  texturenb:  Używa tekstury biblioteki SDL, zawsze rysuje najbliższy sąsiedni
+              piksel (bez interpolacji).
+.
+:CONFIG_TEXTURE_RENDERER
+Wybór renderera dla 'output = texture'.
+Wartość 'auto' (domyślne) wybiera automatycznie.
 .
 :CONFIG_DISPLAY
 Numer monitora do wyświetlania obrazu (domyślnie 0); wartości zależą od
 systemu operacyjnego i jego ustawień.
+.
+:CONFIG_FULLSCREEN
+Uruchom na pełnym ekranie (domyślnie wyłączone).
+Skróty klawiszowe do zarządzania oknem można wyświetlić poleceniem 'intro'.
 .
 :CONFIG_FULLRESOLUTION
 Rozdzielczość pełnego ekranu: 'original', 'desktop' (domyślne) lub konkretna
@@ -485,6 +514,50 @@ Początkowe współrzędne okna w trybie okienkowym:
 .
 :CONFIG_WINDOW_DECORATIONS
 Czy wyświetlać dekoracje okna w trybie okienkowym (domyślnie włączone).
+.
+:CONFIG_WINDOW_TITLEBAR
+Rozdzielona spacjami lista wartości, które zostaną wyświetlone na pasku
+tytułowym okna (domyślnie 'program=name dosbox=auto cycles=on mouse=full').
+Jeśli wartość danego parametru nie jest podana, użyta zostanie jego wartość
+domyślna. Możliwe ustawienia:
+  animation=<wartość>:  Ustawienie 'on' (domyślne) włącza animację znacznika
+                        nagrywania. Ustawienie 'off' wyłącza animacje;
+                        przydatne jeśli używana czcionka ekranowa powoduje
+                        powstawanie dziwnych efektów.
+  program=<wartość>:    Wyświetla nazwę aktualnie uruchomionego programu.
+                        <wartość> to jedno z ustawień:
+                          none/off:  Nie wyświetla nazwy programu.
+                          name:      Nazwa wraz z rozszerzeniem (domyślne).
+                          path:      Nazwa, rozszerzenie, ścieżka bezwzględna.
+                          segment:   Nazwa segmentu pamięci.
+                          'Nazwa':   Nazwa podana przez użytkownika, dozwolone
+                                     są również formy "Nazwa", (Nazwa),
+                                     <Nazwa>, lub [Nazwa].
+                        Uwaga: W niektórych przypadkach (np. jeśli uruchomiono
+                        Windows 3.1x w trybie rozszerzonym) rozpoznanie pełnej
+                        nazwy programu lub ścieżki może być niemożliwe;
+                        w takim przypadku używana jest wartość 'segment'.
+  dosbox=<wartość>:     Wyświetla 'DOSBox Staging' na pasku tytułowym.
+                        <wartość> to jedno z ustawień:
+                          always:   Zawsze wyświetla 'DOSBox Staging'.
+                          auto:     Wyświetla tylko jeśli żaden program
+                                    nie jest uruchomiony lub jeśli
+                                    'program=none' (domyślne).
+  version=<wartość>:    Wyświetla wersję DOSBoksa.
+                        <wartość> to jedno z ustawień:
+                          none/off:  Nie wyświetla wersji (domyślne).
+                          simple:    Wyświetla uproszczoną informację.
+                          detailed:  Wyświetla wersję oraz również hasz Git,
+                                     jeśli jest znany.
+  cycles=<wartość>:     Jeśli 'on' (domyślne), wyświetla ustawienie 'cycles'.
+                        Ustawienie 'off' wyłącza wyświetlanie liczby cykli.
+  mouse=<wartość>:      Poziom szczegółowości informacji o myszy:
+                          none/off:  Nie wyświetla żadnych informacji.
+                          short:     Wyświetla tylko informację, że kursor
+                                     myszy został przejęty.
+                          full:      Wyświetla szczegółowe informacje jak
+                                     przejąć lub zwolnić kursor myszy
+                                     (domyślne).
 .
 :CONFIG_TRANSPARENCY
 Przezroczystość obrazu. Od 0 (brak, domyślne) do 90 (znaczna przezroczystość).
@@ -539,17 +612,6 @@ Tryb wyświetlania ramek obrazu:
   cfr:   Wyświetlanie ramek ze stałą częstotliwością.
   vfr:   Wyświetlanie zmienionych ramek obrazu, ze zmienną częstotliwością.
 Domyślnie 'auto'.
-.
-:CONFIG_OUTPUT
-Wybór wyjścia obrazu (domyślnie 'opengl').
-Ustawienia 'texture' oraz 'opengl' używają interpolacji bilinearnej, podczas
-gdy 'texturenb' oraz 'openglnb' rysują najbliższy sąsiedni piksel.
-Niektóre shadery wymagają interpolacji bilinearnej, przez co jest to
-najbezpieczniejszy wybór.
-.
-:CONFIG_TEXTURE_RENDERER
-Wybór renderera dla 'output = texture'.
-Wartość 'auto' (domyślnie) wybiera automatycznie.
 .
 :CONFIG_CAPTURE_MOUSE
 Przeniesione do sekcji [mouse], nazwa zmieniona na 'mouse_capture'.
@@ -639,8 +701,8 @@ Obsługa uszkodzonych bloków MCB (Memory Control Blocks):
 :CONFIG_VMEMSIZE
 Rozmiar pamięci graficznej w megabajtach (1-8) lub kilobajtach (256-8192).
 Ustawienie 'auto' (domyślne) wybiera typową dla danej karty graficznej.
-Dozwolone wartości dla poszczególnych kart graficznych opisane przy opcji
-'machine'.
+Dozwolone wartości dla poszczególnych kart graficznych, a także ich wartości
+domyślne, opisane są przy opcji 'machine'.
 .
 :CONFIG_VMEM_DELAY
 Emulacja opóźnienia dostępu do pamięci graficznej (domyślnie wyłączone).
@@ -664,16 +726,26 @@ Uwaga: Zalecane jest ustawienie domyślne, innych wartości należy zawsze używ
        tylko dla konkretnej gry.
 .
 :CONFIG_VESA_MODES
-Dostępne tryby graficzne VESA 1.2 oraz 2.0:
-  compatible  Zestaw trybów dobranych dla jak najlepszej kompatybilności;
-              zalecane, razem z 4 lub 8 megabajtów pamięci graficznej.
-  halfline    Obsługuje tryby niskiej rozdzielczości VESA 2.0 wymagane przez
-              grę Extreme Assault. Używać tylko w razie potrzeby, jest to
-              niekompatybilne z chipem S3.
-  all         Wszystkie tryby dostępne dla danej wielkości pamięci graficznej.
-              Niektóre gry mogą jednak niewłaściwie je obsługiwać (migotanie),
-              albo mogą wymagać do ich obsługi więcej pamięci.
-Domyślnie 'compatible'.
+Dostępne tryby graficzne VESA:
+  compatible:  Zestaw najbardziej kompatybilnych trybów dla skonfigurowanego
+               rozmiaru pamięci graficznej (domyślne). Zalecane dla 4 lub 8 MB
+               pamięci graficznej ('vmemsize'). Tryby 320x200 z dużą ilością
+               kolorów są pomijane, ponieważ gry nie obsługiwały ich poprawnie
+               aż do późnych lat 90-tych. Tryby 256-kolorowe z liniowym buforem
+               ramki w rozdzielczościach 320x240, 400x300, oraz 512x384 również
+               są pomijane z uwagi na problemy występujące w grach opartych
+               na silniku Build.
+  halfline:    Podobnie jak 'compatible', ale tryb VESA 120h VESA jest
+               zastąpiony specjalnym trybem używanym w grze Extreme Assault.
+               Należy używać tylko, jeśli ten tryb jest potrzebny.
+               needed.
+  all:         Wszystkie tryby graficzne, włącznie ze specyficznymi dla
+               emulatora DOSBox. Dla najlepszych rezultatów użyj 8 MB pamięci
+               graficznej. Niektóre gry nie pracują poprawnie w przypadku
+               obecności pewnych trybów graficznych; w takim przypadku użyj
+               wartości 'compatible'. Wielokolorowe tryby 320x200 dostępne
+               przy tym ustawieniu często są wymagane przez produkcje
+               demoscenowe z późnych lat 90-tych.
 .
 :CONFIG_VGA_8DOT_FONT
 Zawsze używa czcionki 8 pikseli dla obrazu VGA (domyślnie wyłączone).
@@ -701,11 +773,12 @@ zasobów emulatora. Dodatkowe ustawienia mogą być podane w formie pliku
 [c].conf, znajdującego się tam, gdzie montowany katalog, z zawartością
 jak poniżej:
   [drive]
-  type    = dir, overlay, floppy lub cdrom
-  label   = etykieta_dysku
-  path    = ustawienia ścieżki wyszukiwania, np. path = %%path%%;c:\tools
+  type     = dir, overlay, floppy lub cdrom
+  label    = etykieta_dysku
+  path     = ustawienia ścieżki wyszukiwania, np. path = %%path%%;c:\tools
   override_drive = nadpisanie litery dysku (domyślnie puste)
-  verbose = true lub false
+  verbose  = true lub false
+  readonly = true lub false
 .
 :CONFIG_STARTUP_VERBOSITY
 Rodzaj informacji wyświetlanych po uruchomieniu emulatora (domyślnie 'auto'):
@@ -731,8 +804,47 @@ zamiast 'config -set sbtype sb16' wystarczy wykonać 'sbtype sb16', a zamiast
 :CONFIG_FRAMESKIP
 Użyj ustawienia 'host_rate'.
 .
+:CONFIGITEM_GLSHADER
+Wybór shadera w trybach OpenGL. Lista dostępnych shaderów adaptacyjnych,
+symulujących obraz monitora kineskopowego (CRT):
+  crt-auto:               Shader symulujący obraz monitora z okresu wydania
+                          danej gry (domyślne). Odpowiedni shader jest
+                          wybierany bazując na trybie graficznym
+                          i rozdzielczości, bez uwzględniania opcji
+                          'machine' - zatem nawet podczas emulowania systemu
+                          z kartą VGA, w przypadku uruchomienia gry
+                          korzystającej z trybu EGA wyświetlone zostaną
+                          wyraźne linie skanowania charakterystyczne
+                          dla monitora EGA.
+  crt-auto-machine:       Podobne do 'crt-auto', ale wybiera monitor
+                          na podstawie opcji 'machine', np. gry korzystające
+                          z trybu CGA lub EGA zostaną wyświetlone
+                          jak na monitorze VGA.
+  crt-auto-arcade:        Symuluje monitor maszyny arcade lub domowy monitor,
+                          typowo mniej ostry od monitora PC, z grubymi liniami
+                          skanowania w trybach graficznych niższej
+                          rozdzielczości. Może być użyteczne np. dla gier
+                          przeniesionych do systemu DOS z komputerów Amiga.
+  crt-auto-arcade-sharp:  Ostrzejszy wariant shadera arcade, dla lubiących
+                          grube linie skanowania, ale zachowuje ostrość typową
+                          dla monitorów PC.
+
+Inne możliwe opcje (nie jest to wyczerpująca lista):
+  sharp:                  Powiększa obraz traktując piksele jak prostokąty.
+                          Daje ostry obraz z minimalnym rozmyciem.
+  bilinear:               Powiększa obraz używając interpolacji bilinearnej.
+                          Daje rozmyty obraz.
+  nearest:                Powiększa obraz metodą najbliższego sąsiedztwa.
+                          Daje najostrzejszy możliwy obraz za cenę nierównych
+                          pikseli (ta wada jest mniej widoczna na monitorach
+                          o wysokiej rozdzielczości).
+
+Aby dostać pełną listę dostępnych wartości, uruchom emulator z opcją wiersza
+poleceń '--list-glshaders'. Możesz również podać ścieżkę względną lub
+bezwzględną do pliku z shaderem, rozszerzenie pliku '.glsl' możesz pominąć.
+.
 :CONFIG_ASPECT
-Korekcja proporcji obrazu (domyślnie włączone):
+Korekcja proporcji obrazu (domyślnie 'auto'):
   auto, on:            Koryguje proporcje obrazu dla współczesnych płaskich
                        monitorów o kwadratowych pikselach, żeby obraz wyglądał
                        tak jak na monitorze CRT o proporcjach 4:3, dla których
@@ -755,8 +867,9 @@ Korekcja proporcji obrazu (domyślnie włączone):
 .
 :CONFIG_INTEGER_SCALING
 Ogranicza współczynnik poziomego lub pionowego skalowania obrazu do wartości
-całkowitych. Proporcje obrazu są zachowywane według ustawienia 'aspect', co
-może wymusić niecałkowity współczynnik skalowania w drugim wymiarze.
+całkowitych (domyślnie 'auto'). Proporcje obrazu są zachowywane według
+ustawień 'aspect' i 'viewport', co może wymusić niecałkowity współczynnik
+skalowania w drugim wymiarze.
 Ograniczenie jest automatycznie wyłączane, jeśli rozdzielczość wyświetlanego
 obrazu jest mniejsza od wielkości obszaru wyświetlania (jak dla 'off').
   auto:        Używa 'vertical' dla shaderów symulujących obraz monitora
@@ -769,7 +882,9 @@ obrazu jest mniejsza od wielkości obszaru wyświetlania (jak dla 'off').
                wypełnia cały obszar wyświetlania.
 .
 :CONFIG_VIEWPORT
-Rozmiar obszaru wyświetlania (maksymalny obszar rysowania):
+Rozmiar obszaru wyświetlania (domyślnie 'fit'). Jest to maksymalny rozmiar,
+obraz zawsze się w nim mieści, a także uwzględnia skonfigurowane proporcje
+('aspect'):
   fit:             Dopasowuje obszar wyświetlania do rozmiaru okna lub ekranu
                    (domyślne). Może utworzyć czarne pasy wokół obszaru
                    wyświetlania (wypełnienie), jeśli włączone jest
@@ -778,11 +893,11 @@ Rozmiar obszaru wyświetlania (maksymalny obszar rysowania):
                    logicznych (np., 960x720). Rozmiar nie może być większy od
                    pulpitu. Jeśli zostanie podany większy, niż rozmiar okna,
                    zostanie przeskalowany żeby się zmieścił.
-  N%:              Podobnie jak 'WxH', ale określa rozmiar jako procent
+  N%%:              Podobnie jak 'WxH', ale określa rozmiar jako procent
                    rozmiaru pulpitu.
-  relative H% V%:  Ustawia obszar wyświetlania o proporcjach 4:3, dopasowany
+  relative H%% V%%:  Ustawia obszar wyświetlania o proporcjach 4:3, dopasowany
                    do rozmiaru okna/ekranu, następnie skaluje poziomo/pionowo
-                   według parametrów H i V (dozwolony zakres od 20% do 300%).
+                   według parametrów H i V (dozwolony zakres od 20%% do 300%%).
                    Powstały w ten sposób obszar wyświetlania może rozciągać
                    się poza okno/ekran, pozwala to na powiększenie części
                    obrazu, zwłaszcza w połączeniu z ustawieniem 'aspect'.
@@ -797,7 +912,8 @@ Barwa obrazu monochromatycznego (domyślnie 'amber'). Działa tylko z systemami
 'hercules' oraz 'cga_mono'. Barwę można zmieniać skrótem klawiszowym.
 .
 :CONFIG_CGA_COLORS
-Odwzorowanie barwy CGA RGBI, dotyczy wszystkich maszyn CGA lub lepszych.
+Odwzorowanie barwy CGA RGBI (domyślnie 'default'). Dotyczy wszystkich maszyn
+zdolnych do wyświetlania obrazu CGA lub lepszego. Wbudowane ustawienia:
   default:       Paleta CGA emulowanej przez kartę VGA (domyślne).
   tandy [BL]:    Wyidealizowany monitor Tandy, z regulowanym poziomem brązu
                  (0 - czerwony, 50 - brązowy, 100 - ciemnożółty).
@@ -814,7 +930,7 @@ Odwzorowanie barwy CGA RGBI, dotyczy wszystkich maszyn CGA lub lepszych.
   scumm-amiga:   Paleta używana przez porty gier LucasArts EGA na
                  komputery Amiga.
   colodore:      Zainspirowane przez komputer Commodore 64 i paletę Colodore.
-  colodore-sat:  Paleta Colodore z nasyceniem większym o 20%.
+  colodore-sat:  Paleta Colodore z nasyceniem większym o 20%%.
   dga16:         Nowoczesne podejście do palety CGA, ze stonowanym kontrastem.
 Można również podać własny zestaw kolorów, jako 16 rozdzielonych spacjami
 lub przecinkami wartości, jako 3- lub 6-cyfrowe liczby szesnastkowe (np. #f00
@@ -832,35 +948,6 @@ Skalery programowe zostały usunięte, musisz użyć skalowania sprzętowego:
   - Zamiast normal2x/3x, użyj ustawień 'windowresolution' oraz
     'viewport', rozważ użycie 'integer_scaling'.
   - W innym przypadku spróbuj użyj opcji 'glshader'.
-.
-:CONFIG_GLSHADER
-Wybór shadera w trybach OpenGL. Lista dostępnych shaderów adaptacyjnych,
-symulujących obraz monitora kineskopowego (CRT):
-  crt-auto:               Shader symulujący obraz monitora z okresu wydania
-                          danej gry (domyślnie). Odpowiedni shader jest
-                          wybierany bazując na trybie graficznym
-                          i rozdzielczości, bez uwzględniania opcji
-                          'machine' - zatem nawet podczas emulowania systemu
-                          z kartą VGA, w przypadku uruchomienia gry
-                          korzystającej z trybu EGA wyświetlone zostaną
-                          wyraźne linie skanowania charakterystyczne
-                          dla monitora EGA.
-  crt-auto-machine:       Podobne do 'crt-auto', ale wybiera monitor
-                          na podstawie opcji 'machine', np. gry korzystające
-                          z trybu CGA lub EGA zostaną wyświetlone
-                          jak na monitorze VGA.
-  crt-auto-arcade:        Symuluje monitor maszyny arcade lub domowy monitor,
-                          typowo mniej ostry od monitora PC, z grubymi liniami
-                          skanowania w trybach graficznych niższej
-                          rozdzielczości. Może być użyteczne np. dla gier
-                          przeniesionych do systemu DOS z komputerów Amiga.
-  crt-auto-arcade-sharp:  Ostrzejszy wariant shadera arcade, dla lubiących
-                          grube linie skanowania, ale zachowuje ostrość typową
-                          dla monitorów PC.
-Oprócz tego dostępne są opcje 'sharp' oraz 'none' , albo ścieżka względna lub
-bezwzględna do pliku z shaderem GLSL, albo jeden z shaderów z listy
-wyświetlanej opcją wiersza poleceń '--list-glshaders'.
-Rozszerzenie '.glsl' można w każdym przypadku pominąć.
 .
 :CONFIG_COMPOSITE
 Włącza trybu sygnału kompozytowego (tylko dla maszyn 'cga', 'pcjr', oraz
@@ -890,21 +977,101 @@ Jasność obrazu, od ciemnej do jasnej (domyślnie 0).
 Zbieżność subpikseli, od obrazu rozmytego po ostry (domyślnie 0).
 .
 :CONFIG_CORE
-Sposób emulacji procesora. Wartość 'auto' (domyślne) przełącza na 'dynamic'
-(dynamiczną rekompilację) jeśli tylko jest dostępna i możliwa do użycia.
+Sposób emulacji procesora (domyślnie 'auto').
+  auto:     'normal' dla programów działających w trybie rzeczywistym,
+            'dynamic' dla programów działających w trybie chronionym
+            (domyślne). Odpowiednie w większości przypadków.
+  normal:   Program jest interpretowany instrukcja po instrukcji. Zwiększa to
+            dokładność, ale jest 3-5 razy wolniejsze, niż 'dynamic'. Zalecane
+            do programów wrażliwych na zależności czasowe, jest niezbędne
+            dla programów samomodyfikujących się.
+  simple:   Podobne do 'normal', zoptymalizowane dla starych programów trybu
+            rzeczywistego; może poprawić kompatybilność ze starszymi grami.
+            W trybie chronionym przełącza się automatycznie na 'normal'.
+  dynamic:  Instrukcje programu są tłumaczone na instrukcje systemu gospodarza
+            całymi blokami i wykonywane bezpośrednio. Jest to 3-5 razy szybsze,
+            niż 'normal', ale zależności czasowe są emulowane mniej dokładnie.
+            Konieczne przy wymagających grach (np. grach 3D dla kart SVGA).
+            Programy samomodyfikujące się nie działają poprawnie z tym
+            ustawieniem, wymagają 'normal'.
 .
 :CONFIG_CPUTYPE
-Typ emulowanego procesora. Wartość 'auto' (domyślne) wybiera ten model, który
-da się emulować najszybciej. Wariant emulujący kolejka prefetch wymaga
-ustawienia 'core' na wartość 'normal'.
+Typ emulowanego procesora (domyślnie 'auto'). Należy zmienić wyłącznie jeśli
+program nie działa poprawnie w trybie 'auto'.
+  auto:          Zazwyczaj najszybsze i najbardziej kompatybilne (domyślne).
+                 W rzeczywistości jest to '386_fast', z instrukcją CPUID
+                 procesora 486, zachowaniem rejestru CR jak dla 486,
+                 z dodatkowymi instrukcjami procesora 486.
+  386:           CPUID jak dla procesora 386, kalkulacja praw dostępu do stron
+                 pamięci również jak dla 386.
+  386_fast:      Jak '386', ale z mniej dokładnym sprawdzaniem praw dostępu
+                 do stron pamięci, przez co jest znacznie szybsze.
+  386_prefetch:  Jak '386_fast', ale z dokładną symulacją kolejki prefetch.
+                 Wymaga 'core = normal'. Jest niezbędne dla programów
+                 samomodyfikujących się lub stosujących sztuczki przeciwko
+                 debugowaniu. Wymagane między innymi przez gry: Contra,
+                 FIFA International Soccer (1994), Terminator 1,
+                 X-Men: Madness in The Murderworld.
+  486:           CPUID jak dla procesora 486, kalkulacja praw dostępu do stron
+                 pamięci również jak dla 486, zachowanie rejestru CR jak dla
+                 486, dodatkowe instrukcje procesora 486.
+  pentium:       Jak '486', ale z instrukcją CPUID jak dla procesora Pentium,
+                 zachowanie rejestru CR jak dla Pentium, obsługa RDTSC.
+                 Zalecane dla gier działających pod systemem Windows 3.x (np.
+                 Betrayal in Antara).
+  pentium_mmx:   Jak 'pentium', ale z instrukcjami MMX. Bardzo niewiele gier
+                 używa instrukcji MMX, jest to użyteczne głównie dla produkcji
+                 demoscenowych.
 .
 :CONFIG_CYCLES
-Ilość instrukcji, którą DOSBox będzie próbował emulować każdej milisekundy.
-Zbyt duża wartość powoduje rwanie dźwięku i opóźnienia (lagi).
-  auto           Próbuje odgadnąć wartość, której gra potrzebuje (domyślne).
-  fixed #number  Stała liczba cykli. Zazwyczaj potrzebne, kiedy ustawienie
-                 'auto' zawiedzie. Przykład: 'fixed 4000'.
-  max            Emuluje tyle instrukcji, na ile pozwala wydajność komputera.
+Ustawienie 'cycles' jest przestarzałe, ale wciąż akceptowane; w zamian użyj
+'cpu_cycles', 'cpu_cycles_protected', oraz 'cpu_throttle'; 'cycles' zostanie
+w przyszłości usunięte.
+.
+:CONFIG_CPU_CYCLES
+Szybkość emulowanego procesora (domyślnie '3000'). Jeśli 'cpu_cycles_protected'
+ma wartość 'auto', wartość jest używana zarówno dla programów działających
+w trybie rzeczywistym, jak i chronionym.
+  <liczba>:  Emuluje stałą ilość cykli w ciągu milisekundy (mniej-więcej
+             odpowiednik MIPS). Dozwolone są wartości od 50 do 2000000.
+  max:       Emuluje tyle cykli, ile system gospodarza jest w stanie przy
+             użyciu jednego rdzenia. Ilość cykli na milisekundę będzie się
+             zmieniać, może to powodować problemy w niektórych programach DOS.
+Uwagi:
+  - Ustawienie 'max' może powodować przycinanie i opóźnienia (lagi) dźwięku.
+  - Najlepsze rezultaty daje najniższa liczba pozwalająca grze działać płynnie.
+  - DOSBox nie emuluje procesorów z dokładnością co do cykla, ale poniższe
+    wartości, odpowiadające mniej-więcej poszczególnym procesorom, mogą być
+    dobrym punktem wyjścia.
+      8088 (4.77 MHz)     300
+      286-8               700
+      286-12             1500
+      386SX-20           3000
+      386DX-33           6000
+      386DX-40           8000
+      486DX-33          12000
+      486DX/2-66        25000
+      Pentium 90        50000
+      Pentium MMX-166  100000
+      Pentium II 300   200000
+.
+:CONFIG_CPU_CYCLES_PROTECTED
+Szybkość emulowanego procesora dla programów działających w trybie chronionym
+(domyślnie '60000).
+  auto:      Użyj wartości `cpu_cycles'.
+  <liczba>:  Emuluje stałą ilość cykli w ciągu milisekundy (mniej-więcej
+             odpowiednik MIPS). Dozwolone są wartości od 50 do 2000000.
+  max:       Emuluje tyle cykli, ile system gospodarza jest w stanie przy
+             użyciu jednego rdzenia. Ilość cykli na milisekundę będzie się
+             zmieniać, może to powodować problemy w niektórych programach DOS.
+Uwaga: Więcej informacji znajdziesz w opisie 'cpu_cycles'.
+.
+:CONFIG_CPU_THROTTLE
+Dynamicznie ogranicza ilość emulowanych cykli procesora, jeśli system
+gospodarza nie jest w stanie emulować zadanej liczby (domyślnie wyłączone).
+Działa jedynie w przypadku ustawienia stałej liczby cykli. Po włączeniu
+ilość cykli na milisekundę będzie się zmieniać, może to powodować problemy
+w niektórych programach DOS.
 .
 :CONFIG_CYCLEUP
 Ilość cykli na milisekundę, która zostanie dodana po naciśnięciu skrótu
@@ -924,12 +1091,21 @@ Włącza emulację karty 3dfx Voodoo (domyślnie włączone).
 Wielkość pamięci (w megabajtach) emulowanej karty 3dfx Voodooo, 4 lub 12 MB.
 Pamięć jest dzielona na Frame Buffer Interface (FBI) oraz Texture Mapping Unit
 (TMU) w następujący sposób:
-   4: 2 MB dla FBI, jeden TMU z 2 MB pamięci (domyślne)
+   4: 2 MB dla FBI, jeden TMU z 2 MB pamięci (domyślne).
   12: 4 MB dla FBI, dwa TMUs, każdy z 4 MB pamięci.
 .
 :CONFIG_VOODOO_MULTITHREADING
-Używa wielowątkowości aby polepszyć wydajność emulacji 3dfx Voodoo
-(domyślnie włączone).
+Nazwa zmieniona na 'voodoo_threads'.
+.
+:CONFIG_VOODOO_THREADS
+Używa wątków procesora do polepszenia wydajności karty 3dfx:
+  auto:       Używa do 8 wątków, zależnie od ilości rdzeni (domyślne).
+  <wartość>:  Używa określonej ilości wątków, od 1 do 128.
+Uwaga: Wartość większa od ilości logicznych procesorów najprawdopodobniej
+       obniży wydajność. Sprawdzono, że wydajność skaluje się do około 8-16
+       wątków, ale ustawienie nie było testowane na procesorach z bardzo dużą
+       ilością rdzeni; jeśli posiadasz procesor Threadripper lub podobny,
+       daj znać jak się on zachowuje.
 .
 :CONFIG_VOODOO_BILINEAR_FILTERING
 Używa filtrowania bilinearnego żeby zasymulować efekt wygładzania tekstur
@@ -1002,10 +1178,20 @@ kiedy kursor myszy jest przejęty w trybie okienkowym.
 .
 :CONFIG_DOS_MOUSE_DRIVER
 Włącza wbudowany sterownik myszy dla programów DOS (domyślnie włączone).
-Uwagi:
-  - Wyłącz, jeśli zamierzasz używać oryginalnego sterownika MOUSE.COM.
-  - Podczas bootowania systemu operacyjnego z obrazu dysku wbudowany
-    sterownik jest automatycznie wyłączany.
+Zapewnia najniższe opóźnienia i najbardziej płynny ruch kursora myszy, więc
+wyłącz jedynie, jeśli masz dobry powód (np. gra nie jest z nim kompatybilna).
+  on:   Włącza sterownik. Ustawienia `ps2_mouse_model` oraz `com_mouse_model`
+        nie mają żadnego wpływu na wbudowany sterownik.
+  off:  Wyłącza sterownik (jeśli nie potrzebujesz obsługi myszy lub chcesz
+        użyć oryginalnego sterownika dla systemu DOS).
+        Aby użyć oryginalnego sterownika myszy dla systemu DOS (np. MOUSE.COM
+        lub CTMOUSE.EXE), skonfiguruj typ myszy przy pomocy `ps2_mouse_model`
+        lub `com_mouse_model` i uruchom sterownik. oryginalne sterowniki mogą
+        zapewnić lepszą kompatybilność, ale zwiększą opóźnienia.
+Uwaga: Wbudowany sterownik zostanie automatycznie wyłączony jeśli uruchomisz
+       oryginalny system MS-DOS lub Windows 9x. Jeśli uruchomisz Windows 3.x,
+       sterownik nie zostanie wyłączony, ale sterownik systemu Windows 3.x
+       przejmie jego funkcje.
 .
 :CONFIG_DOS_MOUSE_IMMEDIATE
 Natychmiastowa aktualizacja liczników ruchu, bez oczekiwania na przerwanie
@@ -1019,26 +1205,28 @@ Jeśli znajdziesz inną niekompatybilną grę, zgłoś (po angielsku) raport o
 błędzie, a zaktualizujemy tę listę.
 .
 :CONFIG_PS2_MOUSE_MODEL
-Model myszy podłączonej do portu PS/2 AUX:
+Model myszy podłączonej do portu PS/2 AUX. Innymi słowy, typ myszy wpiętej do
+wirtualnego portu PS/2 (domyślnie 'explorer').
+Nie ma wpływu na wbudowany sterownik myszy (patrz 'dos_mouse_driver').
   standard:       3 przyciski, standardowa mysz PS/2.
   intellimouse:   3 przyciski + rolka, mysz Microsoft IntelliMouse.
   explorer:       5 przycisków + rolka, mysz Microsoft IntelliMouse Explorer.
-  none:           Mysz PS/2 nie jest emulowana.
-Domyślnie 'explorer'.
+  none:           Brak myszy PS/2.
 .
 :CONFIG_COM_MOUSE_MODEL
-Domyślny model myszy podłączonej do portu COM (serial):
+Domyślny model myszy podłączonej do portu COM (serial). Innymi słowy, typ myszy
+wpiętej do wirtualnego portu COM (domyślnie 'wheel+msm').
+Nie ma wpływu na wbudowany sterownik myszy (patrz 'dos_mouse_driver').
   2button:        2 przyciski, mysz Microsoft.
   3button:        3 przyciski, mysz Logitech,
                   dość kompatybilna z myszą Microsoft.
   wheel:          3 przyciski + rolka,
                   dość kompatybilna z myszą Microsoft.
   msm:            3 przyciski, mysz Mouse Systems,
-                   ta mysz jest NIEKOMPATYBILNA z myszą Microsoft.
+                  ta mysz NIE JEST KOMPATYBILNA z myszą Microsoft.
   2button+msm:    Automatyczna selekcja pomiędzy '2button' oraz 'msm'.
   3button+msm:    Automatyczna selekcja pomiędzy '3button' oraz 'msm'.
   wheel+msm:      Automatyczna selekcja pomiędzy 'wheel' oraz 'msm'.
-Domyślnie 'wheel+msm'.
 Uwaga: Ten rodzaj myszy należy włączyć w sekcji [serial].
 .
 :CONFIG_VMWARE_MOUSE
@@ -1054,23 +1242,32 @@ Uwaga: Wymaga włączonej emulacji myszy PS/2.
 .
 :CONFIG_NOSOUND
 Włącza tryb cichy (domyślnie wyłączony).
-Dźwięk jest emulowany, ale całkowicie wyciszony.
+Dźwięk jest emulowany, ale całkowicie wyciszony. Wciąż możliwe jest zapisywanie
+dźwięku do pliku WAV.
 .
 :CONFIG_RATE
-Częstotliwość próbkowania miksera dźwięku (domyślnie 48000).
+Częstotliwość próbkowania miksera dźwięku (domyślnie %s).
+Dozwolone są wartości od 8000 do 96000 Hz. Większość konsumenckiego sprzętu
+audio używa natywnej częstotliwości 48000. Zazwyczaj zalecane jest
+pozostawienie domyślnej wartości, system operacyjny najprawdopodobniej i tak
+przekonwertuje dźwięk do częstotliwości próbkowania 48000 Hz.
 .
 :CONFIG_BLOCKSIZE
-Rozmiar bloku miksera w ramkach (domyślnie 512). Większe wartości mogą pomóc
-zredukować przycinanie dźwięku, ale zwiększają opóźnienie (lag).
+Rozmiar bloku miksera w ramkach (domyślnie %s).
+Dozwolone są wartości od 64 to 8192. Wartości muszą być potęgami dwójki (np.
+256, 512, 1024, itd.). Większe wartości mogą pomóc zredukować przycinanie
+dźwięku, ale zwiększają opóźnienie (lag).
 .
 :CONFIG_PREBUFFER
-Ile milisekund dźwięku renderować ponad 'blocksize' (domyślnie 20). Większe
-wartości mogą pomóc redukować przycinanie dźwięku, ale zwiększają opóźnienie
-dźwięku (lag).
+Ile milisekund dźwięku renderować ponad 'blocksize' (domyślnie %s).
+Większe wartości mogą pomóc redukować przycinanie dźwięku, ale zwiększają
+opóźnienie dźwięku (lag).
 .
 :CONFIG_NEGOTIATE
 Czy próbować wynegocjować ze sterownikiem dźwięku potencjalnie lepsze
-ustawienia częstotliwości i rozmiaru bloku (domyślnie włączone).
+ustawienia częstotliwości i rozmiaru bloku (domyślnie %s).
+Należy włączyć jeśli dźwięk nie jest odgrywany lub przycina przy danym
+ustawieniu 'blocksize'.
 .
 :CONFIG_COMPRESSOR
 Włącza automatyczny kompresora dynamiki, zapobiega przesterowaniu dźwięku:
@@ -1078,21 +1275,28 @@ Włącza automatyczny kompresora dynamiki, zapobiega przesterowaniu dźwięku:
   on:   Włącza kompresor dynamiki (domyślne).
 .
 :CONFIG_CROSSFEED
-Włącza (globalnie) efekt przenikania kanałów stereo, przydatne jeśli używasz
-słuchawek:
+Włącza efekt przenikania kanałów stereo układów OPL oraz CMS (Gameblaster).
+Wiele gier umieszcza instrumenty całkowicie po lewej lub prawej stronie,
+co daje nieprzyjemne wrażenia przy używaniu słuchawek. Po włączeniu efektu
+część dźwięku z lewego kanału jest miksowana z prawym kanałem, i vice versa,
+dając bardziej naturalny dźwięk.
   off:     Bez efektu (domyślne).
   on:      Włącza przenikanie (normalne ustawienia).
   light:   Słaby efekt (siła 15).
   normal:  Normalny efekt (siła 40).
   strong:  Silny efekt (siła 65).
-Uwaga: Możesz dokładniej dostosować ustawienia poleceniem 'MIXER'.
+
+Uwagi:
+  - Użyj polecenia MIXER aby zastosować efekt do innych kanałów audio lub
+    zmienić ustawienie dla pojedynczego kanału.
 .
 :CONFIG_REVERB
 Włącza (globalnie) efekt 'reverb' (pogłos), dodaje dźwiękowi przestrzeni:
   off:     Bez efektu (domyślne).
   on:      Efekt włączony, ustawienie 'medium'.
   tiny:    Odpowiada zintegrowanemu głośnikowi w niewielkim pokoju, ustawienie
-           dla urządzeń typu PC Speaker, Tandy, PS/1, czy LPT DAC.
+           dla urządzeń typu wewnętrzny głośnik (PC Speaker), Tandy, PS/1,
+           czy LPT DAC.
   small:   Subtelne wrażenie przestrzeni, odpowiednie do gier używających
            pojedynczego kanału dźwięku syntetyzowanego (zazwyczaj OPL) zarówno
            do muzyki, jak i efektów dźwiękowych.
@@ -1100,8 +1304,12 @@ Włącza (globalnie) efekt 'reverb' (pogłos), dodaje dźwiękowi przestrzeni:
   large:   Wrażenie dużej hali, zalecane do gier używających oddzielnych
            kanałów dla muzyki i efektów dźwiękowych.
   huge:    Mocniejszy wariant dużej hali, odpowiedni do gier z atmosferyczną
-           ścieżką dźwiękową.
-Uwaga: Możesz dokładniej dostosować ustawienia poleceniem 'MIXER'.
+
+Uwagi:
+  - Ustawienie dodaje dość znaczący efekt do syntetyzerów dźwięku (z wyjątkiem
+    tych, które mają własne efekty pogłosu, np. Roland MT-32), ale niewielki
+    efekt dla dźwięku digitalizowanego.
+  - Użyj polecenia MIXER aby zmienić ustawienie dla pojedynczego kanału.
 .
 :CONFIG_CHORUS
 Włącza (globalnie) efekt 'chorus', dodaje brzmienie głosu chóralnego:
@@ -1111,31 +1319,68 @@ Włącza (globalnie) efekt 'chorus', dodaje brzmienie głosu chóralnego:
            ilością białego szumu.
   normal:  Normalny efekt, odpowiedni dla wielu różnych gier.
   strong:  Silny efekt.
-Uwaga: Możesz dokładniej dostosować ustawienia poleceniem 'MIXER'.
+
+Uwagi:
+  - Ustawienie dodaje efekt wyłącznie do syntetyzerów dźwięku (z wyjątkiem
+    tych, które mają własne efekty 'chorus', np. Roland MT-32).
+  - Użyj polecenia MIXER aby zmienić ustawienie dla pojedynczego kanału.
 .
 :CONFIG_MIDIDEVICE
-Urządzenie, które otrzyma dane MIDI z emulowanego interfejsu MPU-401. Jedno z:
-  oss          Interfejs OSS (dla systemu Linux).
-  alsa         Interfejs ALSA (dla systemu Linux).
-  fluidsynth:  Wbudowany syntetyzer, patrz sekcja [fluidsynth].
-  mt32:        Emulacja syntetyzatora Roland MT-32, patrz sekcja [mt32].
-  auto:        Pierwszy działający zewnętrzny syntetyzator; może to być
-               synteza programowa lub fizyczne urządzenie.
+Urządzenie, które otrzyma dane MIDI z emulowanego interfejsu MPU-401
+(domyślnie 'auto'). Jedno z:
+.
+:CONFIGITEM_MIDIDEVICE_COREMIDI
+  coremidi:    Urządzenie MIDI skonfigurowane w ustawieniach macOS.
+.
+:CONFIGITEM_MIDIDEVICE_COREAUDIO
+  coreaudio:   Sytetyzer MIDI wbudowany w macOS.
+.
+:CONFIGITEM_MIDIDEVICE_WIN32
+  win32:       Sytetyzer MIDI Win32.
+.
+:CONFIGITEM_MIDIDEVICE_OSS
+  oss:         Interfejs MIDI Linux OSS.
+.
+:CONFIGITEM_MIDIDEVICE_ALSA
+  alsa:        Interfejs MIDI Linux ALSA.
+.
+:CONFIGITEM_MIDIDEVICE_FLUIDSYNTH
+  fluidsynth:  Wbudowany syntetyzer MIDI FluidSynth, używający plików
+               SoundFont, patrz sekcja [fluidsynth].
+.
+:CONFIGITEM_MIDIDEVICE_MT32
+  mt32:        Wbudowany syntetyzer MIDI Roland MT-32, patrz sekcja [mt32].
+.
+:CONFIGITEM_MIDIDEVICE_AUTO
+  auto:        Albo jeden z wbudowanych syntetyzerów MIDI (jeśli `midiconfig`
+               jest ustawione na 'fluidsynth' lub 'mt32'), albo zewnętrzny
+               syntetyzer (każde inne ustawienie 'midiconfig') - może to być
+               zarówno syntetyzer programowy, jak i urządzenie sprzętowe.
+               Domyślne.
+.
+:CONFIGITEM_MIDIDEVICE_NONE
   none:        Wyłącz wyjście MIDI.
-Domyślnie 'auto'.
 .
 :CONFIG_MIDICONFIG
 Parametry wybranego interfejsu MIDI. Zazwyczaj jest to identyfikator lub nazwa
 syntetyzatora - można je sprawdzić poleceniem DOSu 'MIXER /LISTMIDI'.
 Uwagi:
+.
+:CONFIGITEM_MIDICONFIG_FLUIDSYNTH_OR_MT32EMU
   - Opcja nie ma znaczenia, jeśli użyty został wbudowany syntetyzator MIDI
-    (mididevice = fluidsynth lub mt32).
-  - Dla systemu Linux i podsystemu dźwiękowego ALSA, wyświetl listę portów
-    MIDI poleceniem 'aconnect -l' i wpisz wybrany, np. 'midiconfig=14:0' dla
-    klienta numer 14 i portu 0.
+    ('fluidsynth' lub 'mt32').
+.
+:CONFIGITEM_MIDICONFIG_COREAUDIO
+  - Dla 'coreaudio', you can specify a SoundFont here.
+.
+:CONFIGITEM_MIDICONFIG_ALSA
+  - Dla 'alsa'', wyświetl listę portów MIDI poleceniem 'aconnect -l' i wpisz
+    wybrany, np. 'midiconfig = 14:0' dla klienta numer 14 i portu 0.
+.
+:CONFIGITEM_MIDICONFIG_MT32
   - Fizyczny Roland MT-32 w płytą główną w wersji 0 może potrzebować
     opóźnienia, inaczej przepełni się jego wewnętrzny bufor. W takim wypadku
-    dodaj parametr 'delaysysex', np.: 'midiconfig=2 delaysysex'.
+    dodaj parametr 'delaysysex', np.: 'midiconfig = 2 delaysysex'.
 .
 :CONFIG_MPU401
 Typ emulowanego interfejsu MPU-401 (domyślnie 'intelligent').
@@ -1155,7 +1400,7 @@ do pracy z programami muzycznymi, lub aby debugować problemy związane z MIDI.
 względna lub bezwzględna, można też podać nazwę pliku z podkatalogu
 'soundfonts' katalogu z konfiguracją.
 Opcjonalny drugi parametr określa głośność muzyki, np. 'my_soundfont.sf2 50'
-zmniejszy głośność syntezy o 50%. Procentowa wartość głośności powinna
+zmniejszy głośność syntezy o 50%%. Procentowa wartość głośności powinna
 zawierać się w przedziale od 1 do 800.
 .
 :CONFIG_FSYNTH_CHORUS
@@ -1247,7 +1492,21 @@ Załadowany z
 .
 :CONFIG_SBTYPE
 Model karty muzycznej Sound Blaster (domyślnie 'sb').
-Wartość 'gb' oznacza kartę Game Blaster.
+  gb:        Game Blaster          - CMS
+  sb1:       Sound Blaster 1.0     - OPL2, CMS
+  sb2:       Sound Blaster 2.0     - OPL2
+  sbpro1:    Sound Blaster Pro     - Dual OPL2
+  sbpro2:    Sound Blaster Pro 2   - OPL3
+  sb16:      Sound Blaster 16      - OPL3 (domyślne)
+  ess:       ESS ES1688 AudioDrive - ESFM
+  none/off:  Wyłącza emulację karty Sound Blaster.
+Uwagi:
+  - Creative Music System został później przemianowany na Game Blaster;
+    są to te same karty.
+  - Ustawienie 'ess' umożliwia rozszerzoną syntezę FM w grach obsługujących
+    moduł ESFM. DAC nie jest emulowany, ale karta jest kompatybilna z
+    Sound Blaster Pro - skonfiguruj grę, żeby używała tej karty dla efektów
+    dźwiękowych.
 .
 :CONFIG_SBBASE
 Adres bazowy (I/O) karty muzycznej Sound Blaster (domyślnie 220).
@@ -1263,20 +1522,62 @@ Numer kanału High DMA karty muzycznej Sound Blaster (domyślnie 5).
 .
 :CONFIG_SBMIXER
 Zezwala mikserowi karty Sound Blaster na zmianę ustawień miksera DOSBoksa
-(domyślnie włączone).
+(domyślnie włączone). Sound Blaster Pro 1 i nowsze karty pozwalają programom
+zmieniać głośność dźwięku digitalizowanego (DAC), syntezy FM, i dźwięku
+z płyt CD - ustawienia te odnoszą się do kanałów miksera SB, OPL, oraz CDAUDIO,
+odpowiednio.
+  on:   Finalny poziom głośności jest kombinacją ustawienia programu
+        i ustawienia użytkownika w mikserze DOSBoksa.
+  off:  Jedynie ustawienia użytkownika są brane pod uwagę.
+Uwaga: Niektóre gry zmieniają głośność dynamicznie, np. obniżają poziom
+       głośności syntezy FM kiedy odtwarzana jest mowa. W takim wypadku
+       ustawienie 'sbmixer' należy pozostawić włączone.
 .
 :CONFIG_SBWARMUP
 Czas wyciszenia początkowych transferów DMA, w milisekundach (domyślnie 100).
 Wycisza trzaski słyszalne podczas uruchamiania wielu gier. Zmniejsz wartość,
 jeśli zauważysz ucięty początek dźwięku.
 .
+:CONFIG_SB_FILTER
+Filtrowanie dźwięku digitalizowanego karty Sound Blaster:
+  auto:      Filtrowania jak dla modelu podanego w 'sbtype'.
+  sb1, sb2, sbpro1, sbpro2, sb16:
+             Filtrowania odpowiednie dla podanego danego modelu.
+  modern:    Interpolacja liniowa, działająca jak filtr dolnoprzepustowy.
+             Jest to oryginalne zachowanie DOSBoksa (domyślne).
+  off:       Filtrowanie wyłączone.
+  <custom>:  Jeden lub dwa filtry podane w formacie:
+               TYPE ORDER FREQ
+             Gdzie TYPE to 'hpf' (górnoprzepustowy) lub 'lpf'
+             (dolnoprzepustowy), ORDER to siła filtra od 1 do 16
+             (1 to 6dB/oct, 2 to  12dB/oct, itd.), a parametr
+             FREQ to częstotliwość odcięcia w Hz. Przykłady:
+                lpf 2 12000
+                hpf 3 120 lfp 1 6500
+.
+:CONFIG_SB_FILTER_ALWAYS_ON
+Wymusza włączone filtrowanie dźwięku karty Sound Blaster (domyślnie
+wyłączone). Uniemożliwia oprogramowaniu wyłączenie filtrowania.
+.
 :CONFIG_OPLRATE
 Częstotliwość dźwięku syntetyzowanego OPL jest obecnie taka sama, jak
-częstotliwość miksowania, dzięki czemu nie jest potrzebny resampling.
+częstotliwość miksowania.
 .
 :CONFIG_OPLMODE
-Typ emulowanego układu OPL. 'auto' (domyślne) wybiera typ w zależności od
-'sbtype'. Wszystkie z wyjątkiem 'cms' są kompatybilne z kartami AdLib.
+Typ emulowanego układu OPL (domyślnie 'auto').
+  auto:      Wybiera typ odpowiedni dla 'sbtype'.
+  opl2:      Yamaha OPL2 (YM3812, mono).
+  dualopl2:  Dual OPL2 (dwa układy OPL2 w konfiguracji stereo).
+  opl3:      Yamaha OPL3 (YMF262, stereo).
+  opl3gold:  OPL3 wraz z modułem AdLib Gold Surround.
+             Razem z 'sbtype = sb16' emuluje kartę AdLib Gold 1000.
+  esfm:      ESS ESFM (rozszerzona synteza FM kompatybilna z Yamaha OPL3).
+  none/off:  Wyłącz emulację układu OPL.
+Uwagi:
+  - 'sbtype = none' wraz z 'oplmode = opl2' emuluje oryginalną kartę AdLib.
+  - Ustawienie 'oplmode = esfm' nie wystarczy, żeby uzyskać rozszerzoną
+    syntezę FM w grach; należy ustawić również 'sbtype = ess'. Można natomiast
+    za pomocą 'oplmode = esfm' uzyskać nieco odmienny dźwięk układu OPL.
 .
 :CONFIG_OPL_FADEOUT
 Wycisz dźwięk układu OPL po ostatnim zapisie do portu IO:
@@ -1300,27 +1601,6 @@ o wystawienie nam (po angielsku) 'issue' w serwisie GitHub.
 :CONFIG_OPLEMU
 Jedynie emulacja 'nuked' jest aktualnie obsługiwana.
 .
-:CONFIG_SB_FILTER
-Filtrowanie dźwięku digitalizowanego karty Sound Blaster:
-  auto:      Filtrowania jak dla modelu podanego w 'sbtype'.
-  sb1, sb2, sbpro1, sbpro2, sb16:
-             Filtrowania odpowiednie dla podanego danego modelu.
-  modern:    Interpolacja liniowa, działająca jak filtr dolnoprzepustowy.
-             Jest to oryginalne zachowanie DOSBoksa (domyślne).
-  off:       Filtrowanie wyłączone.
-  <custom>:  Jeden lub dwa filtry podane w formacie:
-               TYPE ORDER FREQ
-             Gdzie TYPE to 'hpf' (górnoprzepustowy) lub 'lpf'
-             (dolnoprzepustowy), ORDER to siła filtra od 1 do 16
-             (1 to 6dB/oct, 2 to  12dB/oct, itd.), a parametr
-             FREQ to częstotliwość odcięcia w Hz. Przykłady:
-                lpf 2 12000
-                hpf 3 120 lfp 1 6500
-.
-:CONFIG_SB_FILTER_ALWAYS_ON
-Wymusza włączone filtrowanie dźwięku karty Sound Blaster (domyślnie
-wyłączone). Uniemożliwia oprogramowaniu wyłączenie filtrowania.
-.
 :CONFIG_OPL_FILTER
 Filtrowanie dźwięku syntetyzowanego OPL karty Sound Blaster:
   auto:      Filtrowania jak dla modelu podanego w 'sbtype' (domyślne).
@@ -1328,6 +1608,12 @@ Filtrowanie dźwięku syntetyzowanego OPL karty Sound Blaster:
              Filtrowania odpowiednie dla podanego danego modelu.
   off:       Filtrowanie wyłączone.
   <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
+.
+:CONFIG_CMS
+Emulacja układu CMS (domyślnie 'auto').
+  off:   Wyłącza emulację CMS (chyba, że karta Game Blaster jest emulowana).
+  on:    Włącza emulację CMS na kartach Sound Blaster 1 i 2.
+  auto:  Włącza emulację CMS na kartach Sound Blaster 1 oraz Game Blaster.
 .
 :CONFIG_CMS_FILTER
 Filtrowanie dźwięku syntetyzowanego CMS karty Sound Blaster:
@@ -1340,7 +1626,8 @@ Włącza emulację karty muzycznej Gravis UltraSound (domyślnie wyłączone).
 Domyślne ustawienia (adres 240, IRQ 5, DMA 3) zostały dobrane tak, żeby GUS
 mógł koegzystować z kartą SoundBlaster. Działają z większością oprogramowania,
 ale niektóre dema mogą wymagać fabrycznych wartości domyślnych - adresu 220,
-IRQ 11, DMA 1.
+IRQ 11, DMA 1. Fabryczna wartość IRQ 11 może nie działać w niektórymi wersjami
+ekstendera DOS4GW, które nie potrafią obsługiwać przerwań powyżej 7.
 .
 :CONFIG_GUSBASE
 Adres bazowy (I/O) karty muzycznej Gravis UltraSound (domyślnie 240).
@@ -1351,14 +1638,15 @@ Numer przerwania (IRQ) karty muzycznej Gravis UltraSound (domyślnie 5).
 :CONFIG_GUSDMA
 Numer kanału DMA karty muzycznej Gravis UltraSound (domyślnie 3).
 .
+:CONFIG_GUS_FILTER
+Filtrowanie dźwięku karty Gravis UltraSound:
+  on:        Filtrowanie włączone (domyślne).
+  off:       Filtrowanie wyłączone.
+  <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
+.
 :CONFIG_ULTRADIR
 Ścieżka do katalogu UltraSound, domyślnie 'C:\ULTRASND'.
 Powinien zawierać podkatalog 'MIDI' z definicjami instrumentów w formacie PAT.
-.
-:CONFIG_GUS_FILTER
-Filtrowanie dźwięku karty Gravis UltraSound:
-  off:       Filtrowanie wyłączone (domyślne).
-  <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
 .
 :CONFIG_IMFC
 Włącza emulację karty muzycznej IBM Music Feature Card (domyślnie wyłączone).
@@ -1408,16 +1696,15 @@ Filtrowanie dźwięku karty Innovation SSI-2001:
   <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
 .
 :CONFIG_PCSPEAKER
-Sposób emulacji urządzenia dźwiękowego PC Speaker:
-  discrete: Za pomocą kroków discrete steps (domyślne). Działa dobrze z grami
-            generującymi efekty typu RealSound.
-  impulse:  Za pomocą funkcji interpolującej. Zalecany do gier generujących
-            falę prostokątna, np. serii Commander Keen.
-            Dokładniejsze, ale zużywa więcej mocy procesora.
+Sposób emulacji wewnętrznego głośnika (PC Speaker):
+  impulse:  Bardzo wierna emulacja (domyślne). Działa z większością gier,
+            ale może nie działać poprawnie z niektórymi tytułami.
+  discrete: Starszy sposób emulacji; używaj tylko, jeśli 'impulse' powoduje
+            problemy.
   none/off: Wyłącz emulację.
 .
 :CONFIG_PCSPEAKER_FILTER
-Filtrowanie dźwięku urządzenia PC Speaker:
+Filtrowanie dźwięku wewnętrznego głośnika (PC Speaker):
   on:        Włączone (domyślne).
   off:       Filtrowanie wyłączone.
   <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
@@ -1467,7 +1754,7 @@ Filtrowanie dźwięku urządzenia LPT DAC:
   <custom>:  Ustawienia użytkownika, patrz 'sb_filter'.
 .
 :CONFIG_DISNEY
-Żeby włączyć Disney Sound Source użyj 'lpt_dac=disney'.
+Żeby włączyć Disney Sound Source użyj 'lpt_dac = disney'.
 .
 :CONFIG_PS1AUDIO
 Włącza emulację urządzenia dźwiękowego IBM PS/1 (domyślnie wyłączone).
@@ -1565,7 +1852,7 @@ Można podać dodatkowe parametry w formie parametr:wartość, muszą być
 wszystkie w tej samej linii. Wspólnym parametrem dla wszystkich jest
 (opcjonalny) irq:numer.
   - Dla urządzenia 'mouse' (mysz szeregowa):
-      model, nadpisuje ustawienie z sekcji [mouse].
+      model, nadpisuje ustawienie 'com_mouse_model'.
   - Dla urządzenia 'direct' (bezpośredni dostęp do portu COM gospodarza):
       realport (wymagany), rxdelay (opcjonalny).
       Przykład: realport:COM1 realport:ttyS0.
@@ -1602,6 +1889,13 @@ z innymi wartościami lub wymagać wyłączenia pamięci EMS żeby w ogóle dzia
 :CONFIG_UMB
 Włącza emulację pamięci górnej, UMB (domyślnie włączone).
 .
+:CONFIG_PCJR_MEMORY_CONFIG
+Pamięć komputera PCjr (domyślnie 'expanded').
+  expanded:  640 KB pamięci, aplikacje rezydują powyżej 128 KB.
+             Kompatybilne z większością gier.
+  standard:  128 KB pamięci, aplikacje rezydują poniżej 96 KB.
+             Wymagane dla kilu starszych gier (np., Jumpman, Troll).
+.
 :CONFIG_VER
 Wersja systemu DOS raportowana oprogramowanie (domyślnie 5.0). Format to
 'major.minor', pojedyncza liczba będzie traktowana jako główny numer wersji.
@@ -1626,7 +1920,7 @@ Kod języka klawiatury (domyślnie 'auto') - np. 'us' (układ amerykański), 'pl
 są takie same wartości, jakich używa system FreeDOS.
 .
 :CONFIG_EXPAND_SHELL_VARIABLE
-Rozwija zmienne środowiskowe, np. %PATH%, w wierszu poleceń.
+Rozwija zmienne środowiskowe, np. %%PATH%%, w wierszu poleceń.
 Domyślnie 'auto', włączone jeśli wersja systemu DOS to 7.0 lub wyższa.
 Obsługiwane przez COMMAND.COM z systemów MS-DOS 7/8 oraz FreeDOS.
 .
@@ -1640,17 +1934,17 @@ Plik z tabelą programów i przypisanych do nich wersji systemu DOS, w formacie
 wartości rozdzielonych tabulatorami, używany przez polecenie SETVER.EXE do
 trwałego zapamiętania ustawień (domyślnie wartość pusta).
 .
-:CONFIG_PCJR_MEMORY_CONFIG
-Pamięć komputera PCjr (domyślnie 'expanded').
-  expanded:  640 KB pamięci, aplikacje rezydują powyżej 128 KB.
-             Kompatybilne z większością gier.
-  standard:  128 KB pamięci, aplikacje rezydują poniżej 96 KB.
-             Wymagane dla kilu starszych gier (np., Jumpman, Troll).
+:CONFIG_FILE_LOCKING
+Włącza blokowanie plików (emulacja SHARE.EXE; domyślnie włączona).
+Wymagane do poprawnego działania niektórych aplikacji Windows 3.1x.
+Zazwyczaj nie powoduje problemów z grami dla systemu DOS, z rzadkimi wyjątkami
+(np. demo Astral Blur). Jeśli zobaczysz błędy związane z dostępem do plików,
+spróbuj wyłączyć to ustawienie.
 .
-:CONFIG_IPX
+:CONFIGITEM_IPX
 Włącza emulację protokołu IPX po UDP/IP (domyślnie wyłączone).
 .
-:CONFIG_NE2000
+:CONFIGITEM_NE2000_SLIRP
 Włącza emulację karty sieciowej Novell NE2000 podłączonej do wirtualnej
 sieci 'libslirp' z parametrami jak poniżej:
   10.0.2.0       : Adres wirtualnej sieci LAN.
@@ -1665,20 +1959,20 @@ Uwagi:
     przekierowanie portów z systemu gospodarza do DOSa, oraz z routera
     do gospodarza.
 .
-:CONFIG_NICBASE
+:CONFIGITEM_NICBASE_SLIRP
 Adres bazowy (I/O) karty sieciowej NE2000 (domyślnie 300).
 Uwaga: Adresy 220 oraz 240 mogą być niedostępne, gdyż są domyślnie przypisane
        do kart muzycznych Sound Blaster oraz Gravis UltraSound.
 .
-:CONFIG_NICIRQ
+:CONFIGITEM_NICIRQ_SLIRP
 Numer przerwania (IRQ) karty sieciowej NE2000 (domyślnie 3).
 Uwaga: Przerwania 3 oraz 5 mogą być niedostępne, gdyż są domyślnie przypisane
        do portu COM2 i karty muzycznej Gravis UltraSound.
 .
-:CONFIG_MACADDR
+:CONFIGITEM_MACADDR_SLIRP
 Adres MAC karty sieciowej NE2000 (domyślnie 'AC:DE:48:88:99:AA').
 .
-:CONFIG_TCP_PORT_FORWARDS
+:CONFIGITEM_TCP_PORT_FORWARDS_SLIRP
 Przekierowuje jeden lub więcej portów UDP z systemu gospodarza do DOSu
 Format:
   port1  port2  port3 ... (np., 21 80 443)
@@ -1697,17 +1991,16 @@ Uwagi:
   - W razie konfliktu portów gospodarza, tylko pierwszy zostanie ustawiony.
   - W razie konfliktu portów gościa, tylko ostatni zostanie ustawiony.
 .
-:CONFIG_UDP_PORT_FORWARDS
+:CONFIGITEM_UDP_PORT_FORWARDS_SLIRP
 Przekierowuje jeden lub więcej portów UDP z systemu gospodarza do DOSu.
 Format jest taki sam jak dla portów TCP.
 .
 :AUTOEXEC_CONFIGFILE_HELP
 Linie z tej sekcji zostaną wykonane podczas startu.
-Jest to dobre miejsce na umieszczenie poleceń MOUNT.
-
+Ważne: sekcja [autoexec] musi znajdować się na końcu pliku konfiguracyjnego!
 .
 :CONFIGFILE_INTRO
-# DOSBox Staging %s - plik konfiguracyjny.
+# DOSBox Staging (%s) - plik konfiguracyjny.
 # Linie zaczynające się od # są komentarzami.
 
 .
@@ -1799,10 +2092,10 @@ Gdzie [color=white]POLECENIE[reset] jest jednym z:
   -set [color=light-cyan][SEKCJA][reset] [color=white]PARAMETR[reset][=][color=white]VALUE[reset]
                     ustaw wartość parametru konfiguracji
 
+  -securemode       włącza tryb bezpieczny
 .
 :PROGRAM_CONFIG_HLP_PROPHLP
-[color=white]Informacja o parametrze [color=light-green]'%s'[color=white] (zawartym w sekcji [color=light-cyan][%s][color=white]):[reset]
-%s
+[color=white]Informacja o parametrze [color=light-green]'%s'[color=white] zawartym w sekcji [color=light-cyan][%s][color=white]:[reset]
 
 
 .
@@ -1818,22 +2111,21 @@ Gdzie [color=white]POLECENIE[reset] jest jednym z:
 [color=white]Aktualna wartość:[reset]  %s
 
 .
-:PROGRAM_CONFIG_HLP_LINEHLP
-[color=white]Informacja o sekcji [%s]:[reset]
-%s
-[color=white]Aktualna wartość:[reset]
+:PROGRAM_CONFIG_HLP_AUTOEXEC
+[color=white]Opis sekcji [color=light-cyan][autoexec][color=white][reset]
+
 %s
 
 .
 :PROGRAM_CONFIG_HLP_NOCHANGE
-Ten parametr nie może być zmieniony w trakcie pracy.
+[color=yellow]Ten parametr nie może być zmieniony w trakcie pracy.[reset]
 
 .
 :PROGRAM_CONFIG_HLP_POSINT
 dodatnia liczba całkowita
 .
 :PROGRAM_CONFIG_HLP_SECTHLP
-[color=white]Sekcja [color=light-cyan][%s] [color=white]zawiera następujące parametry:[reset]
+[color=white]Sekcja [color=light-cyan][%s][color=white] zawiera następujące parametry:[reset]
 
 .
 :PROGRAM_CONFIG_HLP_SECTLIST
@@ -1841,7 +2133,7 @@ dodatnia liczba całkowita
 
 .
 :PROGRAM_CONFIG_SECURE_ON
-Przełączono w tryb bezpieczny.
+Tryb bezpieczny włączony.
 
 .
 :PROGRAM_CONFIG_SECURE_DISALLOW
@@ -1880,6 +2172,17 @@ Nie znaleziono pliku wykonywalnego: '%s'
 .
 :CONJUNCTION_AND
 i
+.
+:PROGRAM_CONFIG_NOT_CHANGEABLE
+[color=yellow]Ustawienie '%s' nie może być zmieniony w trakcie pracy.[reset]
+Zmiana zostanie uwzględniona dopiero po restarcie poleceniem 'CONFIG -r'
+lub odpowiednim skrótem klawiszowym.
+.
+:PROGRAM_CONFIG_DEPRECATED
+[color=light-red]To ustawienie jest przestarzałe, obsługiwane wyłącznie dla kompatybilności
+za starymi plikami konfiguracyjnymi. W przyszłości zostanie usunięte, użyj
+sugerowanych alternatyw.[reset]
+
 .
 :MIDI_DEVICE_LIST_NOT_SUPPORTED
 Wykrywanie nieobsługiwane
@@ -1927,45 +2230,14 @@ ReelMagic Full Motion Player (wbudowany sterownik) %hhu.%hhu
 [reset][color=brown]Sterownik nie został usunięty: skonfigurowany jako rezydentny[reset]
 
 .
-:PROGRAM_FMPDRV_HELP_LONG
-Ładuje lub usuwa wbudowany sterownik karty ReelMagic Full Motion Player.
-
-Składnia:
-  [color=green]fmpdrv[reset]    (ładuje sterownik)
-  [color=green]fmpdrv[reset] /u (usuwa sterownik z pamięci)
-
-Uwagi:
-  Ustawienie "reelmagic = on" ładuje sterownik podczas startu i uniemożliwia
-  jego usunięcie z pamięci.
-
+:BIOS_REBOOTING_3
+Restart za 3 sekundy...
 .
-:PROGRAM_FMPDRV_TITLE
-ReelMagic Full Motion Player (wbudowany sterownik) %hhu.%hhu
-
+:BIOS_REBOOTING_2
+Restart za 2 sekundy...
 .
-:PROGRAM_FMPDRV_LOADED
-[reset][color=light-yellow]Sterownik załadowany na przerwaniu %xh[reset]
-
-.
-:PROGRAM_FMPDRV_LOAD_FAILED_ALREADY_LOADED
-[reset][color=light-yellow]Sterownik został już załadowany na przerwaniu %xh[reset]
-
-.
-:PROGRAM_FMPDRV_LOAD_FAILED_INT_CONFLICT
-[reset][color=red]Sterownik nie załadowany: brak wolnych przerwań![reset]
-
-.
-:PROGRAM_FMPDRV_UNLOADED
-[reset][color=light-yellow]Sterownik usunięty[reset]
-
-.
-:PROGRAM_FMPDRV_UNLOAD_FAILED_NOT_LOADED
-[reset][color=light-yellow]Sterownik nie został załadowany[reset]
-
-.
-:PROGRAM_FMPDRV_UNLOAD_FAILED_BLOCKED
-[reset][color=light-yellow]Sterownik nie został usunięty: skonfigurowany jako rezydentny[reset]
-
+:BIOS_REBOOTING_1
+Restart za 1 sekundę...
 .
 :MOUNT_TYPE_LOCAL_DIRECTORY
 Katalog lokalny
@@ -2156,6 +2428,10 @@ Slot
 Lista zamontowanych dysków:
 
 .
+:PROGRAM_MOUNT_READONLY
+Zamontowany tylko do odczytu
+
+.
 :PROGRAM_IMGMOUNT_HELP_LONG
 Montuj obraz dyskietki, płyty CD lub dysku pod wybraną literę.
 
@@ -2180,11 +2456,26 @@ Uwagi:
   - Flaga -ide włącza emulację kontrolera IDE z zamontowanym obrazem CD.
 
 Przykłady:
-  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/home/USERNAME/games/doom.iso[reset] -t cdrom
+
+.
+:PROGRAM_IMGMOUNT_HELP_LONG_WIN32
+  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]C:\Gry\doom.iso[reset] -t cdrom
+
+.
+:PROGRAM_IMGMOUNT_HELP_LONG_MACOSX
+  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/Users/UŻYTKOWNIK/Gry/doom.iso[reset] -t cdrom
+
+.
+:PROGRAM_IMGMOUNT_HELP_LONG_OTHER
+  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/home/UŻYTKOWNIK/gry/doom.iso[reset] -t cdrom
+
+.
+:PROGRAM_IMGMOUNT_HELP_LONG_GENERIC
   [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]cd/quake1.cue[reset] -t cdrom
   [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy1.img floppy2.img floppy3.img[reset] -t floppy -ro
   [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy*.img[reset] -t floppy -ro
   [color=light-green]imgmount[reset] [color=white]C[reset] [color=light-cyan]bootable.img[reset] -t hdd -fs none -size 512,63,32,1023
+
 .
 :PROGRAM_IMGMOUNT_SPECIFY_DRIVE
 Podaj literę dysku, pod którą zamontowany będzie obraz.
@@ -2327,47 +2618,28 @@ ich nazwy w wierszu poleceń.
 .
 :PROGRAM_INTRO_CDROM_WINDOWS
 [erases=entire][color=light-green]Używanie rzeczywistych/wirtualnych dysków CD-ROM[reset]
-DOSBox emuluje napędy CD-ROM na dwóch poziomach.
-
-Poziom [color=brown]podstawowy[reset] używa zwykłych katalogów; instaluje sterownik MSCDEX
-i oznacza ich zawartość jako tylko do odczytu. To wystarcza do większości gier:
+Polecenie [color=light-blue]mount[reset] działa ze wszystkimi normalnymi katalogami. Instaluje ono
+program MSCDEX i oznacza pliki jako tylko-do-odczytu.
+To wystarcza do większości gier:
 [color=light-blue]mount D C:\katalog -t cdrom[reset]
 Jeśli to nie zadziała, podaj dodatkowo etykietę symulowanego dysku CD-ROM:
 [color=light-blue]mount D C:\katalog -t cdrom -label ETYKIETA[reset]
 
-Poziom [color=brown]rozszerzony[reset] to bardziej niskopoziomowa obsługa.
-Działa tylko z rzeczywistymi napędami CD-ROM:
-[color=light-blue]mount d[reset] [color=red]D:\ [color=light-blue]-t cdrom -usecd [color=yellow]0[reset]
-Zastąp [color=red]D:\[reset] przez lokację Twojego napędu CD-ROM.
-Zastąp [color=yellow]0[reset] w parametrze [color=light-blue]-usecd [color=yellow]0[reset] przez numer Twojego napędu CD-ROM, wyświetlanego przez polecenie:
-[color=light-blue]mount -listcd[reset]
-
-Dodatkowo, poleceniem [color=light-blue]imgmount[reset] możesz użyć montować obrazy w formatach ISO
-lub CUE/BIN:
+Ponadto poleceniem [color=light-blue]imgmount[reset] można zamontować obraz ISO lub CUE/BIN:
 [color=light-blue]imgmount D C:\cd.iso -t cdrom[reset]
 [color=light-blue]imgmount D C:\cd.cue -t cdrom[reset]
 
 .
 :PROGRAM_INTRO_CDROM_OTHER
 [erases=entire][color=light-green]Używanie rzeczywistych/wirtualnych dysków CD-ROM[reset]
-DOSBox emuluje napędy CD-ROM na dwóch poziomach.
-
-Poziom [color=brown]podstawowy[reset] używa zwykłych katalogów; instaluje sterownik MSCDEX
-i oznacza ich zawartość jako tylko do odczytu. To wystarcza do większości gier:
+Polecenie [color=light-blue]mount[reset] działa ze wszystkimi normalnymi katalogami. Instaluje ono
+program MSCDEX i oznacza pliki jako tylko-do-odczytu.
+To wystarcza do większości gier:
 [color=light-blue]mount D ~/katalog -t cdrom[reset]
 Jeśli to nie zadziała, podaj dodatkowo etykietę symulowanego dysku CD-ROM:
 [color=light-blue]mount D ~/katalog -t cdrom -label ETYKIETA[reset]
 
-Poziom [color=brown]rozszerzony[reset] to bardziej niskopoziomowa obsługa.
-Działa tylko z rzeczywistymi napędami CD-ROM:
-[color=light-blue]mount d[reset] [color=red]~/przykład[color=light-blue] -t cdrom -usecd [color=yellow]0[reset]
-
-Zastąp [color=red]~/przykład[reset] przez lokację Twojego napędu CD-ROM.
-Zastąp [color=yellow]0[reset] w parametrze [color=light-blue]-usecd [color=yellow]0[reset] przez numer Twojego napędu CD-ROM, wyświetlanego przez polecenie:
-[color=light-blue]mount -listcd[reset]
-
-Dodatkowo, poleceniem [color=light-blue]imgmount[reset] możesz montować obrazy płyt w formatach ISO
-lub CUE/BIN:
+Ponadto poleceniem [color=light-blue]imgmount[reset] można zamontować obraz ISO lub CUE/BIN:
 [color=light-blue]imgmount D ~/cd.iso -t cdrom[reset]
 [color=light-blue]imgmount D ~/cd.cue -t cdrom[reset]
 
@@ -2676,8 +2948,7 @@ Montuj fizyczny katalog lub dysk.
 Montuj katalog z systemu gospodarza pod literę dysku.
 
 Składnia:
-  [color=light-green]mount[reset] [color=white]DYSK[reset] [color=light-cyan]KATALOG[reset] [-t TYP] [-usecd #] [-freesize ROZMIAR] [-label ETYKIETA]
-  [color=light-green]mount[reset] -listcd / -cd  (wyświetla wykryte napędy CD-ROM i ich numery)
+  [color=light-green]mount[reset] [color=white]DYSK[reset] [color=light-cyan]KATALOG[reset] [-t TYP] [-ro] [-freesize ROZMIAR] [-label ETYKIETA]
   [color=light-green]mount[reset] -u [color=white]DYSK[reset]        (odmontowuje dysk)
 
 Gdzie:
@@ -2690,15 +2961,29 @@ Gdzie:
 
 Uwagi:
   Parametr '-t overlay' przekierowuje operacje zapisu do innego katalogu.
-  Parametr '-usecd ID' daje dostęp do fizycznego napędu CD-ROM, jest to
-  potrzebne do obsługi ścieżek dźwiękowych (tylko w systemach Windows oraz
-  Linux). Listę fizycznych napędów można wyświetlić poleceniem 'mount -cd'.
+  Parametr '-ro' montuje dysk tylko do odczytu.
   Dodatkowe opcje są opisane (po angielsku) w podręczniku (README, chapter 4).
 
 Przykłady:
-  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]~/dosgames[reset]
-  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]"/media/USERNAME/Game CD"[reset] -t cdrom -usecd 0
-  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]my_savegame_files[reset] -t overlay
+
+.
+:PROGRAM_MOUNT_HELP_LONG_WIN32
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]C:\grydos[reset]
+  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]D:\ [reset]-t cdrom
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]zapisane_stany_gier[reset] -t overlay
+
+.
+:PROGRAM_MOUNT_HELP_LONG_MACOSX
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]~/grydos[reset]
+  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]"/Volumes/Gra CD"[reset] -t cdrom
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]zapisane_stany_gier[reset] -t overlay
+
+.
+:PROGRAM_MOUNT_HELP_LONG_OTHER
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]~/grydos[reset]
+  [color=light-green]mount[reset] [color=white]D[reset] [color=light-cyan]"/media/UŻYTKOWNIK/Gra CD"[reset] -t cdrom
+  [color=light-green]mount[reset] [color=white]C[reset] [color=light-cyan]zapisane_stany_gier[reset] -t overlay
+
 .
 :PROGRAM_MOUNT_CDROMS_FOUND
 Znalezione napędy CD-ROM: %d
@@ -2773,10 +3058,6 @@ Błąd montowania nakładki ('overlay').
 Nakładka ('overlay') '%s' zamontowana na dysku %c.
 
 .
-:PROGRAM_MOUNT_MOVE_Z_ERROR_1
-Nie można przenieść dysku Z. Dysk %c jest już zamontowany.
-
-.
 :PROGRAM_MOUSECTL_HELP_LONG
 Zarządzaj myszami, fizycznymi i logicznymi.
 
@@ -2828,6 +3109,15 @@ Mapowanie niedostępne w trybie pracy bez użycia myszy ('nomouse').
 .
 :PROGRAM_MOUSECTL_MAPPING_BLOCKED_BY_DRIVER
 Mapowanie niedostępne przy obecnym sterowniku myszy w systemie gościa.
+
+.
+:PROGRAM_MOUSECTL_MANYMOUSE_NOT_BUILT
+Ta kompilacja nie obsługuje mapowania fizycznych myszy.
+
+.
+:PROGRAM_MOUSECTL_MANYMOUSE_RAW_INPUT
+Mapowanie fizycznych myszy jest niedostępne z powodu włączonego ustawienia
+'mouse_raw_input'.
 
 .
 :PROGRAM_MOUSECTL_NO_INTERFACES
@@ -3021,6 +3311,44 @@ Brakujące polecenie dla kanału [color=light-cyan]%s[reset]
 .
 :SHELL_CMD_MIXER_INVALID_CHANNEL_COMMAND
 Nieprawidłowe polecenie dla kanału [color=light-cyan]%s[reset]: [color=white]%s[reset]
+.
+:PROGRAM_MODE_HELP_LONG
+Ustaw tryb wyświetlania lub powtarzanie klawiszy.
+
+Składnia:
+  [color=light-green]mode[reset] [color=white]KOLUMNYxLINIE[reset]
+  [color=light-green]mode[reset] [color=white]KOLUMNY,LINIE[reset]
+  [color=light-green]mode[reset] rate=[color=white]SZYBKOSĆ[reset] delay=[color=white]CZAS[reset]
+
+Gdzie:
+  [color=white]KOLUMNY[reset]   ilość znaków (kolumn) w linii (40, 80, lub 132)
+  [color=white]LINIE[reset]     ilość linii na ekranie (25, 28, 30, 34, 43, 50, lub 60)
+  [color=white]SZYBKOSĆ[reset]  szybkość powtarzania klawiszy, od [color=white]1[reset] do [color=white]32[reset]
+            (1 = najwolniej, 32 = najszybciej)
+  [color=white]CZAS[reset]      czas do rozpoczęcia powtarzania, od [color=white]1[reset] do [color=white]4[reset]
+            (1 = najkrótszy, 4 = najdłuższy)
+
+Uwagi:
+  - Dozwolone wartości [color=white]KOLUMNYxLINIE[reset] w zależności od karty graficznej:
+      Hercules           80x25
+      CGA, PCjr, Tandy   40x25, 80x25
+      EGA                40x25, 80x25, 80x43
+      SVGA (nie S3)      40x25, 80x25, 80x28, 80x30, 80x34, 80x43, 80x50
+      SVGA (S3)          40x25, wszystkie tryby 80- i 132-kolumnowe
+
+Przykłady:
+  [color=light-green]mode[reset] [color=white]132x50
+  [color=light-green]mode[reset] [color=white]80x43[reset]
+  [color=light-green]mode[reset] rate=[color=white]32[reset] delay=[color=white]1[reset]
+.
+:PROGRAM_MODE_INVALID_DISPLAY_MODE
+Nieprawidłowy tryb wyświetlania: [color=white]%s[reset]
+.
+:PROGRAM_MODE_UNSUPPORTED_DISPLAY_MODE
+Tryb [color=white]%s[reset] nie jest obsługiwany przez obecną kartę graficzną.
+.
+:PROGRAM_MODE_INVALID_TYPEMATIC_RATE
+Nieprawidłowe ustawienie szybkości klawiatury.
 .
 :PROGRAM_SERIAL_HELP_LONG
 Zarządzaj portami szeregowymi.
@@ -3392,6 +3720,10 @@ Zmienna środowiskowa '%s' nie została ustawiona.
 Niewystarczająca ilość miejsca w środowisku.
 
 .
+:SHELL_CMD_SET_OPTION_P_UNSUPPORTED
+Opcja /P nie jest obsługiwana; użyj polecenia CHOICE.
+
+.
 :SHELL_CMD_IF_EXIST_MISSING_FILENAME
 IF EXIST: Brakuje nazwy pliku.
 
@@ -3501,7 +3833,7 @@ Polecenia można użyć jedynie na lokalnych dyskach.
 :SHELL_STARTUP_CGA
 ║ DOSBox wspiera tryb obrazu kompozytowego CGA.                      ║
 ║ Wciśnij [color=light-red]F12[color=white], aby włączyć lub wyłączyć tryb kompozytowy obrazu.     ║
-║ [color=light-red]%s+F11[color=white] zmienia barwę; [color=light-red]%s+%s+F11[color=white] zmienia model CGA.%s             ║
+║ [color=light-red]F10[color=white] wybiera ustawienie do zmiany; [color=light-red](%s+)F11[color=white] zmienia je.            ║
 ║                                                                    ║
 
 .

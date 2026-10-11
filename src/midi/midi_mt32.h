@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,15 +50,15 @@ static_assert(MT32EMU_VERSION_MAJOR > 2 ||
                       (MT32EMU_VERSION_MAJOR == 2 && MT32EMU_VERSION_MINOR >= 5),
               "libmt32emu >= 2.5.0 required (using " MT32EMU_VERSION ")");
 
+using Mt32ServicePtr = std::unique_ptr<MT32Emu::Service>;
+
 class MidiHandler_mt32 final : public MidiHandler {
 public:
-	using service_t = std::unique_ptr<MT32Emu::Service>;
-
 	MidiHandler_mt32() = default;
 	~MidiHandler_mt32() override;
 	void Close() override;
 
-	std::string_view GetName() const override
+	std::string GetName() const override
 	{
 		return "mt32";
 	}
@@ -75,21 +75,21 @@ public:
 	void PrintStats();
 
 private:
-	service_t GetService();
-	void MixerCallBack(uint16_t len);
+	Mt32ServicePtr GetService();
+	void MixerCallBack(const int requested_audio_frames);
 	void ProcessWorkFromFifo();
 
-	uint16_t GetNumPendingAudioFrames();
-	void RenderAudioFramesToFifo(const uint16_t num_frames = 1);
+	int GetNumPendingAudioFrames();
+	void RenderAudioFramesToFifo(const int num_frames = 1);
 	void Render();
 
 	// Managed objects
-	mixer_channel_t channel = nullptr;
+	MixerChannelPtr channel = nullptr;
 	RWQueue<AudioFrame> audio_frame_fifo{1};
 	RWQueue<MidiWork> work_fifo{1};
 
 	std::mutex service_mutex = {};
-	service_t service        = {};
+	Mt32ServicePtr service   = {};
 	std::thread renderer     = {};
 
 	std::optional<ModelAndDir> model_and_dir = {};

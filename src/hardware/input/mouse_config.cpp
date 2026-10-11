@@ -53,33 +53,6 @@ constexpr auto model_com_2button_msm_str  = "2button+msm";
 constexpr auto model_com_3button_msm_str  = "3button+msm";
 constexpr auto model_com_wheel_msm_str    = "wheel+msm";
 
-static const char *list_capture_types[] = {
-	capture_type_seamless_str,
-	capture_type_onclick_str,
-	capture_type_onstart_str,
-	capture_type_nomouse_str,
-	nullptr
-};
-
-static const char* list_models_ps2[] = {
-	model_ps2_standard_str,
-        model_ps2_intellimouse_str,
-        model_ps2_explorer_str,
-        model_ps2_nomouse_str,
-        nullptr
-};
-
-static const char *list_models_com[] = {
-	model_com_2button_str,
-	model_com_3button_str,
-	model_com_wheel_str,
-	model_com_msm_str,
-	model_com_2button_msm_str,
-	model_com_3button_msm_str,
-	model_com_wheel_msm_str,
-	nullptr
-};
-
 static const std::vector<uint16_t> list_rates = {
         // Commented out values are probably not interesting
         // for the end user as "boosted" sampling rate
@@ -190,12 +163,12 @@ static void SetSensitivity(const std::string_view sensitivity_str)
 	auto set_mouse_sensitivity_setting = [](const int value) {
 		set_section_property_value("mouse",
 		                           "mouse_sensitivity",
-		                           format_string("%d", value));
+		                           format_str("%d", value));
 	};
 	auto set_mouse_sensitivity_settings = [](const int val_x, const int val_y) {
 		set_section_property_value("mouse",
 		                           "mouse_sensitivity",
-		                           format_string("%d %d", val_x, val_y));
+		                           format_str("%d %d", val_x, val_y));
 	};
 
 	// Split input string into values
@@ -228,7 +201,7 @@ static void SetSensitivity(const std::string_view sensitivity_str)
 
 	for (auto& value_str : values_str) {
 		// Remove trailing '%' signs, if present
-		if (ends_with(value_str, "%")) {
+		if (value_str.ends_with('%')) {
 			value_str.pop_back();
 		}
 
@@ -359,7 +332,10 @@ static void config_init(Section_prop &secprop)
 	prop_str = secprop.Add_string("mouse_capture", always,
 	                              capture_type_onclick_str);
 	assert(prop_str);
-	prop_str->Set_values(list_capture_types);
+	prop_str->Set_values({capture_type_seamless_str,
+	                      capture_type_onclick_str,
+	                      capture_type_onstart_str,
+	                      capture_type_nomouse_str});
 	prop_str->Set_help(
 	        "Set the mouse capture behaviour:\n"
 	        "  onclick:   Capture the mouse when clicking any mouse button in the window\n"
@@ -405,10 +381,21 @@ static void config_init(Section_prop &secprop)
 	prop_bool = secprop.Add_bool("dos_mouse_driver", only_at_start, true);
 	assert(prop_bool);
 	prop_bool->Set_help(
-	        "Enable built-in DOS mouse driver (enabled by default).\n"
-	        "Notes:\n"
-	        "  - Disable if you intend to use original MOUSE.COM driver in emulated DOS.\n"
-	        "  - When guest OS is booted, built-in driver gets disabled automatically.");
+	        "Enable the built-in mouse driver (enabled by default). This results in the\n"
+	        "lowest possible latency and the smoothest mouse movement, so only disable it\n"
+	        "and load a real DOS mouse driver if it's really necessary (e.g., if a game is\n"
+	        "not compatible with the built-in driver).\n"
+	        "  on:   Enable the built-in mouse driver. `ps2_mouse_model` and\n"
+	        "        `com_mouse_model` have no effect on the built-in driver.\n"
+	        "  off:  Disable the built-in mouse driver (if you don't want mouse support or\n"
+	        "        you want to load a real DOS mouse driver). To use a real DOS driver\n"
+	        "        (e.g., MOUSE.COM or CTMOUSE.EXE), configure the mouse type with\n"
+	        "        `ps2_mouse_model` or `com_mouse_model`, then load the driver.\n"
+	        "        A real DOS driver might increase compatibility with some programs,\n"
+	        "        but will introduce more input latency.\n"
+	        "Note: The built-in driver is auto-disabled if you boot into real MS-DOS or\n"
+	        "      Windows 9x under DOSBox. Under Windows 3.x, the driver is not disabled,\n"
+	        "      but the Windows 3.x mouse driver takes over.");
 
 	prop_bool = secprop.Add_bool("dos_mouse_immediate", always, false);
 	assert(prop_bool);
@@ -430,21 +417,34 @@ static void config_init(Section_prop &secprop)
 	                              only_at_start,
 	                              model_ps2_explorer_str);
 	assert(prop_str);
-	prop_str->Set_values(list_models_ps2);
+	prop_str->Set_values({model_ps2_standard_str,
+	                      model_ps2_intellimouse_str,
+	                      model_ps2_explorer_str,
+	                      model_ps2_nomouse_str});
 	prop_str->Set_help(
-	        "PS/2 AUX port mouse model:\n"
+	        "Set the PS/2 AUX port mouse model, or in other words, the type of the virtual\n"
+	        "mouse plugged into the emulated PS/2 mouse port ('explorer' by default).\n"
+	        "The setting has no effect on the built-in mouse driver (see 'dos_mouse_driver').\n"
 	        "  standard:      3 buttons, standard PS/2 mouse.\n"
 	        "  intellimouse:  3 buttons + wheel, Microsoft IntelliMouse.\n"
 	        "  explorer:      5 buttons + wheel, Microsoft IntelliMouse Explorer (default).\n"
-	        "  none:          no PS/2 mouse emulated.");
+	        "  none:          no PS/2 mouse.");
 
 	prop_str = secprop.Add_string("com_mouse_model",
 	                              only_at_start,
 	                              model_com_wheel_msm_str);
 	assert(prop_str);
-	prop_str->Set_values(list_models_com);
+	prop_str->Set_values({model_com_2button_str,
+	                      model_com_3button_str,
+	                      model_com_wheel_str,
+	                      model_com_msm_str,
+	                      model_com_2button_msm_str,
+	                      model_com_3button_msm_str,
+	                      model_com_wheel_msm_str});
 	prop_str->Set_help(
-	        "COM (serial) port default mouse model:\n"
+	        "Set the default COM (serial) mouse model, or in other words, the type of the\n"
+	        "virtual mouse plugged into the emulated COM ports ('wheel+msm' by default).\n"
+	        "The setting has no effect on the built-in mouse driver (see 'dos_mouse_driver').\n"
 	        "  2button:      2 buttons, Microsoft mouse.\n"
 	        "  3button:      3 buttons, Logitech mouse;\n"
 	        "                mostly compatible with Microsoft mouse.\n"
@@ -469,7 +469,7 @@ static void config_init(Section_prop &secprop)
 	                    "Note: Requires PS/2 mouse to be enabled.");
 }
 
-void MOUSE_AddConfigSection(const config_ptr_t& conf)
+void MOUSE_AddConfigSection(const ConfigPtr& conf)
 {
 	assert(conf);
 

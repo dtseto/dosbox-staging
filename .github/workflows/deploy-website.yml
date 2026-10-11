@@ -6,7 +6,7 @@ on:
       source_branch:
         description: 'Branch to deploy the website from (last release/* branch for current version)'
         required: true
-        default: 'release/0.80.x'
+        default: 'release/0.82.x'
         type: string
 
       destination_prefix:
@@ -14,8 +14,12 @@ on:
         type: string
 
 jobs:
+  linting:
+    uses: ./.github/workflows/linting.yml
+
   build_and_deploy_website:
-    runs-on: ubuntu-22.04
+    needs: linting
+    runs-on: ubuntu-latest
     steps:
       - name: Check out MkDocs sources
         uses: actions/checkout@v4

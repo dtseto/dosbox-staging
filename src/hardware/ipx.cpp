@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1053,7 +1053,7 @@ public:
 					CALLBACK_Idle();
 					if(pingCheck(&pingHead)) {
 						WriteOut(
-						        "Response from %d.%d.%d.%d, port %d time=ms\n",
+						        "Response from %d.%d.%d.%d, port %d time=%lldms\n",
 						        CONVIP(pingHead.src.addr.byIP.host),
 						        SDLNet_Read16(&pingHead.src.addr.byIP.port),
 						        GetTicksSince(ticks));

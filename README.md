@@ -17,10 +17,6 @@ support today's systems.
 [![macOS build status][build-mac-badge]][build-mac-ci]
 
 
-## Code quality status
-
-[![Coverity status][coverity-badge]][3]
-
 ## Stable release builds
 
 [Linux](https://www.dosbox-staging.org/releases/linux/),
@@ -36,7 +32,7 @@ support today's systems.
 | **Feature**                    | **Status**                   |
 |--------------------------------|------------------------------|
 | **Version control**            | Git                          |
-| **Language**                   | C++17                        |
+| **Language**                   | C++20                        |
 | **SDL**                        | >= 2.0.5                     |
 | **Logging**                    | Loguru for C++<sup>[5]</sup> |
 | **Buildsystem**                | Meson or Visual Studio 2022  |
@@ -50,23 +46,18 @@ support today's systems.
 
 [1]: https://github.com/dosbox-staging/dosbox-staging/actions?query=workflow%3A%22Code+analysis%22
 [2]: https://lgtm.com/projects/g/dosbox-staging/dosbox-staging/
-[3]: https://scan.coverity.com/projects/dosbox-staging
 [4]: https://github.com/dosbox-staging/dosbox-staging/actions?query=workflow%3A%22PVS-Studio+analysis%22
 [5]: https://github.com/emilk/loguru
 [6]: https://github.com/dosbox-staging/dosbox-staging/tree/main/tests
 [Development builds]: https://www.dosbox-staging.org/releases/development-builds/
 
+## Source code analysis tools
 
-## Stable release builds
-
-[Linux](https://dosbox-staging.github.io/releases/linux/),
-[Windows](https://dosbox-staging.github.io/releases/windows/),
-[macOS](https://dosbox-staging.github.io/releases/macos/)
-
-## Test builds & development snapshots
-
-[Development builds].
-
+- [PVS-Studio](https://pvs-studio.com/pvs-studio/?utm_source=website&utm_medium=github&utm_campaign=open_source) — C++ static analyser
+- [Clang Static Analyzer](https://clang-analyzer.llvm.org/) — C++ static analyser
+- [Pylint](https://pypi.org/project/pylint/) — Python static analyser
+- [markdownlint](https://github.com/DavidAnson/markdownlint) — style checker and linter for Markdown
+- [ShellCheck](https://www.shellcheck.net/) — shell script analysis tool
 
 ## Dependencies
 
@@ -80,8 +71,8 @@ DOSBox Staging has the following library dependencies:
 | [libpng](http://www.libpng.org/pub/png/libpng.html)                | libpng        | PNG-encoding of screen captures                         | Optional    | yes          | yes     | very common         |
 | [Munt](https://github.com/munt/munt)                               | libmt32emu    | Roland MT-32 and CM-32L playback                        | Optional    | yes          | yes     | rare                |
 | [Opus File](https://opus-codec.org/)                               | opusfile      | CDDA playback for Opus-encoded track files              | Mandatory   | **no** 🔴    | yes     | common              |
-| [SDL 2.0](https://github.com/libsdl-org/SDL)                       | sdl2          | OS-agnostic API for video, audio, and eventing          | Mandatory   | **no** 🔴    | yes     | common              |
-| [SDL_net 2.0](https://github.com/libsdl-org/SDL_net)               | sdl2-net      | Network API for emulated serial and IPX                 | Optional    | **no** 🔴    | yes     | common              |
+| [SDL 2.0](https://github.com/libsdl-org/SDL)                       | sdl2          | OS-agnostic API for video, audio, and eventing          | Mandatory   | yes          | yes     | common              |
+| [SDL_net 2.0](https://github.com/libsdl-org/SDL_net)               | sdl2-net      | Network API for emulated serial and IPX                 | Optional    | yes          | yes     | common              |
 | [slirp](https://gitlab.freedesktop.org/slirp)                      | libslirp      | Unprivileged virtual TCP/IP stack for Ethernet          | Optional    | yes          | yes     | less common         |
 | [SpeexDSP](https://github.com/xiph/speexdsp)                       | speexdsp      | Audio resampling                                        | Mandatory   | yes          | yes     | common              |
 | [Tracy Profiler](https://github.com/wolfpld/tracy)                 | tracy         | Event profile (development)                             | Optional    | yes          | yes     | rare                |
@@ -102,6 +93,13 @@ git clone https://github.com/dosbox-staging/dosbox-staging.git
 
 Read [BUILD.md] for the comprehensive compilation guide.
 
+> **Note**
+>
+> CMake support is currently an experimental internal-only, work-in-progress
+> feature; it's not ready for public consumption yet. Please ignore the
+> `CMakeLists.txt` files in the source tree.
+
+
 ### Linux, macOS
 
 Install build dependencies appropriate for your OS:
@@ -111,7 +109,7 @@ Install build dependencies appropriate for your OS:
 sudo dnf install ccache gcc-c++ meson alsa-lib-devel libatomic libpng-devel \
                  SDL2-devel SDL2_net-devel opusfile-devel \
                  fluidsynth-devel iir1-devel mt32emu-devel libslirp-devel \
-                 speexdsp-devel libXi-devel
+                 speexdsp-devel libXi-devel zlib-ng-devel
 ```
 
 ``` shell
@@ -284,8 +282,6 @@ git fetch origin "refs/notes/*:refs/notes/*"
 
 [build-mac-badge]: https://img.shields.io/github/actions/workflow/status/dosbox-staging/dosbox-staging/macos.yml?label=macOS%20%28x86_64%2C%20arm64%29
 [build-mac-ci]:    https://github.com/dosbox-staging/dosbox-staging/actions/workflows/macos.yml?query=branch%3Amain
-
-[coverity-badge]: https://img.shields.io/coverity/scan/dosbox-staging
 
 
 ## Website & documentation

@@ -4,7 +4,8 @@ set -e
 
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
-# Copyright (C) 2020-2022  Sherman Perry and the DOSBox Staging Team
+# Copyright (C) 2020-2024  The DOSBox Staging Team
+# Copyright (C) 2020-2022  Sherman Perry
 
 usage()
 {
@@ -58,6 +59,7 @@ install_doc()
             install_file docs/dosbox.1             "${pkg_dir}/man/dosbox.1"
             install_file licenses/BSD-2-Clause.txt "${pkg_dir}/doc/licenses/BSD-2-Clause.txt"
             install_file licenses/BSD-3-Clause.txt "${pkg_dir}/doc/licenses/BSD-3-Clause.txt"
+            install_file licenses/DEBUG.COM.txt    "${pkg_dir}/doc/licenses/DEBUG.COM.txt"
             install_file licenses/GPL-2.0.txt      "${pkg_dir}/doc/licenses/GPL-2.0.txt"
             install_file licenses/LGPL-2.1.txt     "${pkg_dir}/doc/licenses/LGPL-2.1.txt"
             install_file licenses/MIT.txt          "${pkg_dir}/doc/licenses/MIT.txt"
@@ -71,6 +73,7 @@ install_doc()
             install_file docs/README.video         "${macos_content_dir}/SharedSupport/video.txt"
             install_file licenses/BSD-2-Clause.txt "${macos_content_dir}/doc/licenses/BSD-2-Clause.txt"
             install_file licenses/BSD-3-Clause.txt "${macos_content_dir}/doc/licenses/BSD-3-Clause.txt"
+            install_file licenses/DEBUG.COM.txt    "${macos_content_dir}/doc/licenses/DEBUG.COM.txt"
             install_file licenses/GPL-2.0.txt      "${macos_content_dir}/doc/licenses/GPL-2.0.txt"
             install_file licenses/LGPL-2.1.txt     "${macos_content_dir}/doc/licenses/LGPL-2.1.txt"
             install_file licenses/MIT.txt          "${macos_content_dir}/doc/licenses/MIT.txt"
@@ -84,6 +87,7 @@ install_doc()
             install_file README                    "${pkg_dir}/doc/manual.txt"
             install_file licenses/BSD-2-Clause.txt "${pkg_dir}/doc/licenses/BSD-2-Clause.txt"
             install_file licenses/BSD-3-Clause.txt "${pkg_dir}/doc/licenses/BSD-3-Clause.txt"
+            install_file licenses/DEBUG.COM.txt    "${pkg_dir}/doc/licenses/DEBUG.COM.txt"
             install_file licenses/GPL-2.0.txt      "${pkg_dir}/doc/licenses/GPL-2.0.txt"
             install_file licenses/LGPL-2.1.txt     "${pkg_dir}/doc/licenses/LGPL-2.1.txt"
             install_file licenses/MIT.txt          "${pkg_dir}/doc/licenses/MIT.txt"
@@ -103,11 +107,21 @@ install_doc()
     else
         package_information="a development branch"
     fi
+
     if [ -n "$package_information" ]; then
-        sed -i -e "s|%PACKAGE_INFORMATION%|$package_information|" "$readme_tmpl"
+        if [ "$(uname)" = "Darwin" ]; then
+            sed -i '' -e "s|%PACKAGE_INFORMATION%|$package_information|" "$readme_tmpl"
+        else
+            sed -i -e "s|%PACKAGE_INFORMATION%|$package_information|" "$readme_tmpl"
+        fi
     fi
+
     if [ -n "$git_repo" ]; then
-        sed -i -e "s|%GITHUB_REPO%|$git_repo|"  "$readme_tmpl"
+        if [ "$(uname)" = "Darwin" ]; then
+            sed -i '' -e "s|%GITHUB_REPO%|$git_repo|" "$readme_tmpl"
+        else
+            sed -i -e "s|%GITHUB_REPO%|$git_repo|" "$readme_tmpl"
+        fi
     fi
 }
 
@@ -137,7 +151,8 @@ pkg_linux()
     ldd "${build_dir}/dosbox" || true
     install -DT "${build_dir}/dosbox" "${pkg_dir}/dosbox"
 
-    install -DT contrib/linux/dosbox-staging.desktop "${pkg_dir}/desktop/dosbox-staging.desktop"
+    install -DT contrib/linux/org.dosbox-staging.dosbox-staging.desktop "${pkg_dir}/desktop/org.dosbox-staging.dosbox-staging.desktop"
+
     install -DT contrib/linux/install-icons.sh "${pkg_dir}/install-icons.sh"
 
     DESTDIR="$(realpath "$pkg_dir")" make -C contrib/icons/ install datadir=
@@ -165,7 +180,7 @@ pkg_macos()
     install_file contrib/macos/PkgInfo                   "${macos_content_dir}/PkgInfo"
     install_file contrib/icons/macos/dosbox-staging.icns "${macos_content_dir}/Resources/"
 
-    sed -i -e "s|%VERSION%|${dbox_version}|"       "${macos_content_dir}/Info.plist"
+    sed -i '' -e "s|%VERSION%|${dbox_version}|"       "${macos_content_dir}/Info.plist"
 
 	# Install start commands
 	start_command="Start DOSBox Staging.command"

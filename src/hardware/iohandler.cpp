@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -91,16 +91,18 @@ constexpr int32_t IODELAY_WRITE_MICROSk = static_cast<int32_t>(
 
 inline void IO_USEC_read_delay() {
 	auto delaycyc = CPU_CycleMax / IODELAY_READ_MICROSk;
-	if (GCC_UNLIKELY(delaycyc > CPU_Cycles))
+	if (delaycyc > CPU_Cycles) {
 		delaycyc = CPU_Cycles;
+	}
 	CPU_Cycles -= delaycyc;
 	CPU_IODelayRemoved += delaycyc;
 }
 
 inline void IO_USEC_write_delay() {
 	auto delaycyc = CPU_CycleMax / IODELAY_WRITE_MICROSk;
-	if (GCC_UNLIKELY(delaycyc > CPU_Cycles))
+	if (delaycyc > CPU_Cycles) {
 		delaycyc = CPU_Cycles;
+	}
 	CPU_Cycles -= delaycyc;
 	CPU_IODelayRemoved += delaycyc;
 }
@@ -170,7 +172,7 @@ void log_io(io_width_t width, bool write, io_port_t port, io_val_t val)
 void IO_WriteB(io_port_t port, uint8_t val)
 {
 	log_io(io_width_t::byte, true, port, val);
-	if (GCC_UNLIKELY(GETFLAG(VM) && (CPU_IO_Exception(port,1)))) {
+	if (GETFLAG(VM) && (CPU_IO_Exception(port, 1))) {
 		const auto old_lflags = lflags;
 		const auto old_cpudecoder=cpudecoder;
 		cpudecoder=&IOFaultCore;
@@ -195,8 +197,7 @@ void IO_WriteB(io_port_t port, uint8_t val)
 		reg_dx = old_dx;
 		lflags = old_lflags;
 		cpudecoder=old_cpudecoder;
-	}
-	else {
+	} else {
 		IO_USEC_write_delay();
 		write_byte_to_port(port, val);
 	}
@@ -205,7 +206,7 @@ void IO_WriteB(io_port_t port, uint8_t val)
 void IO_WriteW(io_port_t port, uint16_t val)
 {
 	log_io(io_width_t::word, true, port, val);
-	if (GCC_UNLIKELY(GETFLAG(VM) && (CPU_IO_Exception(port,2)))) {
+	if (GETFLAG(VM) && (CPU_IO_Exception(port, 2))) {
 		const auto old_lflags = lflags;
 		const auto old_cpudecoder=cpudecoder;
 		cpudecoder=&IOFaultCore;
@@ -230,8 +231,7 @@ void IO_WriteW(io_port_t port, uint16_t val)
 		reg_dx = old_dx;
 		lflags = old_lflags;
 		cpudecoder=old_cpudecoder;
-	}
-	else {
+	} else {
 		IO_USEC_write_delay();
 		write_word_to_port(port, val);
 	}
@@ -240,7 +240,7 @@ void IO_WriteW(io_port_t port, uint16_t val)
 void IO_WriteD(io_port_t port, uint32_t val)
 {
 	log_io(io_width_t::dword, true, port, val);
-	if (GCC_UNLIKELY(GETFLAG(VM) && (CPU_IO_Exception(port,4)))) {
+	if (GETFLAG(VM) && (CPU_IO_Exception(port, 4))) {
 		const auto old_lflags = lflags;
 		const auto old_cpudecoder=cpudecoder;
 		cpudecoder=&IOFaultCore;
@@ -273,7 +273,7 @@ void IO_WriteD(io_port_t port, uint32_t val)
 uint8_t IO_ReadB(io_port_t port)
 {
 	uint8_t retval;
-	if (GCC_UNLIKELY(GETFLAG(VM) && (CPU_IO_Exception(port,1)))) {
+	if (GETFLAG(VM) && (CPU_IO_Exception(port, 1))) {
 		const auto old_lflags = lflags;
 		const auto old_cpudecoder=cpudecoder;
 		cpudecoder=&IOFaultCore;
@@ -299,8 +299,7 @@ uint8_t IO_ReadB(io_port_t port)
 		lflags = old_lflags;
 		cpudecoder=old_cpudecoder;
 		return retval;
-	}
-	else {
+	} else {
 		IO_USEC_read_delay();
 		retval = read_byte_from_port(port);
 	}
@@ -311,7 +310,7 @@ uint8_t IO_ReadB(io_port_t port)
 uint16_t IO_ReadW(io_port_t port)
 {
 	uint16_t retval;
-	if (GCC_UNLIKELY(GETFLAG(VM) && (CPU_IO_Exception(port,2)))) {
+	if (GETFLAG(VM) && (CPU_IO_Exception(port, 2))) {
 		const auto old_lflags = lflags;
 		const auto old_cpudecoder=cpudecoder;
 		cpudecoder=&IOFaultCore;
@@ -336,8 +335,7 @@ uint16_t IO_ReadW(io_port_t port)
 		reg_dx = old_dx;
 		lflags = old_lflags;
 		cpudecoder=old_cpudecoder;
-	}
-	else {
+	} else {
 		IO_USEC_read_delay();
 		retval = read_word_from_port(port);
 	}
@@ -348,7 +346,7 @@ uint16_t IO_ReadW(io_port_t port)
 uint32_t IO_ReadD(io_port_t port)
 {
 	uint32_t retval;
-	if (GCC_UNLIKELY(GETFLAG(VM) && (CPU_IO_Exception(port,4)))) {
+	if (GETFLAG(VM) && (CPU_IO_Exception(port, 4))) {
 		const auto old_lflags = lflags;
 		const auto old_cpudecoder=cpudecoder;
 		cpudecoder=&IOFaultCore;

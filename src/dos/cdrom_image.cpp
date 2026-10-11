@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -48,16 +48,14 @@
 #include "setup.h"
 #include "string_utils.h"
 
-using namespace std;
-
 // String maximums, local to this file
 #define MAX_LINE_LENGTH 512
 #define MAX_FILENAME_LENGTH 256
 
 // STL type shorteners, local to this file
-using track_iter       = vector<CDROM_Interface_Image::Track>::iterator;
-using track_const_iter = vector<CDROM_Interface_Image::Track>::const_iterator;
-using tracks_size_t    = vector<CDROM_Interface_Image::Track>::size_type;
+using track_iter       = std::vector<CDROM_Interface_Image::Track>::iterator;
+using track_const_iter = std::vector<CDROM_Interface_Image::Track>::const_iterator;
+using tracks_size_t    = std::vector<CDROM_Interface_Image::Track>::size_type;
 
 // Ensure the maximum allowed redbook bytes stays within the API type sizes
 static_assert(MAX_REDBOOK_BYTES <= UINT32_MAX);
@@ -103,7 +101,7 @@ CDROM_Interface_Image::BinaryFile::BinaryFile(const char *filename, bool &error)
         : TrackFile(BYTES_PER_RAW_REDBOOK_FRAME),
           file(nullptr)
 {
-	file = new ifstream(filename, ios::in | ios::binary);
+	file = new std::ifstream(filename, std::ios::in | std::ios::binary);
 	// If new fails, an exception is generated and scope leaves this constructor
 	error = file->fail();
 }
@@ -143,7 +141,7 @@ int CDROM_Interface_Image::BinaryFile::getLength()
 {
 	// Return our cached result if we've already been asked before
 	if (length_redbook_bytes < 0 && file) {
-		file->seekg(0, ios::end);
+		file->seekg(0, std::ios::end);
 		/**
 		 *  All read(..) operations involve an absolute position and
 		 *  this function isn't called in other threads, therefore
@@ -180,13 +178,13 @@ bool CDROM_Interface_Image::BinaryFile::seek(const uint32_t offset)
 	if (static_cast<uint32_t>(file->tellg()) == offset)
 		return true;
 
-	file->seekg(offset, ios::beg);
+	file->seekg(offset, std::ios::beg);
 
 	// If the first seek attempt failed, then try harder
 	if (file->fail()) {
-		file->clear();                 // clear fail and eof bits
-		file->seekg(0, std::ios::beg); // "I have returned."
-		file->seekg(offset, ios::beg); // "It will be done."
+		file->clear();                      // clear fail and eof bits
+		file->seekg(0, std::ios::beg);      // "I have returned."
+		file->seekg(offset, std::ios::beg); // "It will be done."
 	}
 	return !file->fail();
 }
@@ -381,7 +379,6 @@ bool CDROM_Interface_Image::AudioFile::read(uint8_t *buffer,
 	// If the track is mono, convert to stereo
 	if (channels == 1 && decoded_frames) {
 #ifdef DEBUG
-		using namespace std::chrono;
 		using clock = std::chrono::steady_clock;
 		clock::time_point begin = clock::now(); // start the timer
 #endif
@@ -482,27 +479,27 @@ int CDROM_Interface_Image::AudioFile::getLength()
 
 // initialize static members
 int CDROM_Interface_Image::refCount = 0;
-CDROM_Interface_Image* CDROM_Interface_Image::images[26] = {};
 CDROM_Interface_Image::imagePlayer CDROM_Interface_Image::player;
 
-CDROM_Interface_Image::CDROM_Interface_Image(uint8_t sub_unit)
+CDROM_Interface_Image::CDROM_Interface_Image()
         : tracks{},
           readBuffer{},
           mcn("")
 {
-	images[sub_unit] = this;
 	if (refCount == 0) {
 		if (!player.channel) {
+			MIXER_LockMixerThread();
 			const auto mixer_callback = std::bind(&CDROM_Interface_Image::CDAudioCallBack,
 			                                      this, std::placeholders::_1);
 
 			player.channel = MIXER_AddChannel(mixer_callback,
-			                                  use_mixer_rate,
+			                                  UseMixerRate,
 			                                  ChannelName::CdAudio,
 			                                  {ChannelFeature::Stereo,
 			                                   ChannelFeature::DigitalAudio});
 
 			player.channel->Enable(false); // only enabled during playback periods
+			MIXER_UnlockMixerThread();
 		}
 #ifdef DEBUG
 		LOG_MSG("CDROM: Initialised the %s audio channel", ChannelName::CdAudio);
@@ -513,6 +510,7 @@ CDROM_Interface_Image::CDROM_Interface_Image(uint8_t sub_unit)
 
 CDROM_Interface_Image::~CDROM_Interface_Image()
 {
+	MIXER_LockMixerThread();
 	refCount--;
 
 	// Stop playback before wiping out the CD Player
@@ -528,11 +526,12 @@ CDROM_Interface_Image::~CDROM_Interface_Image()
 	if (player.cd == this) {
 		player.cd = nullptr;
 	}
+	MIXER_UnlockMixerThread();
 }
 
-bool CDROM_Interface_Image::SetDevice(const char* path, [[maybe_unused]] const int cd_number)
+bool CDROM_Interface_Image::SetDevice(const char* path)
 {
-	const bool result = LoadCueSheet((char *)path) || LoadIsoFile((char *)path);
+	const bool result = LoadCueSheet(path) || LoadIsoFile(path);
 	if (!result) {
 		// print error message on dosbox console
 		//--Disabled 2012-11-07 by Alun Bestor: this is already covered by our own error messages.
@@ -548,10 +547,10 @@ bool CDROM_Interface_Image::SetDevice(const char* path, [[maybe_unused]] const i
 	return result;
 }
 
-bool CDROM_Interface_Image::GetUPC(unsigned char& attr, char* upc)
+bool CDROM_Interface_Image::GetUPC(unsigned char& attr, std::string& upc)
 {
 	attr = 0;
-	strcpy(upc, this->mcn.c_str());
+	upc = mcn;
 #ifdef DEBUG
 	LOG_MSG("CDROM: GetUPC => returned %s", upc);
 #endif
@@ -763,11 +762,13 @@ bool CDROM_Interface_Image::PlayAudioSector(uint32_t start, uint32_t len)
 
 	// Assign the mixer function associated with this track's content type
 	if (track_file->getEndian() == AUDIO_S16SYS) {
-		player.addFrames = track_channels ==  2  ? &MixerChannel::AddSamples_s16 \
-		                                         : &MixerChannel::AddSamples_m16;
+		player.addFrames = (track_channels == 2)
+		                         ? &MixerChannel::AddSamples_s16
+		                         : &MixerChannel::AddSamples_m16;
 	} else {
-		player.addFrames = track_channels ==  2  ? &MixerChannel::AddSamples_s16_nonnative \
-		                                         : &MixerChannel::AddSamples_m16_nonnative;
+		player.addFrames = (track_channels == 2)
+		                         ? &MixerChannel::AddSamples_s16_nonnative
+		                         : &MixerChannel::AddSamples_m16_nonnative;
 	}
 
 	/**
@@ -1005,7 +1006,7 @@ bool CDROM_Interface_Image::ReadSectorsHost(void *buffer, bool raw, unsigned lon
 	return success;
 }
 
-void CDROM_Interface_Image::CDAudioCallBack(uint16_t desired_track_frames)
+void CDROM_Interface_Image::CDAudioCallBack(const int desired_track_frames)
 {
 	/**
 	 *  This callback runs in SDL's mixer thread, so there's a risk
@@ -1070,14 +1071,14 @@ void CDROM_Interface_Image::CDAudioCallBack(uint16_t desired_track_frames)
 	}
 }
 
-bool CDROM_Interface_Image::LoadIsoFile(char* filename)
+bool CDROM_Interface_Image::LoadIsoFile(const char* filename)
 {
 	tracks.clear();
 
 	// data track (track 1)
 	Track track = {};
 	bool error  = false;
-	track.file  = make_shared<BinaryFile>(filename, error);
+	track.file  = std::make_shared<BinaryFile>(filename, error);
 
 	if (error) {
 		return false;
@@ -1145,7 +1146,8 @@ bool CDROM_Interface_Image::CanReadPVD(TrackFile *file,
 }
 
 #if defined(WIN32)
-static string dirname(char * file) {
+static std::string dirname(char* file)
+{
 	char * sep = strrchr(file, '\\');
 	if (sep == nullptr)
 		sep = strrchr(file, '/');
@@ -1160,7 +1162,7 @@ static string dirname(char * file) {
 }
 #endif
 
-bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
+bool CDROM_Interface_Image::LoadCueSheet(const char *cuefile)
 {
 	tracks.clear();
 
@@ -1174,9 +1176,9 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 	bool canAddTrack = false;
 	char tmp[MAX_FILENAME_LENGTH];  // dirname can change its argument
 	safe_strcpy(tmp, cuefile);
-	string pathname(dirname(tmp));
-	ifstream in;
-	in.open(to_native_path(cuefile), ios::in);
+	std::string pathname(dirname(tmp));
+	std::ifstream in;
+	in.open(to_native_path(cuefile), std::ios::in);
 	if (in.fail()) {
 		return false;
 	}
@@ -1188,9 +1190,9 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 		if (in.fail() && !in.eof()) {
 			return false;  // probably a binary file
 		}
-		istringstream line(buf);
+		std::istringstream line(buf);
 
-		string command;
+		std::string command;
 		GetCueKeyword(command, line);
 
 		if (command == "TRACK") {
@@ -1204,7 +1206,7 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 
 			line >> track_number; // (cin) read into a true int first
 			track.number = static_cast<uint8_t>(track_number);
-			string type;
+			std::string type;
 			GetCueKeyword(type, line);
 
 			if (type == "AUDIO") {
@@ -1246,18 +1248,19 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 			else success = true;
 			canAddTrack = false;
 
-			string filename;
+			std::string filename;
 			GetCueString(filename, line);
 			GetRealFileName(filename, pathname);
-			string type;
+			std::string type;
 			GetCueKeyword(type, line);
 
 			bool error = true;
 			if (type == "BINARY") {
-				track.file = make_shared<BinaryFile>(filename.c_str(), error);
-			}
-			else {
-				track.file = make_shared<AudioFile>(filename.c_str(), error);
+				track.file = std::make_shared<BinaryFile>(
+				        filename.c_str(), error);
+			} else {
+				track.file = std::make_shared<AudioFile>(
+				        filename.c_str(), error);
 				/**
 				 *  SDL_Sound first tries using a decoder having a matching
 				 *  registered extension as the filename, and then falls back to
@@ -1374,7 +1377,7 @@ bool CDROM_Interface_Image::AddTrack(Track &curr,
 	return true;
 }
 
-bool CDROM_Interface_Image::HasDataTrack(void)
+bool CDROM_Interface_Image::HasDataTrack() const
 {
 	//Data track has attribute 0x40
 	for (const auto &track : tracks) {
@@ -1386,7 +1389,7 @@ bool CDROM_Interface_Image::HasDataTrack(void)
 }
 
 
-bool CDROM_Interface_Image::GetRealFileName(string &filename, string &pathname)
+bool CDROM_Interface_Image::GetRealFileName(std::string &filename, std::string &pathname)
 {
 	// check if file exists
 	if (path_exists(filename)) {
@@ -1414,11 +1417,11 @@ bool CDROM_Interface_Image::GetRealFileName(string &filename, string &pathname)
 		return false;
 	}
 
-	const auto ldp = dynamic_cast<localDrive*>(Drives.at(drive));
+	const auto ldp = std::dynamic_pointer_cast<localDrive>(Drives.at(drive));
 	if (ldp) {
-		ldp->GetSystemFilename(tmp, fullname);
-		if (path_exists(tmp)) {
-			filename = tmp;
+		const std::string host_filename = ldp->MapDosToHostFilename(fullname);
+		if (path_exists(host_filename)) {
+			filename = host_filename;
 			return true;
 		}
 	}
@@ -1426,7 +1429,7 @@ bool CDROM_Interface_Image::GetRealFileName(string &filename, string &pathname)
 	return false;
 }
 
-bool CDROM_Interface_Image::GetCueKeyword(string &keyword, istream &in)
+bool CDROM_Interface_Image::GetCueKeyword(std::string& keyword, std::istream& in)
 {
 	in >> keyword;
 	for (Bitu i = 0; i < keyword.size(); i++) {
@@ -1435,7 +1438,7 @@ bool CDROM_Interface_Image::GetCueKeyword(string &keyword, istream &in)
 	return true;
 }
 
-bool CDROM_Interface_Image::GetCueFrame(uint32_t &frames, istream &in)
+bool CDROM_Interface_Image::GetCueFrame(uint32_t& frames, std::istream& in)
 {
 	std::string msf;
 	in >> msf;
@@ -1445,15 +1448,15 @@ bool CDROM_Interface_Image::GetCueFrame(uint32_t &frames, istream &in)
 	return success;
 }
 
-bool CDROM_Interface_Image::GetCueString(string &str, istream &in)
+bool CDROM_Interface_Image::GetCueString(std::string& str, std::istream& in)
 {
 	int pos = (int)in.tellg();
 	in >> str;
 	if (str[0] == '\"') {
 		if (str[str.size() - 1] == '\"') {
-			str.assign(str, 1, str.size() - 2);
+			str = str.substr(1, str.size() - 2);
 		} else {
-			in.seekg(pos, ios::beg);
+			in.seekg(pos, std::ios::beg);
 			char buffer[MAX_FILENAME_LENGTH];
 			in.getline(buffer, MAX_FILENAME_LENGTH, '\"');	// skip
 			in.getline(buffer, MAX_FILENAME_LENGTH, '\"');

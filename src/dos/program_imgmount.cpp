@@ -141,6 +141,15 @@ void IMGMOUNT::Run(void)
 		MoreOutputStrings output(*this);
 		output.AddString(MSG_Get("PROGRAM_IMGMOUNT_HELP_LONG"),
 		                 PRIMARY_MOD_NAME);
+#if defined(WIN32)
+		output.AddString(MSG_Get("PROGRAM_IMGMOUNT_HELP_LONG_WIN32"));
+#elif defined(MACOSX)
+		output.AddString(MSG_Get("PROGRAM_IMGMOUNT_HELP_LONG_MACOSX"));
+#else
+		output.AddString(MSG_Get("PROGRAM_IMGMOUNT_HELP_LONG_OTHER"));
+#endif
+		output.AddString(MSG_Get("PROGRAM_IMGMOUNT_HELP_LONG_GENERIC"));
+
 		output.Display();
 		return;
 	}
@@ -291,12 +300,10 @@ void IMGMOUNT::Run(void)
 		}
 
 		// Test if input is file on virtual DOS drive.
-		constexpr int posix_success = 0;
-		struct stat test;
-		if (posix_success != stat(temp_line.c_str(), &test)) {
+		if (!path_exists(temp_line)) {
 			// See if it works if the ~ are written out
 			const auto home_dir = resolve_home(temp_line).string();
-			if (posix_success == stat(home_dir.c_str(), &test)) {
+			if (path_exists(home_dir)) {
 				temp_line = home_dir;
 			} else {
 				// convert dosbox filename to system filename
@@ -317,17 +324,16 @@ void IMGMOUNT::Run(void)
 					return;
 				}
 
-				const auto ldp = dynamic_cast<localDrive*>(
+				const auto ldp = std::dynamic_pointer_cast<localDrive>(
 				        Drives.at(dummy));
 				if (ldp == nullptr) {
 					WriteOut(MSG_Get(
 					        "PROGRAM_IMGMOUNT_FILE_NOT_FOUND"));
 					return;
 				}
-				ldp->GetSystemFilename(tmp, fullname);
-				temp_line = tmp;
+				temp_line = ldp->MapDosToHostFilename(fullname);
 
-				if (posix_success != stat(temp_line.c_str(), &test)) {
+				if (!path_exists(temp_line)) {
 					if (add_wildcard_paths(temp_line, paths)) {
 						continue;
 					} else {
@@ -342,7 +348,7 @@ void IMGMOUNT::Run(void)
 				        drive_letter(dummy));
 			}
 		}
-		if (S_ISDIR(test.st_mode)) {
+		if (is_directory(temp_line)) {
 			WriteOut(MSG_Get("PROGRAM_IMGMOUNT_MOUNT"));
 			return;
 		}
@@ -429,15 +435,14 @@ void IMGMOUNT::Run(void)
 		DriveManager::filesystem_images_t fat_images = {};
 
 		for (const auto& fat_path : paths) {
-			auto fat_image = std::make_unique<fatDrive>(fat_path.c_str(),
+			auto fat_image = std::make_shared<fatDrive>(fat_path.c_str(),
 			                                            sizes[0],
 			                                            sizes[1],
 			                                            sizes[2],
 			                                            sizes[3],
-			                                            0,
 			                                            roflag);
 			if (fat_image->created_successfully) {
-				fat_images.emplace_back(std::move(fat_image));
+				fat_images.push_back(fat_image);
 			} else {
 				WriteOut(MSG_Get("PROGRAM_IMGMOUNT_CANT_CREATE"));
 				return;
@@ -449,8 +454,7 @@ void IMGMOUNT::Run(void)
 		}
 
 		// Update DriveManager
-		const auto fat_pointers = DriveManager::AppendFilesystemImages(
-		        drive_index(drive), fat_images);
+		DriveManager::AppendFilesystemImages(drive_index(drive), fat_images);
 		DriveManager::InitializeDrive(drive_index(drive));
 
 		// Set the correct media byte in the table
@@ -461,8 +465,8 @@ void IMGMOUNT::Run(void)
 		RealPt save_dta = dos.dta();
 		dos.dta(dos.tables.tempdta);
 
-		for (auto it = fat_pointers.begin(); it != fat_pointers.end(); ++it) {
-			const bool should_notify = std::next(it) == fat_pointers.end();
+		for (auto it = fat_images.begin(); it != fat_images.end(); ++it) {
+			const bool should_notify = std::next(it) == fat_images.end();
 			DriveManager::CycleDisks(drive_index(drive), should_notify);
 			char root[7] = {drive, ':', '\\', '*', '.', '*', 0};
 
@@ -476,7 +480,8 @@ void IMGMOUNT::Run(void)
 
 		write_out_mount_status(MSG_Get("MOUNT_TYPE_FAT"), paths, drive);
 
-		const auto fat_image = dynamic_cast<fatDrive*>(fat_pointers.front());
+		const auto fat_image = std::dynamic_pointer_cast<fatDrive>(
+		        fat_images.front());
 		assert(fat_image);
 		const auto has_hdd = fat_image->loadedDisk &&
 		                     fat_image->loadedDisk->hardDrive;
@@ -484,8 +489,7 @@ void IMGMOUNT::Run(void)
 		const auto is_floppy = (drive == 'A' || drive == 'B') && !has_hdd;
 		const auto is_hdd = (drive == 'C' || drive == 'D') && has_hdd;
 		if (is_floppy || is_hdd) {
-			imageDiskList.at(
-			        drive_index(drive)) = fat_image->loadedDisk.get();
+			imageDiskList.at(drive_index(drive)) = fat_image->loadedDisk;
 			updateDPT();
 		}
 	} else if (fstype == "iso") {
@@ -494,16 +498,13 @@ void IMGMOUNT::Run(void)
 			return;
 		}
 
-		MSCDEX_SetCDInterface(CDROM_USE_SDL, -1);
 		// create new drives for all images
 		DriveManager::filesystem_images_t iso_images = {};
 		for (const auto& iso_path : paths) {
 			int error = -1;
 
-			auto iso_image = std::make_unique<isoDrive>(
-			        drive, iso_path.c_str(), mediaid, error);
-
-			iso_images.emplace_back(std::move(iso_image));
+			iso_images.push_back(std::make_shared<isoDrive>(
+			        drive, iso_path.c_str(), mediaid, error));
 			switch (error) {
 			case 0: break;
 			case 1:
@@ -533,8 +534,7 @@ void IMGMOUNT::Run(void)
 			}
 		}
 		// Update DriveManager
-		(void)DriveManager::AppendFilesystemImages(drive_index(drive),
-		                                           iso_images);
+		DriveManager::AppendFilesystemImages(drive_index(drive), iso_images);
 		DriveManager::InitializeDrive(drive_index(drive));
 
 		// Set the correct media byte in the table
@@ -582,8 +582,8 @@ void IMGMOUNT::Run(void)
 
 		const auto drive_index = drive - '0';
 
-		imageDiskList.at(drive_index) = DriveManager::RegisterNumberedImage(
-		        new_disk, temp_line, imagesize, is_hdd);
+		imageDiskList.at(drive_index) = std::make_shared<imageDisk>(
+		        new_disk, temp_line.c_str(), imagesize, is_hdd);
 
 		if (is_hdd) {
 			imageDiskList.at(drive_index)
@@ -602,12 +602,7 @@ void IMGMOUNT::Run(void)
 	// check if volume label is given. be careful for cdrom
 	// if (cmd->FindString("-label",label,true))
 	// newdrive->dirCache.SetLabel(label.c_str());
-
-	// BOXER-HOOK: imgmount-drive-mounted - Notify Boxer after the image drive
-	// mapping has been committed.
-	boxer_driveDidMount(drive - 'A');
 	return;
-
 }
 
 void IMGMOUNT::AddMessages()
@@ -637,19 +632,18 @@ void IMGMOUNT::AddMessages()
 	        "  - The -ide flag emulates an IDE controller with attached IDE CD drive, useful\n"
 	        "    for CD-based games that need a real DOS environment via bootable HDD image.\n"
 	        "\n"
-	        "Examples:\n"
-#if defined(WIN32)
-	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]C:\\Games\\doom.iso[reset] -t cdrom\n"
-#elif defined(MACOSX)
-	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/Users/USERNAME/Games/doom.iso[reset] -t cdrom\n"
-#else
-	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/home/USERNAME/games/doom.iso[reset] -t cdrom\n"
-#endif
+	        "Examples:\n");
+	MSG_Add("PROGRAM_IMGMOUNT_HELP_LONG_WIN32",
+	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]C:\\Games\\doom.iso[reset] -t cdrom\n");
+	MSG_Add("PROGRAM_IMGMOUNT_HELP_LONG_MACOSX",
+	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/Users/USERNAME/Games/doom.iso[reset] -t cdrom\n");
+	MSG_Add("PROGRAM_IMGMOUNT_HELP_LONG_OTHER",
+	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]/home/USERNAME/games/doom.iso[reset] -t cdrom\n");
+	MSG_Add("PROGRAM_IMGMOUNT_HELP_LONG_GENERIC",
 	        "  [color=light-green]imgmount[reset] [color=white]D[reset] [color=light-cyan]cd/quake1.cue[reset] -t cdrom\n"
 	        "  [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy1.img floppy2.img floppy3.img[reset] -t floppy -ro\n"
 	        "  [color=light-green]imgmount[reset] [color=white]A[reset] [color=light-cyan]floppy*.img[reset] -t floppy -ro\n"
-	        "  [color=light-green]imgmount[reset] [color=white]C[reset] [color=light-cyan]bootable.img[reset] -t hdd -fs none -size 512,63,32,1023\n"
-	);
+	        "  [color=light-green]imgmount[reset] [color=white]C[reset] [color=light-cyan]bootable.img[reset] -t hdd -fs none -size 512,63,32,1023\n");
 
 	MSG_Add("PROGRAM_IMGMOUNT_SPECIFY_DRIVE",
 	        "Must specify drive letter to mount image at.\n");
@@ -689,7 +683,7 @@ void IMGMOUNT::AddMessages()
 	MSG_Add("PROGRAM_IMGMOUNT_FILE_NOT_FOUND", "Image file not found.\n");
 
 	MSG_Add("PROGRAM_IMGMOUNT_MOUNT",
-	        "To mount directories, use the [color=light-green]MOUNT[reset] command, not the [color=green-blue]IMGMOUNT[reset] command.\n");
+	        "To mount directories, use the [color=light-green]MOUNT[reset] command, not the [color=light-green]IMGMOUNT[reset] command.\n");
 
 	MSG_Add("PROGRAM_IMGMOUNT_ALREADY_MOUNTED",
 	        "Drive already mounted at that letter.\n");

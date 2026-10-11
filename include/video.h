@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -387,7 +387,7 @@ void GFX_SetShader(const ShaderInfo& shader_info, const std::string& shader_sour
 void GFX_SetIntegerScalingMode(const IntegerScalingMode mode);
 IntegerScalingMode GFX_GetIntegerScalingMode();
 
-InterpolationMode GFX_GetInterpolationMode();
+InterpolationMode GFX_GetTextureInterpolationMode();
 
 struct VideoMode;
 class Fraction;
@@ -406,16 +406,25 @@ void GFX_EndUpdate( const uint16_t *changedLines );
 void GFX_LosingFocus();
 void GFX_RegenerateWindow(Section *sec);
 
+void GFX_RefreshTitle();
+void GFX_RefreshAnimatedTitle();
+void GFX_NotifyBooting();
+void GFX_NotifyAudioCaptureStatus(const bool is_capturing);
+void GFX_NotifyVideoCaptureStatus(const bool is_capturing);
+void GFX_NotifyAudioMutedStatus(const bool is_muted);
+void GFX_NotifyProgramName(const std::string& segment_name,
+                           const std::string& canonical_name);
+void GFX_NotifyCyclesChanged();
+
 enum class MouseHint {
-    None,                    // no hint to display
-    NoMouse,                 // no mouse mode
-    CapturedHotkey,          // mouse captured, use hotkey to release
-    CapturedHotkeyMiddle,    // mouse captured, use hotkey or middle-click to release
-    ReleasedHotkey,          // mouse released, use hotkey to capture
-    ReleasedHotkeyMiddle,    // mouse released, use hotkey or middle-click to capture
-    ReleasedHotkeyAnyButton, // mouse released, use hotkey or any click to capture
-    SeamlessHotkey,          // seamless mouse, use hotkey to capture
-    SeamlessHotkeyMiddle,    // seamless mouse, use hotkey or middle-click to capture
+	None,                    // no hint to display
+	CapturedHotkey,          // captured, hotkey to release
+	CapturedHotkeyMiddle,    // captured, hotkey or middle-click release
+	ReleasedHotkey,          // released, hotkey to capture
+	ReleasedHotkeyMiddle,    // released, hotkey or middle-click to capture
+	ReleasedHotkeyAnyButton, // released, hotkey or any click to capture
+	SeamlessHotkey,          // seamless, hotkey to capture
+	SeamlessHotkeyMiddle,    // seamless, hotkey or middle-click to capture
 };
 
 void GFX_CenterMouse();

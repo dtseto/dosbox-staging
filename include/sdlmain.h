@@ -22,8 +22,9 @@
 #define DOSBOX_SDLMAIN_H
 
 #include "SDL.h"
+
+#include <cstring>
 #include <optional>
-#include <string.h>
 #include <string>
 #include <string_view>
 
@@ -34,7 +35,7 @@
 #include "fraction.h"
 #include "rect.h"
 #include "render.h"
-#include "../src/gui/shader_manager.h"
+#include "shader_manager.h"
 #include "video.h"
 
 // The image rendered in the emulated computer's raw framebuffer as raw pixels
@@ -140,25 +141,19 @@ enum class HostRateMode {
 	Custom,
 };
 
-enum class VsyncState {
-	Unset    = -2,
-	Adaptive = -1,
-	Off      = 0,
-	On       = 1,
-	Yield    = 2,
-};
+enum class VsyncMode { Unset, Off, On, Adaptive, Yield };
 
-// The vsync settings consists of three parts:
-//  - What the user asked for.
-//  - What the measured state is after setting the requested vsync state.
-//    The video driver may honor the requested vsync state, ignore it, change
-//    it, or be outright buggy.
-//  - The benchmarked rate is the actual frame rate after setting the requested
-//    stated, and is used to determined the measured state.
-//
 struct VsyncSettings {
-	VsyncState requested = VsyncState::Unset;
-	VsyncState measured  = VsyncState::Unset;
+	// The vsync mode the user asked for.
+	VsyncMode requested = VsyncMode::Unset;
+
+	// What the auto-determined state is after setting the requested vsync state.
+	// The video driver may honor the requested vsync mode, ignore it, change
+	// it, or be outright buggy.
+	VsyncMode auto_determined  = VsyncMode::Unset;
+
+	// The actual frame rate after setting the requested vsync mode; it's used
+	// to select the auto-determined vsync mode.
 	int benchmarked_rate = 0;
 };
 
@@ -171,6 +166,11 @@ enum PRIORITY_LEVELS {
 	PRIORITY_LEVEL_HIGHEST
 };
 
+enum class SDL_DosBoxEvents : uint8_t {
+	RefreshAnimatedTitle,
+	NumEvents // dummy, keep last, do not use
+};
+
 struct SDL_Block {
 	bool initialized     = false;
 	bool active          = false; // If this isn't set don't draw
@@ -178,10 +178,17 @@ struct SDL_Block {
 	bool resizing_window = false;
 	bool wait_on_error   = false;
 
+	uint32_t start_event_id = UINT32_MAX;
+
+#ifdef WIN32
+	uint16_t original_code_page = 0;
+#endif
+
+	bool is_paused = false;
+
 	RenderingBackend rendering_backend      = RenderingBackend::Texture;
 	RenderingBackend want_rendering_backend = RenderingBackend::Texture;
 
-	InterpolationMode interpolation_mode    = InterpolationMode::Bilinear;
 	IntegerScalingMode integer_scaling_mode = IntegerScalingMode::Off;
 
 	struct {
@@ -246,13 +253,6 @@ struct SDL_Block {
 	} desktop = {};
 
 	struct {
-		int num_cycles              = 0;
-		std::string hint_mouse_str  = {};
-		std::string hint_paused_str = {};
-		std::string cycles_ms_str   = {};
-	} title_bar = {};
-
-	struct {
 		VsyncSettings when_windowed   = {};
 		VsyncSettings when_fullscreen = {};
 		int skip_us                   = 0;
@@ -266,7 +266,6 @@ struct SDL_Block {
 		GLuint texture;
 		GLuint displaylist;
 		GLint max_texsize;
-		bool bilinear;
 		bool npot_textures_supported = false;
 		bool use_shader;
 		bool framebuffer_is_srgb_encoded;
@@ -305,6 +304,8 @@ struct SDL_Block {
 		SDL_Surface* input_surface   = nullptr;
 		SDL_Texture* texture         = nullptr;
 		SDL_PixelFormat* pixelFormat = nullptr;
+
+		InterpolationMode interpolation_mode = InterpolationMode::Bilinear;
 	} texture = {};
 
 	struct {
@@ -342,7 +343,7 @@ constexpr uint32_t sdl_version_to_uint32(const SDL_version version)
 	return (version.major << 16) + (version.minor << 8) + version.patch;
 }
 
-bool is_runtime_sdl_version_at_least(const SDL_version min_version)
+inline bool is_runtime_sdl_version_at_least(const SDL_version min_version)
 {
 	SDL_version version = {};
 	SDL_GetVersion(&version);

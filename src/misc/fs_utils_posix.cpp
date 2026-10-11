@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#if defined(HAVE_SYS_XATTR_H) || defined(MACOSX)
+#if defined(HAVE_SYS_XATTR_H)
 #include <sys/xattr.h>
 #endif
 
@@ -162,11 +162,18 @@ constexpr int PermissionsRW = S_IWUSR | S_IWGRP | S_IWOTH | PermissionsRO;
 
 // Attributes 'hidden', 'system', and 'archive' are always taken from the
 // host extended attributes.
-constexpr uint8_t XattrReadMask = 0b0010'0110; // hidden, system, archive
-// Attributes 'read-only' and 'directory' are stored in extended attributes,
-// but not used by DOSBox, for these we are always using host file system
-// attribute bits.
-constexpr uint8_t XattrWriteMask = 0b0001'0001 | XattrReadMask;
+// XattrReadMask = bitflags for read-only, hidden, system, and archive
+constexpr uint8_t XattrReadMask = 0b0010'0111;
+
+// Attributes 'read-only' and 'directory' are stored in extended attributes.
+// For files, read-only is checked using host file system permissions.
+// For directories, read-only is checked by either file system permission or the extended attribute.
+// We do not set file system permissions when a DOS program marks a directory as read-only.
+// MS-DOS does not prevent new files from being created inside read-only directories.
+// Linux does prevent this so we must not set the host directory read-only.
+// XattrWriteMask = bitflag for directory OR'd with XattrReadMask
+constexpr uint8_t XattrWriteMask = 0b0001'0000 | XattrReadMask;
+
 // We are storing DOS file attributes in Unix extended attributes, using same
 // format as WINE, Samba 3, and DOSEmu 2.
 static const std::string XattrName = "user.DOSATTRIB";
@@ -176,14 +183,14 @@ constexpr size_t XattrMaxLength = 4;
 
 static std::string fat_attribs_to_xattr(const FatAttributeFlags fat_attribs)
 {
-	return format_string("0x%x", fat_attribs._data & XattrWriteMask);
+	return format_str("0x%x", fat_attribs._data & XattrWriteMask);
 }
 
 static std::optional<FatAttributeFlags> xattr_to_fat_attribs(const std::string& xattr)
 {
 	constexpr uint8_t HexBase = 16;
 
-	if (xattr.size() <= XattrMaxLength && starts_with(xattr, "0x") &&
+	if (xattr.size() <= XattrMaxLength && xattr.starts_with("0x") &&
 	    xattr.size() >= XattrMinLength) {
 		const auto value = parse_int(xattr.substr(2), HexBase);
 		if (value) {
@@ -295,22 +302,6 @@ static bool set_xattr([[maybe_unused]] const int file_descriptor,
 	return (result == 0);
 }
 
-FILE* local_drive_create_file(const std_fs::path& path,
-                              const FatAttributeFlags attributes)
-{
-	FILE* file_pointer = nullptr;
-
-	const auto file_descriptor = open(path.c_str(),
-	                                  O_CREAT | O_RDWR | O_TRUNC,
-	                                  PermissionsRW);
-	if (file_descriptor != -1) {
-		set_xattr(file_descriptor, attributes);
-		file_pointer = fdopen(file_descriptor, "wb+");
-	}
-
-	return file_pointer;
-}
-
 uint16_t local_drive_get_attributes(const std_fs::path& path,
                                     FatAttributeFlags& attributes)
 {
@@ -331,7 +322,13 @@ uint16_t local_drive_get_attributes(const std_fs::path& path,
 	}
 
 	attributes.directory = is_directory;
-	attributes.read_only = is_read_only;
+	if (is_directory) {
+		// Directories need to honor the extended attribute.
+		// See comment above XattrWriteMask.
+		attributes.read_only = attributes.read_only || is_read_only;
+	} else {
+		attributes.read_only = is_read_only;
+	}
 
 	return DOSERR_NONE;
 }
@@ -345,13 +342,175 @@ uint16_t local_drive_set_attributes(const std_fs::path& path,
 
 	bool status = make_writable(path);
 	if (status) {
+		struct stat file_info;
+		bool is_directory = true;
+		if (stat(path.c_str(), &file_info) == 0) {
+			is_directory = file_info.st_mode & S_IFDIR;
+		}
 		status = set_xattr(path, attributes);
-		if (status && attributes.read_only) {
+		if (status && attributes.read_only && !is_directory) {
+			// Sets permissions on the host filesystem.
+			// Don't do this for directories.
+			// MS-DOS allows new files to be created in read-only directories.
 			status = make_readonly(path);
 		}
 	}
 
 	return status ? DOSERR_NONE : DOSERR_ACCESS_DENIED;
+}
+
+NativeFileHandle open_native_file(const std_fs::path& path, const bool write_access)
+{
+	return open(path.c_str(), write_access ? O_RDWR : O_RDONLY);
+}
+
+NativeFileHandle create_native_file(const std_fs::path& path,
+                                    const std::optional<FatAttributeFlags> attributes)
+{
+	const auto file_descriptor = open(path.c_str(),
+	                                  O_CREAT | O_RDWR | O_TRUNC,
+	                                  PermissionsRW);
+	if (attributes && file_descriptor != InvalidNativeFileHandle) {
+		set_xattr(file_descriptor, *attributes);
+	}
+
+	return file_descriptor;
+}
+
+// POSIX does not guarantee to read or write all bytes requested at once.
+// On Linux, it will read the entire chunk in one call (assuming it's a normal
+// file). On Windows, it does not always do so (although we're not using these
+// functions on Windows). On Mac and the various BSDs, who knows. So be safe and
+// do a loop.
+NativeIoResult read_native_file(const NativeFileHandle handle, uint8_t* buffer,
+                                const int64_t num_bytes_requested)
+{
+	NativeIoResult ret = {};
+	ret.num_bytes      = 0;
+	ret.error          = false;
+	while (ret.num_bytes < num_bytes_requested) {
+		const auto num_bytes_read = read(handle,
+		                                 buffer + ret.num_bytes,
+		                                 num_bytes_requested - ret.num_bytes);
+		if (num_bytes_read <= 0) {
+			ret.error = num_bytes_read < 0;
+			break;
+		}
+		ret.num_bytes += num_bytes_read;
+	}
+	return ret;
+}
+
+NativeIoResult write_native_file(const NativeFileHandle handle, const uint8_t* buffer,
+                                 const int64_t num_bytes_requested)
+{
+	NativeIoResult ret = {};
+	ret.num_bytes      = 0;
+	ret.error          = false;
+	while (ret.num_bytes < num_bytes_requested) {
+		const auto num_bytes_written = write(handle,
+		                                     buffer + ret.num_bytes,
+		                                     num_bytes_requested -
+		                                             ret.num_bytes);
+		if (num_bytes_written <= 0) {
+			ret.error = num_bytes_written < 0;
+			break;
+		}
+		ret.num_bytes += num_bytes_written;
+	}
+	return ret;
+}
+
+int64_t seek_native_file(const NativeFileHandle handle, const int64_t offset,
+                         const NativeSeek type)
+{
+	int posix_seek_type = SEEK_SET;
+	switch (type) {
+	case NativeSeek::Set: posix_seek_type = SEEK_SET; break;
+	case NativeSeek::Current: posix_seek_type = SEEK_CUR; break;
+	case NativeSeek::End: posix_seek_type = SEEK_END; break;
+	default: assertm(false, "Invalid seek type"); return NativeSeekFailed;
+	}
+
+	const auto position = lseek(handle, offset, posix_seek_type);
+	if (position < 0) {
+		return NativeSeekFailed;
+	}
+
+	return position;
+}
+
+void close_native_file(const NativeFileHandle handle)
+{
+	close(handle);
+}
+
+// Sets the file size to be equal to the current file position
+bool truncate_native_file(const NativeFileHandle handle)
+{
+	const auto current_position = lseek(handle, 0, SEEK_CUR);
+	if (current_position < 0) {
+		return false;
+	}
+	return ftruncate(handle, current_position) == 0;
+}
+
+DosDateTime get_dos_file_time(const NativeFileHandle handle)
+{
+	// Legal defaults if we're unable to populate them
+	DosDateTime ret = {};
+	ret.time        = 1;
+	ret.date        = 1;
+
+	struct stat file_info = {};
+	if (fstat(handle, &file_info) == -1) {
+		return ret;
+	}
+
+	struct tm datetime = {};
+	if (!cross::localtime_r(&file_info.st_mtime, &datetime)) {
+		return ret;
+	}
+
+	ret.time = DOS_PackTime(datetime);
+	ret.date = DOS_PackDate(datetime);
+
+	return ret;
+}
+
+void set_dos_file_time(const NativeFileHandle handle, const uint16_t date, const uint16_t time)
+{
+	auto datetime = DOS_UnpackDateTime(date, time);
+
+	const auto unix_seconds = mktime(&datetime);
+	if (unix_seconds == -1) {
+		return;
+	}
+
+	struct timespec unix_times[2] = {};
+
+	// Last access time
+	// We don't really care about this but apparently it must be updated as well
+	unix_times[0].tv_sec = unix_seconds;
+	unix_times[0].tv_nsec = 0;
+
+	// Last modification time
+	unix_times[1].tv_sec = unix_seconds;
+	unix_times[1].tv_nsec = 0;
+
+	// I like hating on Win32 API but at least they have better function names...
+	// F U too Mr. Timens
+	futimens(handle, unix_times);
+}
+
+bool delete_native_file(const std_fs::path& path)
+{
+	return unlink(path.c_str()) == 0;
+}
+
+bool local_drive_remove_dir(const std_fs::path& path)
+{
+	return rmdir(path.c_str()) == 0;
 }
 
 #endif

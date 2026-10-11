@@ -1762,7 +1762,7 @@ public:
 	InputOutputPin(const InputOutputPin& other)            = delete;
 	InputOutputPin& operator=(const InputOutputPin& other) = delete;
 
-	explicit InputOutputPin<DataType>(const std::string& name)
+	explicit InputOutputPin(const std::string& name)
 	        : InputPin<DataType>(name),
 	          m_dataContainer(nullptr)
 	{}
@@ -3108,7 +3108,7 @@ constexpr auto EG_OFF = 0;
 class ym2151_device {
 public:
 	// construction/destruction
-	explicit ym2151_device(mixer_channel_t&& channel);
+	explicit ym2151_device(MixerChannelPtr&& channel);
 	~ym2151_device();
 
 	// configuration helpers
@@ -3134,7 +3134,7 @@ public:
 	void device_clock_changed();
 
 	// sound stream update overrides
-	void sound_stream_update(const uint16_t requested_frames);
+	void sound_stream_update(const int requested_frames);
 
 private:
 	AudioFrame RenderFrame();
@@ -3164,11 +3164,10 @@ private:
 	};
 
 	// Playback related
-	mixer_channel_t audio_channel = nullptr;
+	MixerChannelPtr audio_channel = nullptr;
 	std::queue<AudioFrame> fifo   = {};
 	double last_rendered_ms       = 0.0;
 	double ms_per_render          = 0.0;
-	int frame_rate_hz             = 0;
 
 	int tl_tab[TL_TAB_LEN]{};
 	unsigned int sin_tab[SIN_LEN]{};
@@ -4836,7 +4835,7 @@ void ym2151_device::advance()
 //  ym2151_device - constructor
 //-------------------------------------------------
 
-ym2151_device::ym2151_device(mixer_channel_t&& channel)
+ym2151_device::ym2151_device(MixerChannelPtr&& channel)
         : audio_channel(std::move(channel))
 {
 	device_start();
@@ -4844,7 +4843,7 @@ ym2151_device::ym2151_device(mixer_channel_t&& channel)
 	device_reset();
 
 	assert(audio_channel);
-	ms_per_render = millis_in_second / audio_channel->GetSampleRate();
+	ms_per_render = MillisInSecond / audio_channel->GetSampleRate();
 	audio_channel->Enable(true);
 }
 
@@ -4996,7 +4995,7 @@ AudioFrame ym2151_device::RenderFrame()
 
 void ym2151_device::RenderUpToNow()
 {
-	const auto now = PIC_FullIndex();
+	const auto now = PIC_AtomicIndex();
 	// Keep rendering until we're current
 	while (last_rendered_ms < now) {
 		last_rendered_ms += ms_per_render;
@@ -5007,7 +5006,7 @@ void ym2151_device::RenderUpToNow()
 //  sound_stream_update - handle a stream update
 //-------------------------------------------------
 
-void ym2151_device::sound_stream_update(const uint16_t requested_frames)
+void ym2151_device::sound_stream_update(const int requested_frames)
 {
 	assert(audio_channel);
 
@@ -5033,7 +5032,7 @@ void ym2151_device::sound_stream_update(const uint16_t requested_frames)
 		audio_channel->AddSamples_sfloat(1, &frame[0]);
 		--frames_remaining;
 	}
-	last_rendered_ms = PIC_FullIndex();
+	last_rendered_ms = PIC_AtomicIndex();
 }
 
 // clang-format off
@@ -5723,6 +5722,8 @@ private:
 	// and 0xE5 (reboot command). This value will be sent to the system.
 	void softReboot(uint8_t commandThatRequestedTheSoftReboot)
 	{
+		using namespace std::chrono_literals;
+
 		disableInterrupts();
 		// reset the stack pointer :)
 		m_cardMode = MUSIC_MODE;
@@ -5760,7 +5761,6 @@ private:
 			// reenable
 			MUSIC_MODE_LOOP_read_System_And_Dispatch();
 			logSuccess();
-			using namespace std::chrono_literals;
 			std::this_thread::sleep_for(1ms);
 		}
 	}
@@ -11003,7 +11003,7 @@ private:
 			executeMidiCommand_NoteONOFF_internal_guard(
 			        instr,
 			        Note(m_sp_MidiDataOfMidiCommandInProgress[1]) /* note number */,
-		        ImfcFraction(m_sp_MidiDataOfMidiCommandInProgress[2]) /* fraction */,
+			        ImfcFraction(m_sp_MidiDataOfMidiCommandInProgress[2]) /* fraction */,
 			        KeyVelocity(m_sp_MidiDataOfMidiCommandInProgress[3]) /* velocity */,
 			        Duration(check_cast<uint16_t>(
 			                m_sp_MidiDataOfMidiCommandInProgress[5] * 128 +
@@ -12865,7 +12865,7 @@ public:
 	MusicFeatureCard(const MusicFeatureCard&)            = delete;
 	MusicFeatureCard& operator=(const MusicFeatureCard&) = delete;
 
-	MusicFeatureCard(mixer_channel_t&& audio_channel, const io_port_t port,
+	MusicFeatureCard(MixerChannelPtr&& audio_channel, const io_port_t port,
 	                 const uint8_t irq)
 	        : m_ya2151(std::move(audio_channel)),
 	          // create all the instances
@@ -12927,6 +12927,8 @@ public:
 	          m_bufferFromSystemState("bufferFromSystemState", 0x2000),
 	          m_bufferToSystemState("bufferToSystemState", 256)
 	{
+		using namespace std::chrono_literals;
+
 		// now wire everything up (see Figure "2-1 Music Card Interrupt
 		// System" in the Techniucal Reference Manual)
 
@@ -13036,7 +13038,6 @@ public:
 		// wait until we're ready to receive data... it's a workaround
 		// for now, but well....
 		while (!m_finishedBootupSequence) {
-			using namespace std::chrono_literals;
 			std::this_thread::sleep_for(1ms);
 		}
 
@@ -13215,7 +13216,7 @@ public:
 		SDL_UnlockMutex(m_hardwareMutex);
 	}
 
-	void mixerCallback(const uint16_t requested_frames)
+	void mixerCallback(const int requested_frames)
 	{
 		SDL_LockMutex(m_hardwareMutex);
 		m_ya2151.sound_stream_update(requested_frames);
@@ -13230,6 +13231,8 @@ public:
 
 	~MusicFeatureCard()
 	{
+		using namespace std::chrono_literals;
+
 		LOG_MSG("IMFC: Shutting down");
 
 		keepRunning = false;
@@ -13241,7 +13244,6 @@ public:
 			wh.Uninstall();
 
 		// Give the threads a small bit of time to gracefully complete
-		using namespace std::chrono_literals;
 		std::this_thread::sleep_for(20ms);
 
 		SDL_WaitThread(m_mainThread, nullptr);
@@ -13251,6 +13253,8 @@ public:
 
 void MusicFeatureCard::RegisterIoHandlers(const io_port_t port)
 {
+	using namespace std::placeholders;
+
 	const io_port_t port_piu0  = port + 0x0;
 	const io_port_t port_piu1  = port + 0x1;
 	const io_port_t port_piu2  = port + 0x2;
@@ -13265,7 +13269,6 @@ void MusicFeatureCard::RegisterIoHandlers(const io_port_t port)
 	// Consistency check
 	assert(readHandlers.size() == NumIoHandlers);
 	assert(writeHandlers.size() == NumIoHandlers);
-	using namespace std::placeholders;
 
 	auto read_piu0 = std::bind(&MusicFeatureCard::readPortPIU0, this, _1, _2);
 	readHandlers.at(0).Install(port_piu0, read_piu0, io_width_t::byte);
@@ -13349,13 +13352,14 @@ static void Intel8253_TimerEvent(const uint32_t val)
 	imfc->onTimerEvent(val);
 }
 
-static void IMFC_Mixer_Callback(const uint16_t requested_frames)
+static void IMFC_Mixer_Callback(const int requested_frames)
 {
 	imfc->mixerCallback(requested_frames);
 }
 
 void imfc_destroy(Section* /*sec*/)
 {
+	MIXER_LockMixerThread();
 	imfc = {};
 
 #if IMFC_VERBOSE_LOGGING
@@ -13363,6 +13367,7 @@ void imfc_destroy(Section* /*sec*/)
 	SDL_DestroyMutex(m_loggerMutex);
 	m_loggerMutex = nullptr;
 #endif
+	MIXER_UnlockMixerThread();
 }
 
 static void imfc_init(Section* sec)
@@ -13372,6 +13377,8 @@ static void imfc_init(Section* sec)
 	if (!conf || !conf->Get_bool("imfc")) {
 		return;
 	}
+
+	MIXER_LockMixerThread();
 
 #if IMFC_VERBOSE_LOGGING
 	m_loggerMutex = SDL_CreateMutex();
@@ -13435,6 +13442,8 @@ static void imfc_init(Section* sec)
 
 	constexpr auto changeable_at_runtime = true;
 	sec->AddDestroyFunction(&imfc_destroy, changeable_at_runtime);
+
+	MIXER_UnlockMixerThread();
 }
 
 void init_imfc_dosbox_settings(Section_prop& secprop)
@@ -13447,15 +13456,13 @@ void init_imfc_dosbox_settings(Section_prop& secprop)
 
 	const auto hex_prop = secprop.Add_hex("imfc_base", when_idle, 0x2A20);
 	assert(hex_prop);
-	const char* const bases[] = {"2A20", "2A30", nullptr};
-	hex_prop->Set_values(bases);
+	hex_prop->Set_values({"2A20", "2A30"});
 	hex_prop->Set_help(
 	        "The IO base address of the IBM Music Feature Card (2A20 by default).");
 
 	const auto int_prop = secprop.Add_int("imfc_irq", when_idle, 3);
 	assert(int_prop);
-	const char* const irqs[] = {"2", "3", "4", "5", "6", "7", nullptr};
-	int_prop->Set_values(irqs);
+	int_prop->Set_values({"2", "3", "4", "5", "6", "7"});
 	int_prop->Set_help(
 	        "The IRQ number of the IBM Music Feature Card (3 by default).");
 
@@ -13468,7 +13475,7 @@ void init_imfc_dosbox_settings(Section_prop& secprop)
 	        "  <custom>:  Custom filter definition; see 'sb_filter' for details.");
 }
 
-void IMFC_AddConfigSection(const config_ptr_t& conf)
+void IMFC_AddConfigSection(const ConfigPtr& conf)
 {
 	assert(conf);
 

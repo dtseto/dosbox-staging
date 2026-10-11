@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,6 +27,7 @@
 #include <array>
 #include <cassert>
 
+#include "control.h"
 #include "setup.h"
 
 class Program;
@@ -210,7 +211,7 @@ void MIDI_Unmute();
 
 struct MidiWork {
 	std::vector<uint8_t> message      = {};
-	uint16_t num_pending_audio_frames = 0;
+	int num_pending_audio_frames      = 0;
 	MessageType message_type          = {};
 
 	// Default value constructor
@@ -220,7 +221,7 @@ struct MidiWork {
 
 	// Construct from movable values
 	MidiWork(std::vector<uint8_t>&& _message,
-	         const uint16_t _num_audio_frames_pending,
+	         const int _num_audio_frames_pending,
 	         const MessageType _message_type)
 	        : message(std::move(_message)),
 	          num_pending_audio_frames(_num_audio_frames_pending),
@@ -236,13 +237,13 @@ struct MidiWork {
 };
 
 #if C_FLUIDSYNTH
-void FLUID_AddConfigSection(const config_ptr_t& conf);
+void FLUID_AddConfigSection(const ConfigPtr& conf);
 #endif
 
 #if C_MT32EMU
-void MT32_AddConfigSection(const config_ptr_t& conf);
+void MT32_AddConfigSection(const ConfigPtr& conf);
 #endif
 
-void MIDI_AddConfigSection(const config_ptr_t& conf);
+void MIDI_AddConfigSection(const ConfigPtr& conf);
 
 #endif

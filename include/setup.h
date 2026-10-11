@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -105,6 +105,7 @@ public:
 	Value(const char* const in) : _string(in), type(V_STRING) {}
 
 	bool operator==(const Value& other) const;
+	bool operator==(const Hex& other) const;
 	bool operator<(const Value& other) const;
 
 	operator bool() const;
@@ -128,7 +129,13 @@ private:
 class Property {
 public:
 	struct Changeable {
-		enum Value { Always, WhenIdle, OnlyAtStart, Deprecated };
+		enum Value {
+			Always,
+			WhenIdle,
+			OnlyAtStart,
+			Deprecated,
+			DeprecatedButAllowed
+		};
 	};
 
 	const std::string propname;
@@ -137,15 +144,23 @@ public:
 
 	virtual ~Property() = default;
 
-	void Set_values(const char* const* in);
 	void Set_values(const std::vector<std::string>& in);
+	void SetEnabledOptions(const std::vector<std::string>& in);
 	void SetDeprecatedWithAlternateValue(const char* deprecated_value,
 	                                     const char* alternate_value);
 
+	// The string may contain a single '%s' marker. If present, it will be
+	// substitued with the settings's default value (see `GetHelp()` and
+	// `GetHelpUtf8()`).
 	void Set_help(const std::string& str);
 
-	const char* GetHelp() const;
-	const char* GetHelpUtf8() const;
+	void SetOptionHelp(const std::string& option, const std::string& in);
+	void SetOptionHelp(const std::string& in);
+
+	// If the setting's help text contains a '%s' marker, the `GetHelp`
+	// functions will substitute it with the setting's default value.
+	std::string GetHelp() const;
+	std::string GetHelpUtf8() const;
 
 	virtual bool SetValue(const std::string& str) = 0;
 
@@ -157,6 +172,10 @@ public:
 	{
 		return default_value;
 	}
+
+	void SetQueueableValue(std::string&& value);
+
+	const std::optional<std::string>& GetQueuedValue() const;
 
 	bool IsRestrictedValue() const
 	{
@@ -173,7 +192,13 @@ public:
 
 	bool IsDeprecated() const
 	{
-		return (change == Changeable::Value::Deprecated);
+		return (change == Changeable::Value::Deprecated ||
+		        change == Changeable::Value::DeprecatedButAllowed);
+	}
+
+	bool IsDeprecatedButAllowed() const
+	{
+		return change == Changeable::Value::DeprecatedButAllowed;
 	}
 
 	virtual const std::vector<Value>& GetValues() const;
@@ -190,7 +215,9 @@ protected:
 
 	Value value                                            = {};
 	std::vector<Value> valid_values                        = {};
+	std::vector<std::string> enabled_options               = {};
 	std::map<Value, Value> deprecated_and_alternate_values = {};
+	std::optional<std::string> queueable_value             = {};
 	bool is_positive_bool_valid                            = false;
 	bool is_negative_bool_valid                            = false;
 
@@ -326,10 +353,11 @@ private:
 	std::deque<Function_wrapper> init_functions   = {};
 	std::deque<Function_wrapper> destroyfunctions = {};
 	std::string sectionname                       = {};
+	bool active                                   = true;
 
 public:
 	Section() = default;
-	Section(const std::string& name) : sectionname(name) {}
+	Section(const std::string& name, const bool active = true) : sectionname(name), active(active) {}
 
 	// Construct and assign by std::move
 	Section(Section&& other)            = default;
@@ -345,6 +373,11 @@ public:
 
 	void ExecuteInit(bool initall = true);
 	void ExecuteDestroy(bool destroyall = true);
+
+	bool IsActive() const
+	{
+		return active;
+	}
 
 	const char* GetName() const
 	{
@@ -368,7 +401,7 @@ private:
 	typedef std::deque<Property*>::const_iterator const_it;
 
 public:
-	Section_prop(const std::string& name) : Section(name) {}
+	Section_prop(const std::string& name, bool active = true) : Section(name, active) {}
 
 	~Section_prop() override;
 
@@ -400,6 +433,17 @@ public:
 	                                      const std::string& sep);
 
 	Property* Get_prop(int index);
+	Property* Get_prop(const std::string_view propname);
+
+	const_it begin() const
+	{
+		return properties.begin();
+	}
+
+	const_it end() const
+	{
+		return properties.end();
+	}
 
 	Property* Get_prop(const std::string_view propname);
 
@@ -494,7 +538,7 @@ public:
 	std::string data = {};
 };
 
-/* Base for all hardware and software "devices" */
+// Base for all hardware and software "devices"
 class Module_base {
 protected:
 	Section* m_configuration;

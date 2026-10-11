@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2019-2023  The DOSBox Staging Team
+ *  Copyright (C) 2019-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2015  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,6 @@
 #include <map>
 #include <memory>
 #include <string_view>
-using sv = std::string_view;
 
 #include "../ints/int10.h"
 #include "autoexec.h"
@@ -40,6 +39,15 @@ using sv = std::string_view;
 
 #define BXDOSBOX_INPUT_CALLSITE 1
 #include "../../include/BXDOSBoxLegacyCompatibility.h"
+extern void DOS_UpdateCurrentProgramName();
+
+static void notify_code_page_changed(const bool keyboard_layout_changed = false)
+{
+	// Re-create various information to match new code page
+	DOS_UpdateCurrentProgramName();
+	DOS_RefreshCountryInfo(keyboard_layout_changed);
+	AUTOEXEC_NotifyNewCodePage();
+}
 
 // A common pattern in the keyboard layout file is to try opening the requested
 // file first within DOS, then from the local path, and finally from builtin
@@ -53,9 +61,9 @@ static FILE_unique_ptr open_layout_file(const char *name, const char *resource_d
 	char fullname[DOS_PATHLENGTH] = {};
 	if (DOS_MakeName(name, fullname, &drive)) try {
 		// try to open file on mounted drive first
-		const auto ldp = dynamic_cast<localDrive*>(Drives[drive]);
+		const auto ldp = std::dynamic_pointer_cast<localDrive>(Drives[drive]);
 		if (ldp) {
-			if (const auto fp = ldp->GetSystemFilePtr(fullname, file_perms); fp) {
+			if (const auto fp = ldp->GetHostFilePtr(fullname, file_perms); fp) {
 				return FILE_unique_ptr(fp);
 			}
 		}
@@ -810,8 +818,8 @@ KeyboardErrorCode KeyboardLayout::ReadCodePageFile(const char *requested_cp_file
 			return KEYB_INVALIDCPFILE;
 		}
 		// Scan for the UPX identifier
-		const auto upx_id     = sv{"UPX!"};
-		const auto scan_buf   = sv{reinterpret_cast<char *>(cpi_buf.data()), scan_size};
+		const auto upx_id     = std::string_view{"UPX!"};
+		const auto scan_buf   = std::string_view{reinterpret_cast<char*>(cpi_buf.data()), scan_size};
 		const auto upx_id_pos = scan_buf.find(upx_id);
 
 		// did we find the UPX identifier?
@@ -974,11 +982,7 @@ KeyboardErrorCode KeyboardLayout::ReadCodePageFile(const char *requested_cp_file
 			}
 			INT10_SetupRomMemoryChecksum();
 
-			// re-create country information and [autoexec] section
-			// to match new code page
-			DOS_RefreshCountryInfo();
-			AUTOEXEC_NotifyNewCodePage();
-
+			notify_code_page_changed();
 			return KEYB_NOERROR;
 		}
 
@@ -1700,7 +1704,7 @@ public:
 
 		// If the use only provided a single value (language), then try using it
 		constexpr bool reason_keyboard_layout = true;
-		const auto layout_is_one_value = sv(layoutname).find(' ') == std::string::npos;
+		const auto layout_is_one_value = layoutname.find(' ') == std::string::npos;
 		if (layout_is_one_value) {
 			if (!DOS_LoadKeyboardLayoutFromLanguage(layoutname.c_str())) {
 				// Success - re-create country information to
@@ -1732,10 +1736,8 @@ public:
 		    loaded_layout->foreign_layout_active())
 			loaded_layout->SwitchForeignLayout();
 
-		// Re-create country information and [autoexec] section
-		// to match new code page and keyboard layout
-		DOS_RefreshCountryInfo(reason_keyboard_layout);
-		AUTOEXEC_NotifyNewCodePage();
+		constexpr bool keyboard_layout_changed = true;
+		notify_code_page_changed(keyboard_layout_changed);
 	}
 
 	~DOS_KeyboardLayout()

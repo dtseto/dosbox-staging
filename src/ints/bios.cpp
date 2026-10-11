@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022-2023  The DOSBox Staging Team
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 #include "bios.h"
 
+#include "bitops.h"
 #include "callback.h"
 #include "control.h"
 #include "cpu.h"
@@ -26,6 +27,7 @@
 #include "dos_memory.h"
 #include "hardware.h"
 #include "inout.h"
+#include "int10.h"
 #include "joystick.h"
 #include "math_utils.h"
 #include "mem.h"
@@ -35,11 +37,8 @@
 #include "serialport.h"
 #include "setup.h"
 
+#include <ctime>
 #include <memory>
-#include <time.h>
-//--Added 2012-10-19 by Alun Bestor to activate parallel port emulation
-#include "parport.h"
-//--End of modifications
 
 // Constants
 constexpr uint32_t BiosMachineSignatureAddress = 0xfffff;
@@ -107,7 +106,7 @@ static bool Tandy_InitializeSB() {
 	uint16_t sbport;
 	uint8_t sbirq;
 	uint8_t sbdma;
-	if (SB_Get_Address(sbport, sbirq, sbdma)) {
+	if (SB_GetAddress(sbport, sbirq, sbdma)) {
 		tandy_sb.port = sbport;
 		tandy_sb.irq = sbirq;
 		tandy_sb.dma = sbdma;
@@ -122,7 +121,7 @@ static bool Tandy_InitializeSB() {
 static bool Tandy_InitializeTS() {
 	/* see if Tandy DAC module available and at what port/IRQ/DMA */
 	Bitu tsport, tsirq, tsdma;
-	if (TS_Get_Address(tsport, tsirq, tsdma)) {
+	if (TANDYSOUND_GetAddress(tsport, tsirq, tsdma)) {
 		tandy_dac.port=(uint16_t)(tsport&0xffff);
 		tandy_dac.irq =(uint8_t)(tsirq&0xff);
 		tandy_dac.dma =(uint8_t)(tsdma&0xff);
@@ -494,40 +493,20 @@ static Bitu INT12_Handler(void) {
 	return CBRET_NONE;
 }
 
-//Replaced 2012-11-09 by Alun Bestor with implementation from printer patch
 static Bitu INT17_Handler(void) {
-	if (reg_ah > 0x2 || reg_dx > 0x2) {	// 0-2 printer port functions
-        // and no more than 3 parallel ports
-		LOG_MSG("BIOS INT17: Unhandled call AH=%2X DX=%4x",reg_ah,reg_dx);
-		return CBRET_NONE;
-	}
-	
-	switch(reg_ah) {
-        case 0x00:		// PRINTER: Write Character
-            // BOXER-HOOK: bios-parport-include
-            // BOXER-HOOK: int17-printer-emulation
-            // BOXER-HOOK: bios-equipment-parport-count
-            if(parallelPortObjects[reg_dx]!=0) {
-                if(parallelPortObjects[reg_dx]->Putchar(reg_al))
-                    reg_ah=parallelPortObjects[reg_dx]->getPrinterStatus();
-                else reg_ah=1;
-            }
-            break;
-        case 0x01:		// PRINTER: Initialize port
-            if(parallelPortObjects[reg_dx]!= 0) {
-                parallelPortObjects[reg_dx]->initialize();
-                reg_ah=parallelPortObjects[reg_dx]->getPrinterStatus();
-            }
-            break;
-        case 0x02:		// PRINTER: Get Status
-            if(parallelPortObjects[reg_dx] != 0)
-                reg_ah=parallelPortObjects[reg_dx]->getPrinterStatus();
-            //LOG_MSG("printer status: %x",reg_ah);
-            break;
+	LOG(LOG_BIOS,LOG_NORMAL)("INT17:Function %X",reg_ah);
+	switch (reg_ah) {
+	case 0x00:              /* PRINTER: Write Character */
+		reg_ah=1;	/* Report a timeout */
+		break;
+	case 0x01:		/* PRINTER: Initialize port */
+		break;
+	case 0x02:		/* PRINTER: Get Status */
+		reg_ah=0;	
+		break;
 	};
 	return CBRET_NONE;
 }
-//--End of modifications
 
 static bool INT14_Wait(uint16_t port, uint8_t mask, uint8_t timeout, uint8_t* retval) {
 	const auto starttime = PIC_FullIndex();
@@ -1033,23 +1012,76 @@ static Bitu Default_IRQ_Handler()
 	return CBRET_NONE;
 }
 
-static Bitu Reboot_Handler(void) {
-	// switch to text mode, notify user (let's hope INT10 still works)
-	reg_ax = 0;
-	CALLBACK_RunRealInt(0x10);
-	reg_ah = 0xe;
-	reg_bx = 0;
+static Bitu reboot_handler()
+{
+	LOG_MSG("BIOS: Reboot requested");
 
-	constexpr char text[] = "\n\n   Reboot requested, quitting now.";
-	for (const auto c : text) {
-		reg_al = static_cast<uint8_t>(c);
-		CALLBACK_RunRealInt(0x10);
+	// Line number for text display
+	constexpr uint8_t text_row = 2;
+
+	// Switch to text mode
+	reg_ah = 0x00;
+	reg_al = 0x02; // 80x25
+	CALLBACK_RunRealInt(0x10);
+	const auto screen_width = INT10_GetTextColumns();
+
+	// Disable the blinking cursor
+	reg_ah = 0x01;
+	reg_ch = bit::literals::b5; // bit 5 = disable cursor
+	reg_cl = 0;
+	CALLBACK_RunRealInt(0x10);
+
+	// Prepare the text to display
+	std::vector<std::string> conunter_text = {};
+	conunter_text.push_back(MSG_Get("BIOS_REBOOTING_1"));
+	conunter_text.push_back(MSG_Get("BIOS_REBOOTING_2"));
+	conunter_text.push_back(MSG_Get("BIOS_REBOOTING_3"));
+	size_t max_length = 0;
+	for (auto& entry : conunter_text) {
+		max_length = std::max(max_length, entry.length());
 	}
-	LOG_MSG("BIOS: Reboot requested, quitting");
-	const auto start = PIC_FullIndex();
-	while ((PIC_FullIndex() - start) < 3000.0)
-		CALLBACK_Idle();
-	throw 1;
+	for (auto& entry : conunter_text) {
+		entry.resize(max_length, ' ');
+	}
+	// We want the text mostly centered, but we don't want to change the
+	// start column if the plural grammar form is longer/shorter than
+	// the singular one
+	const uint8_t start_column = (screen_width - max_length) / 2;
+
+	// Display the text/counter
+	while (!conunter_text.empty()) {
+
+		// Set cursor position to center the text output
+		reg_ah = 0x02;
+		reg_dh = text_row;
+		reg_dl = start_column;
+		reg_bh = 0; // page
+		CALLBACK_RunRealInt(0x10);
+
+		// Display the counter text, remove it from the list
+		reg_ah = 0x0e;
+		reg_bl = 0x00; // page
+		for (const auto c : conunter_text.back()) {
+			reg_al = static_cast<uint8_t>(c);
+			CALLBACK_RunRealInt(0x10);
+		}
+		conunter_text.pop_back();
+
+		// Wait one second
+		constexpr auto delay_ms = 1000.0;
+		const auto start = PIC_FullIndex();
+		while ((PIC_FullIndex() - start) < delay_ms) {
+			CALLBACK_Idle();
+			// Bail out if the user closes the window.
+			// Otherwise we get stuck in an infinite loop.
+			if (shutdown_requested) {
+				return CBRET_NONE;
+			}
+		}
+	}
+
+	// Restart
+	restart_dosbox();
 	return CBRET_NONE;
 }
 
@@ -1204,9 +1236,12 @@ void BIOS_SetupDisks(void);
 class BIOS final : public Module_base{
 private:
 	CALLBACK_HandlerObject callback[11];
+	void AddMessages();
 public:
 	BIOS(Section* configuration) : Module_base(configuration)
 	{
+		AddMessages();
+
 		/* Clear the Bios Data Area (0x400-0x5ff, 0x600- is accounted to DOS) */
 		for (uint16_t i=0;i<0x200;i++) real_writeb(0x40,i,0);
 
@@ -1294,7 +1329,7 @@ public:
 		/* Reboot */
 		// This handler is an exit for more than only reboots, since we
 		// don't handle these cases
-		callback[10].Install(&Reboot_Handler,CB_IRET,"reboot");
+		callback[10].Install(&reboot_handler,CB_IRET,"reboot");
 		
 		// INT 18h: Enter BASIC
 		// Non-IBM BIOS would display "NO ROM BASIC" here
@@ -1381,8 +1416,6 @@ public:
 		mem_writeb(BIOS_COM4_TIMEOUT,1);
 		
 		/* detect parallel ports */
-        //--Disabled 2012-09-11: obviated by proper parallel port emulation
-        /*
 		Bitu ppindex=0; // number of lpt ports
 		if ((IO_Read(0x378) != 0xff) || (IO_Read(0x379) != 0xff)) {
 			// this is our LPT1
@@ -1418,9 +1451,6 @@ public:
 			mem_writew(BIOS_ADDRESS_LPT1,0x278);
 			ppindex++;
 		}
-         */
-        // BOXER-HOOK: bios-parport-detection-disabled - Proper parallel-port
-        // emulation owns LPT detection instead of hard-coded BIOS probing.
 
 		/* Setup equipment list */
 		// look http://www.bioscentral.com/misc/bda.htm
@@ -1428,14 +1458,11 @@ public:
 		//uint16_t config=0x4400;	//1 Floppy, 2 serial and 1 parallel 
 		uint16_t config = 0x0;
 		
-        //--Disabled 2012-09-11: obviated by proper parallel port emulation
-        /*
 		// set number of parallel ports
 		// if(ppindex == 0) config |= 0x8000; // looks like 0 ports are not specified
 		//else if(ppindex == 1) config |= 0x0000;
 		if(ppindex == 2) config |= 0x4000;
 		else config |= 0xc000;	// 3 ports
-         */
 #if (C_FPU)
 		//FPU
 		config|=0x2;
@@ -1477,6 +1504,15 @@ public:
 	}
 };
 
+void BIOS::AddMessages()
+{
+	// Some languages have more than one plural form, see:
+	// https://en.wikipedia.org/wiki/Grammatical_number
+	MSG_Add("BIOS_REBOOTING_3", "Rebooting in 3 seconds...");
+	MSG_Add("BIOS_REBOOTING_2", "Rebooting in 2 seconds...");
+	MSG_Add("BIOS_REBOOTING_1", "Rebooting in 1 second...");
+}
+
 // set com port data in bios data area
 // parameter: array of 4 com port base addresses, 0 = none
 void BIOS_SetComPorts(uint16_t baseaddr[]) {
@@ -1496,36 +1532,6 @@ void BIOS_SetComPorts(uint16_t baseaddr[]) {
 	BIOS_SetEquipment(equipmentword);
 }
 
-//--Added 2012-10-19 by Alun Bestor as part of parallel port emulation
-void BIOS_SetLPTPort(Bitu port, uint16_t baseaddr) {
-	switch(port) {
-        case 0:
-            mem_writew(BIOS_ADDRESS_LPT1,baseaddr);
-            mem_writeb(BIOS_LPT1_TIMEOUT, 10);
-            break;
-        case 1:
-            mem_writew(BIOS_ADDRESS_LPT2,baseaddr);
-            mem_writeb(BIOS_LPT2_TIMEOUT, 10);
-            break;
-        case 2:
-            mem_writew(BIOS_ADDRESS_LPT3,baseaddr);
-            mem_writeb(BIOS_LPT3_TIMEOUT, 10);
-            break;
-	}
-	
-	// set equipment word: count ports
-	uint16_t portcount=0;
-	if(mem_readw(BIOS_ADDRESS_LPT1) != 0) portcount++;
-	if(mem_readw(BIOS_ADDRESS_LPT2) != 0) portcount++;
-	if(mem_readw(BIOS_ADDRESS_LPT3) != 0) portcount++;
-	
-	uint16_t equipmentword = mem_readw(BIOS_CONFIGURATION);
-	equipmentword &= (~0xC000);
-	equipmentword |= (portcount << 14);
-	mem_writew(BIOS_CONFIGURATION,equipmentword);
-}
-// BOXER-HOOK: bios-refresh-parport-count - Boxer printer support needs the
-// BIOS equipment word synchronized with registered parallel ports.
 
 static BIOS* test;
 

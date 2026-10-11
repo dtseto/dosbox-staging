@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,17 +46,34 @@ size_t RWQueue<T>::Size()
 }
 
 template <typename T>
+void RWQueue<T>::Start()
+{
+	std::lock_guard<std::mutex> lock(mutex);
+	is_running = true;
+}
+
+template <typename T>
 void RWQueue<T>::Stop()
 {
+	std::unique_lock<std::mutex> lock(mutex);
 	if (!is_running) {
 		return;
 	}
-	mutex.lock();
 	is_running = false;
-	mutex.unlock();
+	lock.unlock();
 
 	// notify the conditions
 	has_items.notify_all();
+	has_room.notify_all();
+}
+
+template <typename T>
+void RWQueue<T>::Clear()
+{
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		queue.clear();
+	}
 	has_room.notify_all();
 }
 
@@ -105,6 +122,19 @@ bool RWQueue<T>::Enqueue(T&& item)
 	lock.unlock();
 	has_items.notify_one();
 	return is_running;
+}
+
+template <typename T>
+bool RWQueue<T>::NonblockingEnqueue(T&& item)
+{
+	std::unique_lock<std::mutex> lock(mutex);
+	if (!is_running || queue.size() >= capacity) {
+		return false;
+	}
+	queue.push_back(std::move(item));
+	lock.unlock();
+	has_items.notify_one();
+	return true;
 }
 
 // In both bulk methods, the best case scenario is if the queue can absorb or
@@ -162,6 +192,30 @@ bool RWQueue<T>::BulkEnqueue(std::vector<T>& from_source, const size_t num_reque
 	}
 	from_source.clear();
 	return is_running;
+}
+
+template <typename T>
+size_t RWQueue<T>::NonblockingBulkEnqueue(std::vector<T>& from_source, const size_t num_requested)
+{
+	assert(num_requested > 0);
+	assert(num_requested <= from_source.size());
+
+	std::unique_lock<std::mutex> lock(mutex);
+	if (!is_running || queue.size() >= capacity) {
+		return 0;
+	}
+
+	const auto available_capacity = capacity - queue.size();
+	const auto num_items = std::min(available_capacity, num_requested);
+
+	const auto source_start = from_source.begin();
+	const auto source_end = from_source.begin() + num_items;
+
+	queue.insert(queue.end(), std::move_iterator(source_start), std::move_iterator(source_end));
+	from_source.erase(source_start, source_end);
+	lock.unlock();
+	has_items.notify_one();
+	return num_items;
 }
 
 template <typename T>
@@ -245,7 +299,7 @@ bool RWQueue<T>::BulkDequeue(std::vector<T>& into_target, const size_t num_reque
 template class RWQueue<int>;
 template class RWQueue<std::vector<int16_t>>;
 
-// FluidSynth and MT-32
+// FluidSynth, MT-32, LPT DAC
 #include "audio_frame.h"
 template class RWQueue<AudioFrame>;
 
@@ -254,3 +308,16 @@ template class RWQueue<MidiWork>;
 
 #include "render.h"
 template class RWQueue<SaveImageTask>;
+
+//PC Speaker
+template class RWQueue<float>;
+
+// Tandy
+template class RWQueue<uint8_t>;
+
+// SoundBlaster
+#include "audio_vector.h"
+template class RWQueue<std::unique_ptr<AudioVector>>;
+
+// Audio capture
+template class RWQueue<int16_t>;

@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -70,8 +70,14 @@ public:
 	// non-blocking call
 	size_t Size();
 
-	// non-blocking calls
+	// non-blocking call
+	void Start();
+
+	// non-blocking call
 	void Stop();
+
+	// non-blocking call
+	void Clear();
 
 	// non-blocking call
 	size_t MaxCapacity() const;
@@ -92,6 +98,10 @@ public:
 	// If queuing has stopped prior to enqueing, then this will immediately
 	//  return false and the item will not be queued.
 	bool Enqueue(T&& item);
+
+	// Returns false and does nothing if the queue is at capacity or the queue is not running
+	// Otherwise the item gets moved into the queue and it returns true
+	bool NonblockingEnqueue(T&& item);
 
 	// The method potentially blocks until there is at least a single item
 	// in the queue to dequeue.
@@ -124,6 +134,13 @@ public:
 	// stopping will be available in the queue however the items that came
 	// after stopping will not be queued.
 	bool BulkEnqueue(std::vector<T>& from_source, const size_t num_requested);
+
+	// Does nothing if queue is at capacity or queue is not running.
+	// Otherwise, enqueues as many elements as possible until the queue is at capacity.
+	// Moved elements will be erased from the source vector.
+	// Elements not enqueued will be left in the source vector.
+	// Returns the number of elements enqueued.
+	size_t NonblockingBulkEnqueue(std::vector<T>& from_source, const size_t num_requested);
 
 	// The target vector will be resized to accomodate, if needed. The
 	// method potentially blocks until the requested number of items have

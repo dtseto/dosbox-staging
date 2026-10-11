@@ -172,29 +172,38 @@ bool DOS_Shell::ExecuteShellCommand(const char* const name, char* arguments)
 	return true;
 }
 
-void DOS_Shell::DoCommand(char * line) {
-/* First split the line into command and arguments */
-	line=trim(line);
+void DOS_Shell::DoCommand(char* line)
+{
+	// First split the line into command and arguments
+	line = trim(line);
 	char cmd_buffer[CMD_MAXLINE];
-	char * cmd_write=cmd_buffer;
+	char* cmd_write = cmd_buffer;
 
-	while (*line) {
-		if (*line == 32) break;
-		if (*line == '/') break;
-		if (*line == '\t') break;
-		if (*line == '=') break;
-//		if (*line == ':') break; //This breaks drive switching as that is handled at a later stage.
-		if ((*line == '.') ||(*line == '\\')) {  //allow stuff like cd.. and dir.exe cd\kees
-			*cmd_write=0;
+	auto is_cli_delimiter = [](const char c) {
+		constexpr std::array<char, 7> Delimiters = {'\0', ' ', '/', '\t', '=', '"'};
+		// Note: ':' is also a delimiter, but handling it here breaks
+		//       drive switching as that is handled at a later stage.
+		return contains(Delimiters, c);
+	};
+
+	// Scan forward until we hit the first delimiter
+	while (!is_cli_delimiter(line[0])) {
+		// Handle squashed . and \ syntax like real MS-DOS:
+		//   C:\> cd\keen
+		//   C:\KEEN> cd..
+		//   C:\> dir.exe
+		if ((*line == '.') || (*line == '\\')) {
+			*cmd_write = 0;
 			if (ExecuteShellCommand(cmd_buffer, line)) {
 				return;
 			}
 		}
-		*cmd_write++=*line++;
+		*cmd_write++ = *line++;
 	}
-	*cmd_write=0;
-	if (is_empty(cmd_buffer))
+	*cmd_write = 0;
+	if (is_empty(cmd_buffer)) {
 		return;
+	}
 	// BOXER-HOOK: shell-command-filter - Boxer can suppress commands it
 	// handles itself (e.g. INTRO) before upstream dispatch.
 	if (!boxer_shellShouldRunCommand(this, cmd_buffer, line))
@@ -509,9 +518,11 @@ void DOS_Shell::CMD_EXIT(char *args)
 {
 	HELP("EXIT");
 
+	assert(control);
 	const bool wants_force_exit = control->arguments.exit;
-	const bool is_normal_launch = control->GetStartupVerbosity() !=
-	                              Verbosity::InstantLaunch;
+
+	assert(control->cmdline);
+	const auto is_instant_launch = control->cmdline->HasExecutableName();
 
 	// Check if this is an early-exit situation, in which case we avoid
 	// exiting because the user might have a configuration problem and we
@@ -521,7 +532,7 @@ void DOS_Shell::CMD_EXIT(char *args)
 
 	const auto not_early_exit = exiting_after_seconds > early_exit_seconds;
 
-	if (wants_force_exit || is_normal_launch || not_early_exit) {
+	if (wants_force_exit || is_instant_launch || not_early_exit) {
 		exit_cmd_called = true;
 		return;
 	}
@@ -862,11 +873,9 @@ void DOS_Shell::CMD_DIR(char* args)
 	// BOXER-HOOK: dir-unix-path-tolerance
 	HELP("DIR");
 
-	std::string line;
-	if (GetEnvStr("DIRCMD",line)){
-		std::string::size_type idx = line.find('=');
-		std::string value=line.substr(idx +1 , std::string::npos);
-		line = std::string(args) + " " + value;
+	std::string line = {};
+	if (const auto envvar = psp->GetEnvironmentValue("DIRCMD")){
+		line = std::string(args) + " " + *envvar;
 		args=const_cast<char*>(line.c_str());
 	}
 
@@ -1546,24 +1555,37 @@ void DOS_Shell::CMD_ATTRIB(char *args)
 void DOS_Shell::CMD_SET(char * args) {
 	HELP("SET");
 	StripSpaces(args);
-	std::string line;
 	if (!*args) {
 		/* No command line show all environment lines */
-		Bitu count=GetEnvCount();
-		for (Bitu a=0;a<count;a++) {
-			if (GetEnvNum(a,line)) WriteOut("%s\n",line.c_str());
+		for (const auto& entry : psp->GetAllRawEnvironmentStrings()) {
+			WriteOut("%s\n", entry.c_str());
 		}
 		return;
 	}
 	//There are args:
 	char * pcheck = args;
-	while ( *pcheck && (*pcheck == ' ' || *pcheck == '\t')) pcheck++;
-	if (*pcheck && strlen(pcheck) >3 && (strncasecmp(pcheck,"/p ",3) == 0)) E_Exit("Set /P is not supported. Use Choice!");
 
-	char * p=strpbrk(args, "=");
+	while (*pcheck && (*pcheck == ' ' || *pcheck == '\t')) {
+		pcheck++;
+	}
+	if (*pcheck && strlen(pcheck) > 3 && (strncasecmp(pcheck, "/p ", 3) == 0)) {
+		WriteOut(MSG_Get("SHELL_CMD_SET_OPTION_P_UNSUPPORTED"));
+		return;
+	}
+
+	char* p = strpbrk(args, "=");
 	if (!p) {
-		if (!GetEnvStr(args,line)) WriteOut(MSG_Get("SHELL_CMD_SET_NOT_SET"),args);
-		WriteOut("%s\n",line.c_str());
+		auto variable = std::string(args);
+		for (auto& c : variable) {
+			c = std::toupper(c);
+		}
+		if (const auto value = psp->GetEnvironmentValue(args)) {
+			WriteOut("%s\n",
+			         std::string(variable + '=' + *value).c_str());
+		} else {
+			WriteOut(MSG_Get("SHELL_CMD_SET_NOT_SET"), args);
+		}
+		return;
 	} else {
 		*p++=0;
 		/* parse p for envirionment variables */
@@ -1577,16 +1599,14 @@ void DOS_Shell::CMD_SET(char * args) {
 				char * second = strchr(++p,'%');
 				if (!second) continue;
 				*second++ = 0;
-				std::string temp;
-				if (GetEnvStr(p,temp)) {
-					std::string::size_type equals = temp.find('=');
-					if (equals == std::string::npos)
-						continue;
+
+				if (const auto envvar = psp->GetEnvironmentValue(p)) {
+					const auto& temp = *envvar;
 					const uintptr_t remaining_len = std::min(
 					        sizeof(parsed) - static_cast<uintptr_t>(p_parsed - parsed),
 					        sizeof(parsed));
 					safe_strncpy(p_parsed,
-					             temp.substr(equals + 1).c_str(),
+					             temp.c_str(),
 					             remaining_len);
 					p_parsed += strlen(p_parsed);
 				}
@@ -1950,7 +1970,6 @@ void DOS_Shell::CMD_SUBST (char * args) {
  * E.g. make basedir member dos_drive instead of localdrive
  */
 	HELP("SUBST");
-	localDrive* ldp=nullptr;
 	char mountstring[DOS_PATHLENGTH+CROSS_LEN+20];
 	char temp_str[2] = { 0,0 };
 	try {
@@ -1996,7 +2015,8 @@ void DOS_Shell::CMD_SUBST (char * args) {
 			throw 0;
 		}
 
-		ldp = dynamic_cast<localDrive*>(Drives.at(drive));
+		const auto ldp = std::dynamic_pointer_cast<localDrive>(
+		        Drives.at(drive));
 		if (!ldp) {
 			throw 0;
 		}
@@ -2050,7 +2070,7 @@ void DOS_Shell::CMD_LOADHIGH(char *args){
 void MAPPER_AutoType(std::vector<std::string> &sequence,
                      const uint32_t wait_ms,
                      const uint32_t pacing_ms);
-void MAPPER_AutoTypeStopImmediately();
+void MAPPER_StopAutoTyping();
 void DOS_21Handler();
 
 void DOS_Shell::CMD_CHOICE(char * args){
@@ -2148,7 +2168,7 @@ void DOS_Shell::CMD_CHOICE(char * args){
 		if (always_capitalize)
 			choice = static_cast<char>(toupper(choice));
 		if (using_auto_type)
-			MAPPER_AutoTypeStopImmediately();
+			MAPPER_StopAutoTyping();
 		if (shutdown_requested)
 			break;
 		if (choice == ctrl_c)
@@ -2184,9 +2204,8 @@ void DOS_Shell::CMD_PATH(char *args){
 		this->ParseLine(set_path);
 		return;
 	} else {
-		std::string line;
-		if (GetEnvStr("PATH", line))
-			WriteOut("%s\n", line.c_str());
+		if (const auto envvar = psp->GetEnvironmentValue("PATH"))
+			WriteOut("%s\n", envvar->c_str());
 		else
 			WriteOut("PATH=(null)\n");
 	}

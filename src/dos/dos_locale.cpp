@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,6 +35,7 @@
 #include "dos_keyboard_layout.h"
 #include "logging.h"
 #include "string_utils.h"
+#include "unicode.h"
 
 CHECK_NARROWING();
 
@@ -2491,7 +2492,7 @@ std::string DOS_GenerateListCountriesMessage()
 	message += "\n\n";
 
 	for (auto it = CountryData.begin(); it != CountryData.end(); ++it) {
-		message += format_string("  %5d - %s\n",
+		message += format_str("  %5d - %s\n",
 		                         enum_val(it->first),
 		                         MSG_GetRaw(it->second.GetMsgName().c_str()));
 	}
@@ -2616,31 +2617,21 @@ static void refresh_currency_format(const LocaleInfoEntry &source)
 
 	bool found = false;
 	for (const auto& candidate_utf8 : source.currency_symbols_utf8) {
-		std::string candidate = {};
 
 		// Check if the currency can be converted to current code page
+		const auto candidate = utf8_to_dos(candidate_utf8,
+		                                   DosStringConvertMode::NoSpecialCharacters,
+		                                   UnicodeFallback::EmptyString);
 
-		if (!utf8_to_dos(candidate_utf8, candidate, UnicodeFallback::Null)) {
-			continue;
-		}
-		if (candidate.length() > MaxCurrencySymbolLength) {
+		if (candidate.empty() || candidate.length() > MaxCurrencySymbolLength) {
 			continue;
 		}
 
 		found = true;
-		for (const auto character : candidate) {
-			if (character == 0) {
-				found = false;
-				break;
-			}
-		}
-
-		if (found) {
-			memcpy(&destination[InfoOffsetCurrencySymbol],
-			       candidate.c_str(),
-			       candidate.length());
-			break;
-		}
+		memcpy(&destination[InfoOffsetCurrencySymbol],
+		       candidate.c_str(),
+		       candidate.length());
+		break;
 	}
 
 	size_t offset = InfoOffsetCurrencyFormat;
@@ -2660,14 +2651,14 @@ static void refresh_currency_format(const LocaleInfoEntry &source)
 	destination[offset] = source.currency_precision;
 }
 
-void DOS_RefreshCountryInfo(const bool reason_keyboard_layout)
+void DOS_RefreshCountryInfo(const bool keyboard_layout_changed)
 {
 	if (!config.is_config_loaded) {
 		return;
 	}
 
 	if (config.auto_detect_country && !config.is_locale_generated &&
-	    !reason_keyboard_layout) {
+	    !keyboard_layout_changed) {
 		return;
 	}
 
@@ -3283,93 +3274,93 @@ std::string DOS_GetBundledCodePageFileName(const uint16_t code_page)
 	case 852:
 	case 853:
 	case 857:
-	case 858: return "EGA.CPX";
+	case 858: return "EGA.CPI";
 	case 775:
 	case 859:
 	case 1116:
 	case 1117:
 	case 1118:
-	case 1119: return "EGA2.CPX";
+	case 1119: return "EGA2.CPI";
 	case 771:
 	case 772:
 	case 808:
 	case 855:
 	case 866:
-	case 872: return "EGA3.CPX";
+	case 872: return "EGA3.CPI";
 	case 848:
 	case 849:
 	case 1125:
 	case 1131:
 	case 3012:
-	case 30010: return "EGA4.CPX";
+	case 30010: return "EGA4.CPI";
 	case 113:
 	case 737:
 	case 851:
-	case 869: return "EGA5.CPX";
+	case 869: return "EGA5.CPI";
 	case 899:
 	case 30008:
 	case 58210:
 	case 59829:
 	case 60258:
-	case 60853: return "EGA6.CPX";
+	case 60853: return "EGA6.CPI";
 	case 30011:
 	case 30013:
 	case 30014:
 	case 30017:
 	case 30018:
-	case 30019: return "EGA7.CPX";
+	case 30019: return "EGA7.CPI";
 	case 770:
 	case 773:
 	case 774:
 	case 777:
-	case 778: return "EGA8.CPX";
+	case 778: return "EGA8.CPI";
 	case 860:
 	case 861:
 	case 863:
 	case 865:
-	case 867: return "EGA9.CPX";
+	case 867: return "EGA9.CPI";
 	case 667:
 	case 668:
 	case 790:
 	case 991:
-	case 3845: return "EGA10.CPX";
+	case 3845: return "EGA10.CPI";
 	case 30000:
 	case 30001:
 	case 30004:
 	case 30007:
-	case 30009: return "EGA11.CPX";
+	case 30009: return "EGA11.CPI";
 	case 30003:
 	case 30029:
 	case 30030:
-	case 58335: return "EGA12.CPX";
+	case 58335: return "EGA12.CPI";
 	case 895:
 	case 30002:
 	case 58152:
 	case 59234:
-	case 62306: return "EGA13.CPX";
+	case 62306: return "EGA13.CPI";
 	case 30006:
 	case 30012:
 	case 30015:
 	case 30016:
 	case 30020:
-	case 30021: return "EGA14.CPX";
+	case 30021: return "EGA14.CPI";
 	case 30023:
 	case 30024:
 	case 30025:
 	case 30026:
 	case 30027:
-	case 30028: return "EGA15.CPX";
+	case 30028: return "EGA15.CPI";
 	case 3021:
 	case 30005:
 	case 30022:
 	case 30031:
-	case 30032: return "EGA16.CPX";
+	case 30032: return "EGA16.CPI";
 	case 862:
 	case 864:
 	case 30034:
 	case 30033:
 	case 30039:
-	case 30040: return "EGA17.CPX";
+	case 30040: return "EGA17.CPI";
 	case 856:
 	case 3846:
 	case 3848: return "EGA18.CPI";

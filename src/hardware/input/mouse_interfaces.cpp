@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022-2023  The DOSBox Staging Team
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -597,7 +597,7 @@ bool MouseInterface::ChangedButtonsJoined() const
 
 bool MouseInterface::ChangedButtonsSquished() const
 {
-	if (GCC_LIKELY(old_buttons_12._data != buttons_12._data)) {
+	if (old_buttons_12._data != buttons_12._data) {
 		return true;
 	}
 
@@ -656,7 +656,7 @@ void InterfaceDos::NotifyMoved(const float x_rel, const float y_rel,
 void InterfaceDos::NotifyButton(const MouseButtonId button_id, const bool pressed)
 {
 	UpdateButtons(button_id, pressed);
-	if (GCC_UNLIKELY(!ChangedButtonsSquished())) {
+	if (!ChangedButtonsSquished()) {
 		return;
 	}
 
@@ -682,7 +682,7 @@ void InterfaceDos::NotifyBooting()
 void InterfaceDos::UpdateInputType()
 {
 	const bool use_relative = IsMapped() || MOUSE_IsCaptured();
-	const bool is_input_raw = IsMapped() || mouse_config.raw_input;
+	const bool is_input_raw = IsMapped() || MOUSE_IsRawInput();
 
 	MOUSEDOS_NotifyInputType(use_relative, is_input_raw);
 }
@@ -725,7 +725,7 @@ void InterfacePS2::NotifyMoved(const float x_rel, const float y_rel,
 void InterfacePS2::NotifyButton(const MouseButtonId button_id, const bool pressed)
 {
 	UpdateButtons(button_id, pressed);
-	if (GCC_UNLIKELY(!ChangedButtonsJoined())) {
+	if (!ChangedButtonsJoined()) {
 		return;
 	}
 
@@ -749,7 +749,7 @@ void InterfacePS2::NotifyBooting()
 void InterfacePS2::UpdateInputType()
 {
 	const bool use_relative = IsMapped() || MOUSE_IsCaptured();
-	const bool is_input_raw = IsMapped() || mouse_config.raw_input;
+	const bool is_input_raw = IsMapped() || MOUSE_IsRawInput();
 
 	MOUSEVMM_NotifyInputType(use_relative, is_input_raw);
 }
@@ -790,7 +790,7 @@ void InterfaceCOM::NotifyButton(const MouseButtonId button_id, const bool presse
 	assert(listener);
 
 	UpdateButtons(button_id, pressed);
-	if (GCC_UNLIKELY(!ChangedButtonsSquished())) {
+	if (!ChangedButtonsSquished()) {
 		return;
 	}
 

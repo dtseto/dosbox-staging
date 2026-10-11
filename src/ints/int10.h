@@ -21,6 +21,7 @@
 
 #include "dosbox.h"
 
+#include <optional>
 #include <vector>
 
 #include "bit_view.h"
@@ -122,11 +123,9 @@ union BiosVgaFlagsRec {
 	}
 };
 
-/*
- *
- * VGA registers
- *
- */
+// VGA registers
+// TODO convert these to namespaced constants
+//
 #define VGAREG_ACTL_ADDRESS            0x3c0
 #define VGAREG_ACTL_WRITE_DATA         0x3c0
 #define VGAREG_ACTL_READ_DATA          0x3c1
@@ -211,20 +210,47 @@ extern palette_t palette;
 
 struct VideoModeBlock {
 	// BIOS video mode number
-	uint16_t mode;
+	uint16_t mode = 0;
 
-	VGAModes type;
+	// Video mode type primarily based on the memory organisation of the
+	// mode (see vga.h)
+	VGAModes type = {};
 
-	uint16_t swidth, sheight;
-	uint8_t twidth, theight;
-	uint8_t cwidth, cheight;
-	uint8_t ptotal;
-	uint32_t pstart;
-	uint32_t plength;
+	// Screen width & height in pixels
+	uint16_t swidth  = 0;
+	uint16_t sheight = 0;
 
-	uint16_t htotal, vtotal;
-	uint16_t hdispend, vdispend;
-	uint16_t special;
+	// Text mode width & height in number of characters
+	uint8_t twidth  = 0;
+	uint8_t theight = 0;
+
+	// Character matrix width & height in pixels
+	uint8_t cwidth  = 0;
+	uint8_t cheight = 0;
+
+	// Total number of video pages
+	uint8_t ptotal = 0;
+
+	// Start address of the first page in the video memory
+	uint32_t pstart = 0;
+
+	// Length of a single page in bytes
+	uint32_t plength = 0;
+
+	// Horizontal total (in number of clock pulses?)
+	uint16_t htotal = 0;
+
+	// Vertical total in lines
+	uint16_t vtotal = 0;
+
+	// Horizontal display end (number of clock pulses?)
+	uint16_t hdispend = 0;
+
+	// Vertical display end (line number)
+	uint16_t vdispend = 0;
+
+	// Special flags
+	uint16_t special = 0;
 };
 
 extern std::vector<VideoModeBlock> ModeList_VGA;
@@ -239,14 +265,28 @@ using video_mode_block_iterator_t = std::vector<VideoModeBlock>::const_iterator;
 // M_CGA4 into M_TANDY4 or M_CGA4_COMPOSITE, etc.)
 extern video_mode_block_iterator_t CurMode;
 
-enum class VesaModePref {
-	Compatible,  // Prunes the available S3 modes to maximize DOS game compatibility
-	Halfline, // Replaces mode 120h with the halfline mode used by Extreme Assault
-	All, // Enables all S3 864 and Trio VESA modes (but some games might not handle them properly)
+enum class VesaModes {
+	// Only the most compatible S3 VESA modes for the configured video
+	// memory size.
+	//
+	// 320x200 high colour modes are excluded as they were not
+	// properly supported until the late '90s. The 256-colour linear
+	// framebuffer 320x240, 400x300, and 512x384 modes are also
+	// excluded as they cause timing problems in Build Engine games.
+	Compatible,
+
+	// Same as `Compatible`, but the 120h VESA mode is replaced with a special
+	// halfline mode used by Extreme Assault.
+	Halfline,
+
+	// Enables all S3 VESA modes, including extra DOSBox-specific VESA modes.
+	// The 320x200 high colour modes available in this mode are often required
+	// by late '90s demoscene productions.
+	All
 };
 
 struct Int10Data {
-	struct Int10DataRom{
+	struct Int10DataRom {
 		RealPt font_8_first;
 		RealPt font_8_second;
 		RealPt font_14;
@@ -269,10 +309,12 @@ struct Int10Data {
 		uint16_t pmode_interface_palette;
 		uint16_t used;
 	} rom = {};
+
 	uint16_t vesa_setmode = 0;
 
-	VesaModePref vesa_mode_preference = VesaModePref::Compatible;
-	bool vesa_nolfb = false;
+	VesaModes vesa_modes = VesaModes::Compatible;
+
+	bool vesa_nolfb  = false;
 	bool vesa_oldvbe = false;
 };
 
@@ -292,6 +334,7 @@ inline uint8_t CURSOR_POS_ROW(const uint8_t page)
 
 void INT10_SetupPalette();
 
+std::optional<const VideoModeBlock> INT10_FindSvgaVideoMode(uint16_t mode);
 bool INT10_SetVideoMode(uint16_t mode);
 void INT10_SetCurMode(void);
 bool INT10_VideoModeChangeInProgress();
@@ -330,15 +373,18 @@ void INT10_WriteCharViaInterrupt(const uint8_t char_value, const uint8_t attribu
 void INT10_WriteString(uint8_t row, uint8_t col, uint8_t flag, uint8_t attr,
                        PhysPt string, uint16_t count, uint8_t page);
 
-/* Graphics Stuff */
+// Graphics functions
 void INT10_PutPixel(uint16_t x,uint16_t y,uint8_t page,uint8_t color);
 void INT10_GetPixel(uint16_t x,uint16_t y,uint8_t page,uint8_t * color);
 
-/* Font Stuff */
-void INT10_LoadFont(PhysPt font,bool reload,Bitu count,Bitu offset,Bitu map,Bitu height);
-void INT10_ReloadFont(void);
+// Font functions
+void INT10_LoadFont(const PhysPt font_data, const bool reload,
+                    const int num_chars, const int first_char,
+                    const int font_block, const int char_height);
 
-/* Palette Group */
+void INT10_ReloadFont();
+
+// Palette functions
 void INT10_SetBackgroundBorder(uint8_t val);
 void INT10_SetColorSelect(uint8_t val);
 void INT10_SetSinglePaletteRegister(uint8_t reg, uint8_t val);
@@ -359,7 +405,7 @@ void INT10_GetPelMask(uint8_t & mask);
 void INT10_PerformGrayScaleSumming(uint16_t start_reg,uint16_t count);
 
 
-/* Vesa Group */
+// VESA functions
 uint8_t VESA_GetSVGAInformation(const uint16_t segment, const uint16_t offset);
 bool VESA_IsVesaMode(const uint16_t bios_mode_number);
 uint8_t VESA_GetSVGAModeInformation(uint16_t mode,uint16_t seg,uint16_t off);

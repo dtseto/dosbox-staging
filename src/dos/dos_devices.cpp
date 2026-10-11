@@ -19,7 +19,7 @@
 
 #include "dos_system.h"
 
-#include <string.h>
+#include <cstring>
 
 #include "dosbox.h"
 #include "callback.h"
@@ -54,7 +54,7 @@ public:
 	bool Read(uint8_t* data, uint16_t* size) override;
 	bool Write(uint8_t* data, uint16_t* size) override;
 	bool Seek(uint32_t* pos, uint32_t type) override;
-	bool Close() override;
+	void Close() override;
 	uint16_t GetInformation() override;
 	bool ReadFromControlChannel(PhysPt bufptr, uint16_t size,
 	                            uint16_t* retcode) override;
@@ -162,9 +162,8 @@ bool DOS_ExtDevice::Write(uint8_t *data, uint16_t *size)
 	return true;
 }
 
-bool DOS_ExtDevice::Close()
+void DOS_ExtDevice::Close()
 {
-	return true;
 }
 
 bool DOS_ExtDevice::Seek([[maybe_unused]] uint32_t *pos, [[maybe_unused]] uint32_t type)
@@ -291,9 +290,8 @@ public:
 		LOG(LOG_IOCTL, LOG_NORMAL)("%s:SEEK", GetName());
 		return true;
 	}
-	bool Close() override
+	void Close() override
 	{
-		return true;
 	}
 	uint16_t GetInformation() override
 	{
@@ -375,8 +373,8 @@ bool DOS_Device::Seek(uint32_t * pos,uint32_t type) {
 	return Devices[devnum]->Seek(pos,type);
 }
 
-bool DOS_Device::Close() {
-	return Devices[devnum]->Close();
+void DOS_Device::Close() {
+	Devices[devnum]->Close();
 }
 
 uint16_t DOS_Device::GetInformation() { 
@@ -407,8 +405,7 @@ DOS_File &DOS_File::operator=(const DOS_File &orig)
 	date=orig.date;
 	attr=orig.attr;
 	refCtr=orig.refCtr;
-	open=orig.open;
-	newtime = orig.newtime;
+	flush_time_on_close = orig.flush_time_on_close;
 	hdrive=orig.hdrive;
 	name = orig.name;
 	return *this;

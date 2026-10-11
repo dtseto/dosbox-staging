@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2023  The DOSBox Staging Team
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -21,8 +21,8 @@
 
 #include "dosbox.h"
 
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 #include <vector>
 
 #include "cpu.h"
@@ -202,14 +202,15 @@ public:
 		uint8_t * write_pixels=&vga.fastmem[start<<3];
 
 		uint32_t colors0_3, colors4_7;
-		VgaLatch temp;temp.d=(pixels.d>>4) & 0x0f0f0f0f;
+		VgaLatch temp;
+		temp.d=(pixels.d>>4) & 0x0f0f0f0f;
 		colors0_3 = 
 			Expand16Table[0][temp.b[0]] |
 			Expand16Table[1][temp.b[1]] |
 			Expand16Table[2][temp.b[2]] |
 			Expand16Table[3][temp.b[3]];
 		*(uint32_t *)write_pixels=colors0_3;
-		temp.d=pixels.d & 0x0f0f0f0f;
+		temp.d=pixels.d & 0x0f0f0f0f; //-V519
 		colors4_7 = 
 			Expand16Table[0][temp.b[0]] |
 			Expand16Table[1][temp.b[1]] |
@@ -301,14 +302,15 @@ public:
 		uint8_t * write_pixels=&vga.fastmem[start<<3];
 
 		uint32_t colors0_3, colors4_7;
-		VgaLatch temp;temp.d=(pixels.d>>4) & 0x0f0f0f0f;
+		VgaLatch temp;
+		temp.d=(pixels.d>>4) & 0x0f0f0f0f;
 			colors0_3 = 
 			Expand16Table[0][temp.b[0]] |
 			Expand16Table[1][temp.b[1]] |
 			Expand16Table[2][temp.b[2]] |
 			Expand16Table[3][temp.b[3]];
 		*(uint32_t *)write_pixels=colors0_3;
-		temp.d=pixels.d & 0x0f0f0f0f;
+		temp.d=pixels.d & 0x0f0f0f0f; //-V519
 		colors4_7 = 
 			Expand16Table[0][temp.b[0]] |
 			Expand16Table[1][temp.b[1]] |
@@ -386,7 +388,7 @@ public:
 	static inline void WriteCache_template(func_t host_write, PhysPt addr, val_t val)
 	{
 		host_write(&vga.fastmem[addr], val);
-		if (GCC_UNLIKELY(addr < 320)) {
+		if (addr < 320) {
 			// And replicate the first line
 			host_write(&vga.fastmem[addr + 64 * 1024], val);
 		}
@@ -439,12 +441,13 @@ public:
 		addr = PAGING_GetPhysicalAddress(addr) & vgapages.mask;
 		addr += vga.svga.bank_read_full;
 		addr = CHECKED(addr);
-		if (GCC_UNLIKELY(addr & 1)) {
+		if (addr & 1) {
 			return static_cast<uint16_t>(
 			        (readHandler_byte(addr + 0) << 0) |
 			        (readHandler_byte(addr + 1) << 8));
-		} else
+		} else {
 			return readHandler_word(addr);
+		}
 	}
 
 	uint32_t readd(PhysPt addr) override
@@ -453,15 +456,16 @@ public:
 		addr = PAGING_GetPhysicalAddress(addr) & vgapages.mask;
 		addr += vga.svga.bank_read_full;
 		addr = CHECKED(addr);
-		if (GCC_UNLIKELY(addr & 3)) {
+		if (addr & 3) {
 			return static_cast<uint32_t>(
 			        (readHandler_byte(addr + 0) << 0) |
 			        (readHandler_byte(addr + 1) << 8) |
 			        (readHandler_byte(addr + 2) << 16) |
 			        (readHandler_byte(addr + 3) << 24));
 
-		} else
+		} else {
 			return readHandler_dword(addr);
+		}
 	}
 
 	void writeb(PhysPt addr, uint8_t val) override
@@ -483,7 +487,7 @@ public:
 		addr = CHECKED(addr);
 		MEM_CHANGED( addr );
 //		MEM_CHANGED( addr + 1);
-		if (GCC_UNLIKELY(addr & 1)) {
+		if (addr & 1) {
 			writeHandler_byte(addr + 0, val >> 0);
 			writeHandler_byte(addr + 1, val >> 8);
 		} else {
@@ -500,7 +504,7 @@ public:
 		addr = CHECKED(addr);
 		MEM_CHANGED( addr );
 //		MEM_CHANGED( addr + 3);
-		if (GCC_UNLIKELY(addr & 3)) {
+		if (addr & 3) {
 			writeHandler_byte(addr + 0, val >> 0);
 			writeHandler_byte(addr + 1, val >> 8);
 			writeHandler_byte(addr + 2, val >> 16);
@@ -590,8 +594,8 @@ public:
 	{
 		write_delay();
 		addr = PAGING_GetPhysicalAddress(addr) & vgapages.mask;
-		
-		if (GCC_LIKELY(vga.seq.map_mask == 0x4)) {
+
+		if (vga.seq.map_mask == 0x4) {
 			vga.draw.font[addr] = val;
 		} else {
 			if (vga.seq.map_mask & 0x4) // font map

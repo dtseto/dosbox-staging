@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2021-2023  The DOSBox Staging Team
+ *  Copyright (C) 2021-2024  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -22,9 +22,9 @@
 #include "cross.h"
 
 #include <cerrno>
+#include <climits>
 #include <clocale>
-#include <limits.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <string>
 #include <sys/types.h>
 #include <unistd.h>
@@ -61,7 +61,7 @@
 
 std::string GetPrimaryConfigName()
 {
-	return CANONICAL_PROJECT_NAME ".conf";
+	return DOSBOX_PROJECT_NAME ".conf";
 }
 
 std_fs::path GetPrimaryConfigPath()

@@ -21,8 +21,8 @@
 
 #include "program_boot.h"
 
+#include <cstdio>
 #include <limits>
-#include <stdio.h>
 
 #include "bios_disk.h"
 #include "callback.h"
@@ -31,9 +31,14 @@
 #include "drives.h"
 #include "fs_utils.h"
 #include "mapper.h"
+#include "mouse.h"
 #include "program_more_output.h"
 #include "regs.h"
 #include "string_utils.h"
+#include "video.h"
+
+#include "../hardware/virtualbox.h"
+#include "../hardware/vmware.h"
 
 FILE* BOOT::getFSFile_mounted(const char* filename, uint32_t* ksize,
                               uint32_t* bsize, uint8_t* error)
@@ -50,11 +55,13 @@ FILE* BOOT::getFSFile_mounted(const char* filename, uint32_t* ksize,
 		return nullptr;
 
 	try {
-		const auto ldp = dynamic_cast<localDrive*>(Drives.at(drive));
-		if (!ldp)
+		const auto ldp = std::dynamic_pointer_cast<localDrive>(
+		        Drives.at(drive));
+		if (!ldp) {
 			return nullptr;
+		}
 
-		tmpfile = ldp->GetSystemFilePtr(fullname, "rb");
+		tmpfile = ldp->GetHostFilePtr(fullname, "rb");
 		if (tmpfile == nullptr) {
 			if (!tryload)
 				*error = 1;
@@ -70,12 +77,12 @@ FILE* BOOT::getFSFile_mounted(const char* filename, uint32_t* ksize,
 		*bsize = ftell(tmpfile);
 		fclose(tmpfile);
 
-		tmpfile = ldp->GetSystemFilePtr(fullname, "rb+");
+		tmpfile = ldp->GetHostFilePtr(fullname, "rb+");
 		if (tmpfile == nullptr) {
 			//				if (!tryload) *error=2;
 			//				return NULL;
 			WriteOut(MSG_Get("PROGRAM_BOOT_WRITE_PROTECTED"));
-			tmpfile = ldp->GetSystemFilePtr(fullname, "rb");
+			tmpfile = ldp->GetHostFilePtr(fullname, "rb");
 			if (tmpfile == nullptr) {
 				if (!tryload)
 					*error = 1;
@@ -249,8 +256,8 @@ void BOOT::Run(void)
 			FILE *usefile = getFSFile(temp_line.c_str(),
 			                          &floppysize, &rombytesize);
 			if (usefile != nullptr) {
-				diskSwap[i] = DriveManager::RegisterRawFloppyImage(
-				        usefile, temp_line, floppysize);
+				diskSwap[i] = std::make_shared<imageDisk>(
+				        usefile, temp_line.c_str(), floppysize, false);
 				if (usefile_1 == nullptr) {
 					usefile_1 = usefile;
 					rombytesize_1 = rombytesize;
@@ -340,7 +347,6 @@ void BOOT::Run(void)
 						        "PROGRAM_BOOT_CART_NO_CMDS"));
 					}
 					diskSwap.fill(nullptr);
-					DriveManager::CloseRawFddImages();
 
 					return;
 				} else {
@@ -373,7 +379,6 @@ void BOOT::Run(void)
 							        "PROGRAM_BOOT_CART_NO_CMDS"));
 						}
 						diskSwap.fill(nullptr);
-						DriveManager::CloseRawFddImages();
 						return;
 					}
 				}
@@ -464,7 +469,6 @@ void BOOT::Run(void)
 
 			// Close cardridges
 			diskSwap.fill(nullptr);
-			DriveManager::CloseRawFddImages();
 
 			NotifyBooting();
 
@@ -524,13 +528,13 @@ void BOOT::Run(void)
 	}
 }
 
-void MOUSE_NotifyBooting();
-void VIRTUALBOX_NotifyBooting();
-
 void BOOT::NotifyBooting()
 {
+	DOS_NotifyBooting();
+	GFX_NotifyBooting();
 	MOUSE_NotifyBooting();
 	VIRTUALBOX_NotifyBooting();
+	VMWARE_NotifyBooting();
 }
 
 void BOOT::AddMessages()
