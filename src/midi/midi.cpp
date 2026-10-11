@@ -43,7 +43,7 @@
 #include "string_utils.h"
 #include "timer.h"
 // BOXER-BEGIN: midi-routing
-#include "BXCoalfaceAudio.h"
+#include "BXEmulatorCoreAudio.h"
 
 // clang-format off
 uint8_t MIDI_message_len_by_status[256] = {
