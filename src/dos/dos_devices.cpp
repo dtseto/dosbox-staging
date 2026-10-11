@@ -356,8 +356,7 @@ public:
 	uint16_t GetInformation(void) {
 		return 0x80A0;
 	}
-	bool Close() {
-		return false;
+	void Close() override {
 	}
 };
 

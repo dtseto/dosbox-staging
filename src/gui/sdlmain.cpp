@@ -76,6 +76,13 @@
 #include "vga.h"
 #include "video.h"
 
+// DOSBox's compatibility header maps GFX_ShowMsg to the Boxer diagnostics
+// bridge in adapter call sites. This translation unit provides DOSBox's native
+// implementation, so keep the function name unmodified here.
+#ifdef GFX_ShowMsg
+#undef GFX_ShowMsg
+#endif
+
 static void switch_console_to_utf8()
 {
 #if WIN32

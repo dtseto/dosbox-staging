@@ -36,6 +36,9 @@
 
 #include "../hardware/vmware.h"
 
+// Retained for Boxer's process tracking bridge.
+const char *RunningProgram = "DOSBOX";
+
 #ifdef _MSC_VER
 #pragma pack(1)
 #endif
@@ -186,17 +189,6 @@ void DOS_Terminate(const uint16_t psp_seg, const bool is_terminate_and_stay_resi
 	if (!is_terminate_and_stay_resident) {
 		DOS_FreeProcessMemory(psp_seg);
 	}
-#if (C_DYNAMIC_X86) || (C_DYNREC)
-	if (CPU_AutoDetermineMode&CPU_AUTODETERMINE_CORE) {
-		cpudecoder=&CPU_Core_Normal_Run;
-		CPU_CycleLeft=0;
-		CPU_Cycles=0;
-		// BOXER-HOOK: core-mode-title-refresh - BXCoalface maps GFX_SetTitle
-		// to Boxer so Cocoa UI state reflects DOSBox CPU core changes.
-		GFX_SetTitle(-1, false);
-	}
-#endif
-
 	DOS_UpdateCurrentProgramName();
 
 	CPU_RestoreRealModeCyclesConfig();

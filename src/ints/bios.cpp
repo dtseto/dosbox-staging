@@ -32,6 +32,7 @@
 #include "math_utils.h"
 #include "mem.h"
 #include "mouse.h"
+#include "parport.h"
 #include "pic.h"
 #include "regs.h"
 #include "serialport.h"
@@ -494,17 +495,32 @@ static Bitu INT12_Handler(void) {
 }
 
 static Bitu INT17_Handler(void) {
-	LOG(LOG_BIOS,LOG_NORMAL)("INT17:Function %X",reg_ah);
+	if (reg_ah > 0x2 || reg_dx > 0x2) {
+		LOG(LOG_BIOS, LOG_NORMAL)("BIOS INT17: Unhandled call AH=%2X DX=%4x",
+		                          reg_ah, reg_dx);
+		return CBRET_NONE;
+	}
+
 	switch (reg_ah) {
-	case 0x00:              /* PRINTER: Write Character */
-		reg_ah=1;	/* Report a timeout */
+	case 0x00: // PRINTER: Write Character
+		if (parallelPortObjects[reg_dx]) {
+			if (parallelPortObjects[reg_dx]->Putchar(reg_al))
+				reg_ah = parallelPortObjects[reg_dx]->getPrinterStatus();
+			else
+				reg_ah = 1;
+		}
 		break;
-	case 0x01:		/* PRINTER: Initialize port */
+	case 0x01: // PRINTER: Initialize port
+		if (parallelPortObjects[reg_dx]) {
+			parallelPortObjects[reg_dx]->initialize();
+			reg_ah = parallelPortObjects[reg_dx]->getPrinterStatus();
+		}
 		break;
-	case 0x02:		/* PRINTER: Get Status */
-		reg_ah=0;	
+	case 0x02: // PRINTER: Get Status
+		if (parallelPortObjects[reg_dx])
+			reg_ah = parallelPortObjects[reg_dx]->getPrinterStatus();
 		break;
-	};
+	}
 	return CBRET_NONE;
 }
 
@@ -1530,6 +1546,36 @@ void BIOS_SetComPorts(uint16_t baseaddr[]) {
 	equipmentword &= (~0x0E00);
 	equipmentword |= (portcount << 9);
 	BIOS_SetEquipment(equipmentword);
+}
+
+// Boxer printer compatibility: keep the BIOS LPT addresses, timeout bytes,
+// and equipment count synchronized with DOSBox's parallel-port adapters.
+void BIOS_SetLPTPort(Bitu port, uint16_t baseaddr)
+{
+	switch (port) {
+	case 0:
+		mem_writew(BIOS_ADDRESS_LPT1, baseaddr);
+		mem_writeb(BIOS_LPT1_TIMEOUT, 10);
+		break;
+	case 1:
+		mem_writew(BIOS_ADDRESS_LPT2, baseaddr);
+		mem_writeb(BIOS_LPT2_TIMEOUT, 10);
+		break;
+	case 2:
+		mem_writew(BIOS_ADDRESS_LPT3, baseaddr);
+		mem_writeb(BIOS_LPT3_TIMEOUT, 10);
+		break;
+	}
+
+	uint16_t portcount = 0;
+	if (mem_readw(BIOS_ADDRESS_LPT1)) ++portcount;
+	if (mem_readw(BIOS_ADDRESS_LPT2)) ++portcount;
+	if (mem_readw(BIOS_ADDRESS_LPT3)) ++portcount;
+
+	uint16_t equipmentword = mem_readw(BIOS_CONFIGURATION);
+	equipmentword &= ~0xC000;
+	equipmentword |= (portcount << 14);
+	mem_writew(BIOS_CONFIGURATION, equipmentword);
 }
 
 

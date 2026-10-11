@@ -56,8 +56,7 @@ bool device_LPT::Seek(uint32_t * pos,uint32_t type) {
 	return true;
 }
 
-bool device_LPT::Close() {
-	return false;
+void device_LPT::Close() {
 }
 
 uint16_t device_LPT::GetInformation(void) {

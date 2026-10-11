@@ -183,10 +183,9 @@ bool button_wrapping_enabled = true;
 // from its controller UI without rebuilding DOSBox joystick configuration.
 bool gameport_timed = true;
 
-// BOXER-HOOK: mapper-free-autofire - Boxer does not include DOSBox's SDL
-// mapper, so autofire remains owned by the joystick module.
-//extern bool autofire; //sdl_mapper.cpp
-bool autofire;
+// BOXER-HOOK: mapper-free-autofire - The SDL mapper owns this setting; the
+// joystick configuration updates it.
+extern bool autofire;
 
 static uint8_t read_p201(io_port_t, io_width_t)
 {

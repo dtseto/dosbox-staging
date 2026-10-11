@@ -21,6 +21,8 @@
 
 #include "program_imgmount.h"
 
+#include "../../include/BXDOSBoxLegacyCompatibility.h"
+
 #include "dosbox.h"
 
 #include <vector>
@@ -602,6 +604,9 @@ void IMGMOUNT::Run(void)
 	// check if volume label is given. be careful for cdrom
 	// if (cmd->FindString("-label",label,true))
 	// newdrive->dirCache.SetLabel(label.c_str());
+	// BOXER-HOOK: imgmount-drive-mounted - Notify Boxer after the image drive
+	// mapping has been committed.
+	boxer_driveDidMount(drive - 'A');
 	return;
 }
 

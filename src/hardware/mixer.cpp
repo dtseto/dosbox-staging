@@ -46,6 +46,7 @@
 #include "mem.h"
 #include "midi.h"
 #define BXDOSBOX_LEGACY_COMPATIBILITY_CALLSITE 1
+// BOXER-BEGIN: mixer-volume-bridge
 #include "../../include/BXDOSBoxLegacyCompatibility.h"
 #include "pcspeaker.h"
 #include "pic.h"
@@ -841,6 +842,7 @@ void MixerChannel::UpdateCombinedVolume()
 	combined_volume_gain = user_volume_gain * app_volume_gain *
 	                       db0_volume_gain * boxer_volume;
 }
+// BOXER-END: mixer-volume-bridge
 
 const AudioFrame MixerChannel::GetUserVolume() const
 {
@@ -2673,6 +2675,11 @@ static void set_mixer_state(const MixerState new_state)
 	mixer.state = new_state;
 }
 
+void MIXER_SetState(const MixerState state)
+{
+	set_mixer_state(state);
+}
+
 void MIXER_CloseAudioDevice()
 {
 	TIMER_DelTickHandler(capture_callback);
@@ -2694,7 +2701,6 @@ void MIXER_CloseAudioDevice()
 	mixer.state = MixerState::Uninitialized;
 }
 
-// BOXER-BEGIN: mixer-volume-bridge
 void boxer_updateVolumes()
 {
 	MIXER_LockMixerThread();
@@ -2703,7 +2709,6 @@ void boxer_updateVolumes()
 	}
 	MIXER_UnlockMixerThread();
 }
-// BOXER-END: mixer-volume-bridge
 
 // Sets `mixer.sample_rate_hz` and `mixer.blocksize` on success
 static bool init_sdl_sound(const int requested_sample_rate_hz,

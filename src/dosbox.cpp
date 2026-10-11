@@ -79,6 +79,10 @@
 #include "tracy.h"
 #include "video.h"
 
+#ifndef BUILD_GIT_HASH
+#define BUILD_GIT_HASH "unknown"
+#endif
+
 bool shutdown_requested = false;
 MachineType machine;
 SVGACards svgaCard;
@@ -1270,7 +1274,7 @@ void DOSBOX_Init()
 	        "tab-separated format, used by SETVER.EXE as a persistent storage\n"
 	        "(empty by default).");
 
-	const char* pcjr_memory_configurations[] = {"expanded", "standard", nullptr};
+	const std::vector<std::string> pcjr_memory_configurations = {"expanded", "standard"};
 	pstring = secprop->Add_string("pcjr_memory_config", only_at_start, "expanded");
 	pstring->Set_values(pcjr_memory_configurations);
 	pstring->Set_help(

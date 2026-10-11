@@ -38,7 +38,7 @@
 #include "mixer.h"
 #include "rwqueue.h"
 
-#include "decoders/SDL_sound.h"
+#include "../libs/decoders/SDL_sound.h"
 
 // CDROM data and audio format constants
 #define BYTES_PER_RAW_REDBOOK_FRAME    2352u

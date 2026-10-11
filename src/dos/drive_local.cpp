@@ -187,7 +187,7 @@ std::unique_ptr<DOS_File> localDrive::FileOpen(const char* name, uint8_t flags)
 	}
 
 	NativeFileHandle file_handle = open_native_file(host_filename, write_access);
-	if (write_access && !boxer_shouldAllowWriteAccessToPath(host_filename, this)) {
+	if (write_access && !boxer_shouldAllowWriteAccessToPath(host_filename.c_str(), this)) {
 		if (flags & 3) {
 			flags = OPEN_READ;
 			file_handle = open_native_file(host_filename, false);
@@ -296,25 +296,6 @@ bool localDrive::FileUnlink(const char* name)
 	}
 
 	// Otherwise maybe the file's opened within our mount ...
-	DOS_File *open_file = FindOpenFile(this, name);
-	if (open_file) {
-		size_t max = DOS_FILES;
-		// then close and remove references (as many times as needed),
-		while (open_file->IsOpen() && --max) {
-			open_file->Close();
-			if (open_file->RemoveRef() <= 0) {
-				break;
-			}
-		}
-		// and try removing it again.
-		if (remove(fullname) == 0) {
-			dirCache.DeleteEntry(newname);
-			// BOXER-HOOK: local-open-file-removed - Boxer tracks deletion that
-			// succeeds after DOSBox closes an open host file handle.
-			boxer_didRemoveLocalFile(fullname, this);
-			return true;
-		}
-	}
 	LOG_DEBUG("FS: Unable to remove file '%s'", fullname);
 	DOS_SetError(DOSERR_ACCESS_DENIED);
 	return false;
@@ -635,11 +616,6 @@ bool localFile::Read(uint8_t *data, uint16_t *size)
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
 	}
-	if (!fhandle) {
-		*size = 0;
-		return true;
-	}
-
 	const auto ret = read_native_file(file_handle, data, *size);
 	*size          = check_cast<uint16_t>(ret.num_bytes);
 	if (ret.error) {
@@ -665,11 +641,6 @@ bool localFile::Write(uint8_t *data, uint16_t *size)
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;
 	}
-	if (!fhandle) {
-		*size = 0;
-		return true;
-	}
-
 	// File should always be opened in read-only mode if on read-only drive
 	assert(!IsOnReadOnlyMedium());
 
@@ -738,10 +709,6 @@ bool localFile::Seek(uint32_t *pos_addr, uint32_t type)
 			DOS_SetError(DOSERR_FUNCTION_NUMBER_INVALID);
 			return false;
 		}
-	}
-	if (!fhandle) {
-		*pos_addr = 0;
-		return true;
 	}
 	// BOXER-HOOK: unavailable-file-seek - Boxer can invalidate host handles
 	// while DOS still sees the file open; seeks must fail DOS-compatibly.
