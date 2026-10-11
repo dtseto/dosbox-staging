@@ -1432,7 +1432,7 @@ void SHELL_Init() {
 	/* Create appearance of handle inheritance by first shell */
 	for (uint16_t i=0;i<5;i++) {
 		uint8_t handle=psp.GetFileHandle(i);
-		if (Files[handle]) Files[handle]->AddRef();
+		if (handle < DOS_FILES && Files[handle]) Files[handle]->AddRef();
 	}
 
 	psp.SetParent(psp_seg);
