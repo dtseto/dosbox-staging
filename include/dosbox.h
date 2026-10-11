@@ -24,7 +24,12 @@
 #include "types.h"
 class Section;
 // BOXER-BEGIN: coalface-remaps
+// DOSBox core translation units retain the legacy compatibility surface. The
+// Boxer Objective-C++ host imports this umbrella header too, but must not
+// inherit DOSBox-only remaps through that path.
+#if !defined(__OBJC__) || defined(BXDOSBOX_FORCE_LEGACY_COMPATIBILITY)
 #include "BXDOSBoxCoalfaceCompatibility.h"
+#endif
 // BOXER-END: coalface-remaps
 
 #include <memory>
