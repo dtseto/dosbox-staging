@@ -222,6 +222,13 @@ void DriveManager::AppendFilesystemImages(const int drive,
 	disks.insert(std::end(disks), std::begin(images), std::end(images));
 }
 
+void DriveManager::Reset()
+{
+	// Runtime imgmount queues must not leak into a later emulator session in
+	// the same process.
+	drive_infos = {};
+}
+
 void DriveManager::InitializeDrive(int drive) {
 	auto& drive_info = drive_infos.at(drive);
 	if (!drive_info.disks.empty()) {
@@ -336,6 +343,10 @@ char *DriveManager::GetDrivePosition(int drive)
 }
 
 void DriveManager::Init(Section* /* sec */) {
+	// A Boxer process can start more than one emulator session. Clear any
+	// runtime image queues left by a previous session before accepting mounts.
+	Reset();
+
 	// setup drive_infos structure
 	for(int i = 0; i < DOS_DRIVES; i++) {
 		drive_infos.at(i).current_disk = 0;

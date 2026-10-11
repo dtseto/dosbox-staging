@@ -1556,6 +1556,9 @@ public:
 		// date and time lookup), so it's import to shut these down when
 		// DOS is still available.
 		DOS_ClearDrivesAndFiles();
+		// BOXER-HOOK: shutdown-drive-manager-reset - Runtime imgmount queues
+		// must not leak into a later emulator session in the same process.
+		DriveManager::Reset();
 		// BOXER-HOOK: shutdown-drive-clear - Clear the compatibility view
 		// after the upstream drive manager has released its objects.
 		Drives.fill(nullptr);

@@ -63,6 +63,8 @@ public:
 
 	static void InitializeDrive(int drive);
 	static int UnmountDrive(int drive);
+	// Clear runtime image queues at an emulator session boundary.
+	static void Reset();
 //	static void CycleDrive(bool pressed);
 //	static void CycleDisk(bool pressed);
 	static void CycleDisks(int drive, bool notify);
