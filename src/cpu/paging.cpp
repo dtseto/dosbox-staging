@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -56,6 +57,13 @@ uint32_t PageHandler::readd(PhysPt addr)
 	ret     |= (readb(addr+3) << 24);
 	return ret;
 }
+uint64_t PageHandler::readq(PhysPt addr) {
+    uint64_t ret = 0;
+    for (int i = 0; i < 8; ++i) {
+        ret |= static_cast<uint64_t>(readb(addr + i)) << (i * 8);
+    }
+    return ret;
+}
 
 void PageHandler::writeb(PhysPt addr, uint8_t /*val*/)
 {
@@ -74,13 +82,18 @@ void PageHandler::writed(PhysPt addr, uint32_t val)
 	writeb(addr+2,(uint8_t) (val >> 16));
 	writeb(addr+3,(uint8_t) (val >> 24));
 }
+void PageHandler::writeq(PhysPt addr, uint64_t val) {
+    for (int i = 0; i < 8; ++i) {
+        writeb(addr + i, static_cast<uint8_t>(val >> (i * 8)));
+    }
+}
 
 HostPt PageHandler::GetHostReadPt(Bitu /*phys_page*/) {
-	return 0;
+	return nullptr;
 }
 
 HostPt PageHandler::GetHostWritePt(Bitu /*phys_page*/) {
-	return 0;
+	return nullptr;
 }
 
 bool PageHandler::readb_checked(PhysPt addr, uint8_t *val)
@@ -98,6 +111,12 @@ bool PageHandler::readd_checked(PhysPt addr, uint32_t *val)
 	*val = readd(addr);
 	return false;
 }
+bool PageHandler::readq_checked(PhysPt addr, uint64_t* val)
+{
+	*val = readq(addr);
+	return false;
+}
+
 bool PageHandler::writeb_checked(PhysPt addr, uint8_t val)
 {
 	writeb(addr,val);	return false;
@@ -109,6 +128,11 @@ bool PageHandler::writew_checked(PhysPt addr, uint16_t val)
 bool PageHandler::writed_checked(PhysPt addr, uint32_t val)
 {
 	writed(addr,val);	return false;
+}
+bool PageHandler::writeq_checked(PhysPt addr, uint64_t val)
+{
+	writeq(addr, val);
+	return false;
 }
 
 struct PF_Entry {
@@ -136,9 +160,9 @@ static Bits PageFaultCore()
 	if (!pf_queue.used) E_Exit("PF Core without PF");
 	PF_Entry * entry=&pf_queue.entries[pf_queue.used-1];
 	X86PageEntry pentry;
-	pentry.load=phys_readd(entry->page_addr);
-	if (pentry.block.p && entry->cs == SegValue(cs) && entry->eip==reg_eip) {
-		cpu.mpl=entry->mpl;
+	pentry.set(phys_readd(entry->page_addr));
+	if (pentry.p && entry->cs == SegValue(cs) && entry->eip == reg_eip) {
+		cpu.mpl = entry->mpl;
 		return -1;
 	}
 	return 0;
@@ -187,24 +211,26 @@ static inline void InitPageCheckPresence(PhysPt lin_addr,bool writing,X86PageEnt
 	const auto d_index=lin_page >> 10;
 	const auto t_index=lin_page & 0x3ff;
 	const auto table_addr=(paging.base.page<<12)+d_index*4;
-	table.load=phys_readd(table_addr);
-	if (!table.block.p) {
-		LOG(LOG_PAGING,LOG_NORMAL)("NP Table");
+	table.set(phys_readd(table_addr));
+	if (!table.p) {
+		LOG(LOG_PAGING, LOG_NORMAL)("NP Table");
 		PAGING_PageFault(lin_addr,table_addr,
 			(writing?0x02:0x00) | (((cpu.cpl&cpu.mpl)==0)?0x00:0x04));
-		table.load=phys_readd(table_addr);
-		if (GCC_UNLIKELY(!table.block.p))
+		table.set(phys_readd(table_addr));
+		if (GCC_UNLIKELY(!table.p)) {
 			E_Exit("Pagefault didn't correct table");
+		}
 	}
-	const auto entry_addr=(table.block.base<<12)+t_index*4;
-	entry.load=phys_readd(entry_addr);
-	if (!entry.block.p) {
-//		LOG(LOG_PAGING,LOG_NORMAL)("NP Page");
+	const auto entry_addr = (table.base << 12) + t_index * 4;
+	entry.set(phys_readd(entry_addr));
+	if (!entry.p) {
+		//		LOG(LOG_PAGING,LOG_NORMAL)("NP Page");
 		PAGING_PageFault(lin_addr,entry_addr,
 			(writing?0x02:0x00) | (((cpu.cpl&cpu.mpl)==0)?0x00:0x04));
-		entry.load=phys_readd(entry_addr);
-		if (GCC_UNLIKELY(!entry.block.p))
+		entry.set(phys_readd(entry_addr));
+		if (GCC_UNLIKELY(!entry.p)) {
 			E_Exit("Pagefault didn't correct page");
+		}
 	}
 }
 			
@@ -213,17 +239,17 @@ static inline bool InitPageCheckPresence_CheckOnly(PhysPt lin_addr,bool writing,
 	const auto d_index=lin_page >> 10;
 	const auto t_index=lin_page & 0x3ff;
 	const auto table_addr=(paging.base.page<<12)+d_index*4;
-	table.load=phys_readd(table_addr);
-	if (!table.block.p) {
-		paging.cr2=lin_addr;
+	table.set(phys_readd(table_addr));
+	if (!table.p) {
+		paging.cr2         = lin_addr;
 		cpu.exception.which=EXCEPTION_PF;
 		cpu.exception.error=(writing?0x02:0x00) | (((cpu.cpl&cpu.mpl)==0)?0x00:0x04);
 		return false;
 	}
-	const auto entry_addr=(table.block.base<<12)+t_index*4;
-	entry.load=phys_readd(entry_addr);
-	if (!entry.block.p) {
-		paging.cr2=lin_addr;
+	const auto entry_addr = (table.base << 12) + t_index * 4;
+	entry.set(phys_readd(entry_addr));
+	if (!entry.p) {
+		paging.cr2         = lin_addr;
 		cpu.exception.which=EXCEPTION_PF;
 		cpu.exception.error=(writing?0x02:0x00) | (((cpu.cpl&cpu.mpl)==0)?0x00:0x04);
 		return false;
@@ -234,14 +260,14 @@ static inline bool InitPageCheckPresence_CheckOnly(PhysPt lin_addr,bool writing,
 // check if a user-level memory access would trigger a privilege page fault
 static inline bool InitPage_CheckUseraccess(uint32_t u1,uint32_t u2) {
 	switch (CPU_ArchitectureType) {
-	case CPU_ARCHTYPE_MIXED:
-	case CPU_ARCHTYPE_386SLOW:
-	case CPU_ARCHTYPE_386FAST:
+	case ArchitectureType::Mixed:
+	case ArchitectureType::Intel386Slow:
+	case ArchitectureType::Intel386Fast:
 	default:
 		return ((u1)==0) && ((u2)==0);
-	case CPU_ARCHTYPE_486OLDSLOW:
-	case CPU_ARCHTYPE_486NEWSLOW:
-	case CPU_ARCHTYPE_PENTIUMSLOW:
+	case ArchitectureType::Intel486OldSlow:
+	case ArchitectureType::Intel486NewSlow:
+	case ArchitectureType::PentiumSlow:
 		return ((u1)==0) || ((u2)==0);
 	}
 }
@@ -252,89 +278,121 @@ public:
 	InitPageHandler() {
 		flags=PFLAG_INIT|PFLAG_NOCODE;
 	}
-	uint8_t readb(PhysPt addr)
+	uint8_t readb(PhysPt addr) override
 	{
 		const auto needs_reset = InitPage(addr, false);
 		const auto val = mem_readb(addr);
 		InitPageUpdateLink(needs_reset, addr);
 		return val;
 	}
-	uint16_t readw(PhysPt addr)
+	uint16_t readw(PhysPt addr) override
 	{
 		const auto needs_reset = InitPage(addr, false);
 		const auto val = mem_readw(addr);
 		InitPageUpdateLink(needs_reset, addr);
 		return val;
 	}
-	uint32_t readd(PhysPt addr)
+	uint32_t readd(PhysPt addr) override
 	{
 		const auto needs_reset = InitPage(addr, false);
 		const auto val = mem_readd(addr);
 		InitPageUpdateLink(needs_reset, addr);
 		return val;
 	}
-	void writeb(PhysPt addr, uint8_t val)
+	uint64_t readq(PhysPt addr) override
+	{
+		const auto needs_reset = InitPage(addr, false);
+		const auto val         = mem_readq(addr);
+		InitPageUpdateLink(needs_reset, addr);
+		return val;
+	}
+	void writeb(PhysPt addr, uint8_t val) override
 	{
 		const auto needs_reset = InitPage(addr, true);
 		mem_writeb(addr, val);
 		InitPageUpdateLink(needs_reset,addr);
 	}
-	void writew(PhysPt addr, uint16_t val)
+	void writew(PhysPt addr, uint16_t val) override
 	{
 		const auto needs_reset = InitPage(addr, true);
 		mem_writew(addr, val);
 		InitPageUpdateLink(needs_reset,addr);
 	}
-	void writed(PhysPt addr, uint32_t val)
+	void writed(PhysPt addr, uint32_t val) override
 	{
 		const auto needs_reset = InitPage(addr, true);
 		mem_writed(addr, val);
 		InitPageUpdateLink(needs_reset,addr);
 	}
-	bool readb_checked(PhysPt addr, uint8_t *val)
+	void writeq(PhysPt addr, uint64_t val) override
+	{
+		const auto needs_reset = InitPage(addr, true);
+		mem_writeq(addr, val);
+		InitPageUpdateLink(needs_reset, addr);
+	}
+	bool readb_checked(PhysPt addr, uint8_t* val) override
 	{
 		if (InitPageCheckOnly(addr,false)) {
 			*val=mem_readb(addr);
 			return false;
 		} else return true;
 	}
-	bool readw_checked(PhysPt addr, uint16_t *val)
+	bool readw_checked(PhysPt addr, uint16_t *val) override
 	{
 		if (InitPageCheckOnly(addr,false)){
 			*val=mem_readw(addr);
 			return false;
 		} else return true;
 	}
-	bool readd_checked(PhysPt addr, uint32_t *val)
+	bool readd_checked(PhysPt addr, uint32_t *val) override
 	{
 		if (InitPageCheckOnly(addr,false)) {
 			*val=mem_readd(addr);
 			return false;
 		} else return true;
 	}
-	bool writeb_checked(PhysPt addr, uint8_t val)
+	bool readq_checked(PhysPt addr, uint64_t* val) override
+	{
+		if (InitPageCheckOnly(addr, false)) {
+			*val = mem_readq(addr);
+			return false;
+		} else {
+			return true;
+		}
+	}
+	bool writeb_checked(PhysPt addr, uint8_t val) override
 	{
 		if (InitPageCheckOnly(addr,true)) {
 			mem_writeb(addr,val);
 			return false;
 		} else return true;
 	}
-	bool writew_checked(PhysPt addr, uint16_t val)
+	bool writew_checked(PhysPt addr, uint16_t val) override
 	{
 		if (InitPageCheckOnly(addr,true)) {
 			mem_writew(addr,val);
 			return false;
 		} else return true;
 	}
-	bool writed_checked(PhysPt addr, uint32_t val)
+	bool writed_checked(PhysPt addr, uint32_t val) override
 	{
 		if (InitPageCheckOnly(addr,true)) {
 			mem_writed(addr,val);
 			return false;
 		} else return true;
 	}
-	uint32_t InitPage(uint32_t lin_addr,bool writing) {
-		const auto lin_page=lin_addr >> 12;
+	bool writeq_checked(PhysPt addr, uint64_t val) override
+	{
+		if (InitPageCheckOnly(addr, true)) {
+			mem_writeq(addr, val);
+			return false;
+		} else {
+			return true;
+		}
+	}
+	uint32_t InitPage(uint32_t lin_addr, bool writing)
+	{
+		const auto lin_page = lin_addr >> 12;
 		uint32_t phys_page;
 		if (paging.enabled) {
 			X86PageEntry table;
@@ -346,37 +404,37 @@ public:
 			// 2: can (but currently does not) fail a write privilege check
 			// 3: fails a privilege check
 			int priv_check=0;
-			if (InitPage_CheckUseraccess(entry.block.us,table.block.us)) {
+			if (InitPage_CheckUseraccess(entry.us, table.us)) {
 				if (USERWRITE_PROHIBITED) priv_check=3;
 				else {
 					switch (CPU_ArchitectureType) {
-					case CPU_ARCHTYPE_MIXED:
-					case CPU_ARCHTYPE_386FAST:
+					case ArchitectureType::Mixed:
+					case ArchitectureType::Intel386Fast:
 					default:
 //						priv_check=0;	// default
 						break;
-					case CPU_ARCHTYPE_386SLOW:
-					case CPU_ARCHTYPE_486OLDSLOW:
-					case CPU_ARCHTYPE_486NEWSLOW:
-					case CPU_ARCHTYPE_PENTIUMSLOW:
+					case ArchitectureType::Intel386Slow:
+					case ArchitectureType::Intel486OldSlow:
+					case ArchitectureType::Intel486NewSlow:
+					case ArchitectureType::PentiumSlow:
 						priv_check=1;
 						break;
 					}
 				}
 			}
-			if ((entry.block.wr==0) || (table.block.wr==0)) {
+			if ((entry.wr == 0) || (table.wr == 0)) {
 				// page is write-protected for user mode
 				if (priv_check==0) {
 					switch (CPU_ArchitectureType) {
-					case CPU_ARCHTYPE_MIXED:
-					case CPU_ARCHTYPE_386FAST:
+					case ArchitectureType::Mixed:
+					case ArchitectureType::Intel386Fast:
 					default:
 //						priv_check=0;	// default
 						break;
-					case CPU_ARCHTYPE_386SLOW:
-					case CPU_ARCHTYPE_486OLDSLOW:
-					case CPU_ARCHTYPE_486NEWSLOW:
-					case CPU_ARCHTYPE_PENTIUMSLOW:
+					case ArchitectureType::Intel386Slow:
+					case ArchitectureType::Intel486OldSlow:
+					case ArchitectureType::Intel486NewSlow:
+					case ArchitectureType::PentiumSlow:
 						priv_check=2;
 						break;
 					}
@@ -385,28 +443,42 @@ public:
 				if (writing && USERWRITE_PROHIBITED) priv_check=3;
 			}
 			if (priv_check==3) {
-				LOG(LOG_PAGING, LOG_NORMAL)("Page access denied: cpl=%i, %x:%x:%x:%x",
-				    static_cast<int>(cpu.cpl), entry.block.us, table.block.us, entry.block.wr, table.block.wr);
-				PAGING_PageFault(lin_addr,(table.block.base<<12)+(lin_page & 0x3ff)*4,0x05 | (writing?0x02:0x00));
-				priv_check=0;
+				LOG(LOG_PAGING, LOG_NORMAL)
+				("Page access denied: cpl=%i, %x:%x:%x:%x",
+				 static_cast<int>(cpu.cpl),
+				 entry.us,
+				 table.us,
+				 entry.wr,
+				 table.wr);
+				PAGING_PageFault(lin_addr,
+				                 (table.base << 12) +
+				                         (lin_page & 0x3ff) * 4,
+				                 0x05 | (writing ? 0x02 : 0x00));
+				priv_check = 0;
 			}
 
-			if (!table.block.a) {
-				table.block.a=1;		// set page table accessed
-				phys_writed((paging.base.page<<12)+(lin_page >> 10)*4,table.load);
+			if (!table.a) {
+				table.a = 1; // set page table accessed
+				phys_writed((paging.base.page << 12) +
+				                    (lin_page >> 10) * 4,
+				            table.get());
 			}
-			if ((!entry.block.a) || (!entry.block.d)) {
-				entry.block.a=1;		// set page accessed
+			if (!entry.a || !entry.d) {
+				entry.a = 1; // set page accessed
 
 				// page is dirty if we're writing to it, or if we're reading but the
 				// page will be fully linked so we can't track later writes
-				if (writing || (priv_check==0)) entry.block.d=1;		// mark page as dirty
+				if (writing || (priv_check == 0)) {
+					entry.d = 1; // mark page as dirty
+				}
 
-				phys_writed((table.block.base<<12)+(lin_page & 0x3ff)*4,entry.load);
+				phys_writed((table.base << 12) +
+				                    (lin_page & 0x3ff) * 4,
+				            entry.get());
 			}
 
-			phys_page=entry.block.base;
-			
+			phys_page = entry.base;
+
 			// now see how the page should be linked best, if we need to catch privilege
 			// checks later on it should be linked as read-only page
 			if (priv_check==0) {
@@ -445,10 +517,15 @@ public:
 
 			if (!USERWRITE_PROHIBITED) return true;
 
-			if (InitPage_CheckUseraccess(entry.block.us,table.block.us) ||
-					(((entry.block.wr==0) || (table.block.wr==0)) && writing)) {
-				LOG(LOG_PAGING, LOG_NORMAL)("Page access denied: cpl=%i, %x:%x:%x:%x",
-				    static_cast<int>(cpu.cpl), entry.block.us, table.block.us, entry.block.wr, table.block.wr);
+			if (InitPage_CheckUseraccess(entry.us, table.us) ||
+			    (((entry.wr == 0) || (table.wr == 0)) && writing)) {
+				LOG(LOG_PAGING, LOG_NORMAL)
+				("Page access denied: cpl=%i, %x:%x:%x:%x",
+				 static_cast<int>(cpu.cpl),
+				 entry.us,
+				 table.us,
+				 entry.wr,
+				 table.wr);
 				paging.cr2=lin_addr;
 				cpu.exception.which=EXCEPTION_PF;
 				cpu.exception.error=0x05 | (writing?0x02:0x00);
@@ -470,15 +547,19 @@ public:
 			X86PageEntry entry;
 			InitPageCheckPresence(lin_addr,false,table,entry);
 
-			if (!table.block.a) {
-				table.block.a=1;		//Set access
-				phys_writed((paging.base.page<<12)+(lin_page >> 10)*4,table.load);
+			if (!table.a) {
+				table.a = 1; // Set access
+				phys_writed((paging.base.page << 12) +
+				                    (lin_page >> 10) * 4,
+				            table.get());
 			}
-			if (!entry.block.a) {
-				entry.block.a=1;					//Set access
-				phys_writed((table.block.base<<12)+(lin_page & 0x3ff)*4,entry.load);
+			if (!entry.a) {
+				entry.a = 1; // Set access
+				phys_writed((table.base << 12) +
+				                    (lin_page & 0x3ff) * 4,
+				            entry.get());
 			}
-			phys_page=entry.block.base;
+			phys_page = entry.base;
 			// maybe use read-only page here if possible
 		} else {
 			if (lin_page<LINK_START) phys_page=paging.firstmb[lin_page];
@@ -493,22 +574,22 @@ public:
 	InitPageUserROHandler() {
 		flags=PFLAG_INIT|PFLAG_NOCODE;
 	}
-	void writeb(PhysPt addr, uint8_t val)
+	void writeb(PhysPt addr, uint8_t val) override
 	{
 		InitPage(addr, val);
 		host_writeb(get_tlb_read(addr) + addr, val);
 	}
-	void writew(PhysPt addr, uint16_t val)
+	void writew(PhysPt addr, uint16_t val) override
 	{
 		InitPage(addr, val);
 		host_writew(get_tlb_read(addr) + addr, val);
 	}
-	void writed(PhysPt addr, uint32_t val)
+	void writed(PhysPt addr, uint32_t val) override
 	{
 		InitPage(addr, val);
 		host_writed(get_tlb_read(addr) + addr, val);
 	}
-	bool writeb_checked(PhysPt addr, uint8_t val)
+	bool writeb_checked(PhysPt addr, uint8_t val) override
 	{
 		const auto writecode = InitPageCheckOnly(addr, val);
 		if (writecode) {
@@ -520,7 +601,7 @@ public:
 		}
 		return true;
 	}
-	bool writew_checked(PhysPt addr, uint16_t val)
+	bool writew_checked(PhysPt addr, uint16_t val) override
 	{
 		const auto writecode = InitPageCheckOnly(addr, val);
 		if (writecode) {
@@ -532,7 +613,7 @@ public:
 		}
 		return true;
 	}
-	bool writed_checked(PhysPt addr, uint32_t val)
+	bool writed_checked(PhysPt addr, uint32_t val) override
 	{
 		const auto writecode = InitPageCheckOnly(addr, val);
 		if (writecode) {
@@ -554,20 +635,31 @@ public:
 			X86PageEntry entry;
 			InitPageCheckPresence(lin_addr,true,table,entry);
 
-			LOG(LOG_PAGING, LOG_NORMAL)("Page access denied: cpl=%i, %x:%x:%x:%x",
-			    static_cast<int>(cpu.cpl), entry.block.us, table.block.us, entry.block.wr, table.block.wr);
-			PAGING_PageFault(lin_addr,(table.block.base<<12)+(lin_page & 0x3ff)*4,0x07);
+			LOG(LOG_PAGING, LOG_NORMAL)
+			("Page access denied: cpl=%i, %x:%x:%x:%x",
+			 static_cast<int>(cpu.cpl),
+			 entry.us,
+			 table.us,
+			 entry.wr,
+			 table.wr);
+			PAGING_PageFault(lin_addr,
+			                 (table.base << 12) + (lin_page & 0x3ff) * 4,
+			                 0x07);
 
-			if (!table.block.a) {
-				table.block.a=1;		//Set access
-				phys_writed((paging.base.page<<12)+(lin_page >> 10)*4,table.load);
+			if (!table.a) {
+				table.a = 1; // Set access
+				phys_writed((paging.base.page << 12) +
+				                    (lin_page >> 10) * 4,
+				            table.get());
 			}
-			if ((!entry.block.a) || (!entry.block.d)) {
-				entry.block.a=1;	//Set access
-				entry.block.d=1;	//Set dirty
-				phys_writed((table.block.base<<12)+(lin_page & 0x3ff)*4,entry.load);
+			if ((!entry.a) || (!entry.d)) {
+				entry.a = 1; // Set access
+				entry.d = 1; // Set dirty
+				phys_writed((table.base << 12) +
+				                    (lin_page & 0x3ff) * 4,
+				            entry.get());
 			}
-			phys_page=entry.block.base;
+			phys_page = entry.base;
 			PAGING_LinkPage(lin_page,phys_page);
 		} else {
 			if (lin_page<LINK_START) phys_page=paging.firstmb[lin_page];
@@ -584,15 +676,21 @@ public:
 			X86PageEntry entry;
 			if (!InitPageCheckPresence_CheckOnly(lin_addr,true,table,entry)) return 0;
 
-			if (InitPage_CheckUseraccess(entry.block.us,table.block.us) || (((entry.block.wr==0) || (table.block.wr==0)))) {
-				LOG(LOG_PAGING, LOG_NORMAL)("Page access denied: cpl=%i, %x:%x:%x:%x",
-				    static_cast<int>(cpu.cpl), entry.block.us, table.block.us, entry.block.wr, table.block.wr);
+			if (InitPage_CheckUseraccess(entry.us, table.us) ||
+			    (((entry.wr == 0) || (table.wr == 0)))) {
+				LOG(LOG_PAGING, LOG_NORMAL)
+				("Page access denied: cpl=%i, %x:%x:%x:%x",
+				 static_cast<int>(cpu.cpl),
+				 entry.us,
+				 table.us,
+				 entry.wr,
+				 table.wr);
 				paging.cr2=lin_addr;
 				cpu.exception.which=EXCEPTION_PF;
 				cpu.exception.error=0x07;
 				return 0;
 			}
-			PAGING_LinkPage(lin_page,entry.block.base);
+			PAGING_LinkPage(lin_page, entry.base);
 		} else {
 			uint32_t phys_page;
 			if (lin_page<LINK_START) phys_page=paging.firstmb[lin_page];
@@ -609,15 +707,19 @@ public:
 			X86PageEntry entry;
 			InitPageCheckPresence(lin_addr,true,table,entry);
 
-			if (!table.block.a) {
-				table.block.a=1;		//Set access
-				phys_writed((paging.base.page<<12)+(lin_page >> 10)*4,table.load);
+			if (!table.a) {
+				table.a = 1; // Set access
+				phys_writed((paging.base.page << 12) +
+				                    (lin_page >> 10) * 4,
+				            table.get());
 			}
-			if (!entry.block.a) {
-				entry.block.a=1;	//Set access
-				phys_writed((table.block.base<<12)+(lin_page & 0x3ff)*4,entry.load);
+			if (!entry.a) {
+				entry.a = 1; // Set access
+				phys_writed((table.base << 12) +
+				                    (lin_page & 0x3ff) * 4,
+				            entry.get());
 			}
-			phys_page=entry.block.base;
+			phys_page = entry.base;
 		} else {
 			if (lin_page<LINK_START) phys_page=paging.firstmb[lin_page];
 			else phys_page=lin_page;
@@ -633,12 +735,16 @@ bool PAGING_MakePhysPage(Bitu & page) {
 		uint32_t d_index=page >> 10;
 		uint32_t t_index=page & 0x3ff;
 		X86PageEntry table;
-		table.load=phys_readd((paging.base.page<<12)+d_index*4);
-		if (!table.block.p) return false;
+		table.set(phys_readd((paging.base.page << 12) + d_index * 4));
+		if (!table.p) {
+			return false;
+		}
 		X86PageEntry entry;
-		entry.load=phys_readd((table.block.base<<12)+t_index*4);
-		if (!entry.block.p) return false;
-		page=entry.block.base;
+		entry.set(phys_readd((table.base << 12) + t_index * 4));
+		if (!entry.p) {
+			return false;
+		}
+		page = entry.base;
 	} else {
 		if (page<LINK_START) page=paging.firstmb[page];
 		//Else keep it the same

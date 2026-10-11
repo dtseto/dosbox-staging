@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -41,11 +41,12 @@
 #include <cstring>
 #endif
 
+#include "channel_names.h"
 #include "drives.h"
 #include "fs_utils.h"
+#include "math_utils.h"
 #include "setup.h"
 #include "string_utils.h"
-#include "math_utils.h"
 
 using namespace std;
 
@@ -57,6 +58,9 @@ using namespace std;
 using track_iter       = vector<CDROM_Interface_Image::Track>::iterator;
 using track_const_iter = vector<CDROM_Interface_Image::Track>::const_iterator;
 using tracks_size_t    = vector<CDROM_Interface_Image::Track>::size_type;
+
+// Ensure the maximum allowed redbook bytes stays within the API type sizes
+static_assert(MAX_REDBOOK_BYTES <= UINT32_MAX);
 
 // Report bad seeks that would go beyond the end of the track
 bool CDROM_Interface_Image::TrackFile::offsetInsideTrack(const uint32_t offset)
@@ -494,14 +498,14 @@ CDROM_Interface_Image::CDROM_Interface_Image(uint8_t sub_unit)
 
 			player.channel = MIXER_AddChannel(mixer_callback,
 			                                  use_mixer_rate,
-			                                  "CDAUDIO",
+			                                  ChannelName::CdAudio,
 			                                  {ChannelFeature::Stereo,
 			                                   ChannelFeature::DigitalAudio});
 
 			player.channel->Enable(false); // only enabled during playback periods
 		}
 #ifdef DEBUG
-		LOG_MSG("CDROM: Initialized the CDAUDIO audio channel");
+		LOG_MSG("CDROM: Initialised the %s audio channel", ChannelName::CdAudio);
 #endif
 	}
 	refCount++;
@@ -637,6 +641,7 @@ bool CDROM_Interface_Image::GetAudioSub(unsigned char& attr,
 		 // reserve the track_file as a shared_ptr to avoid deletion in another thread
 		const auto track_file = player.trackFile.lock();
 		if (track_file) {
+			LagDriveResponse();
 			const uint32_t sample_rate = track_file->getRate();
 			const uint32_t played_frames = ceil_udivide(player.playedTrackFrames
 			                               * REDBOOK_FRAMES_PER_SECOND, sample_rate);
@@ -809,8 +814,9 @@ bool CDROM_Interface_Image::PlayAudioSector(uint32_t start, uint32_t len)
 bool CDROM_Interface_Image::PauseAudio(bool resume)
 {
 	player.isPaused = !resume;
-	if (player.channel)
+	if (player.channel) {
 		player.channel->Enable(resume);
+	}
 #ifdef DEBUG
 	LOG_MSG("CDROM: PauseAudio => audio is now %s",
 	        resume ? "unpaused" : "paused");
@@ -822,8 +828,9 @@ bool CDROM_Interface_Image::StopAudio(void)
 {
 	player.isPlaying = false;
 	player.isPaused = false;
-	if (player.channel)
+	if (player.channel) {
 		player.channel->Enable(false);
+	}
 #ifdef DEBUG
 	LOG_MSG("CDROM: StopAudio => stopped playback and halted the mixer");
 #endif
@@ -841,12 +848,12 @@ void CDROM_Interface_Image::ChannelControl(TCtrl ctrl)
 		return;
 	}
 	// Adjust the volume of our mixer channel as defined by the application
-	player.channel->SetAppVolume(ctrl.vol[0] / 255.0f, ctrl.vol[1] / 255.0f);
+	player.channel->SetAppVolume({ctrl.vol[0] / 255.0f, ctrl.vol[1] / 255.0f});
 
 	// Map the audio channels in our mixer channel as defined by the application
-	const auto left_mapped = static_cast<LINE_INDEX>(ctrl.out[0]);
-	const auto right_mapped = static_cast<LINE_INDEX>(ctrl.out[1]);
-	player.channel->ChangeChannelMap(left_mapped, right_mapped);
+	const auto left_mapped = static_cast<LineIndex>(ctrl.out[0]);
+	const auto right_mapped = static_cast<LineIndex>(ctrl.out[1]);
+	player.channel->SetChannelMap({left_mapped, right_mapped});
 
 #ifdef DEBUG
 	LOG_MSG("CDROM: ChannelControl => volumes %d/255 and %d/255, "
@@ -1068,9 +1075,9 @@ bool CDROM_Interface_Image::LoadIsoFile(char* filename)
 	tracks.clear();
 
 	// data track (track 1)
-	Track track;
-	bool error;
-	track.file = make_shared<BinaryFile>(filename, error);
+	Track track = {};
+	bool error  = false;
+	track.file  = make_shared<BinaryFile>(filename, error);
 
 	if (error) {
 		return false;
@@ -1407,7 +1414,7 @@ bool CDROM_Interface_Image::GetRealFileName(string &filename, string &pathname)
 		return false;
 	}
 
-	localDrive *ldp = dynamic_cast<localDrive*>(Drives[drive]);
+	const auto ldp = dynamic_cast<localDrive*>(Drives.at(drive));
 	if (ldp) {
 		ldp->GetSystemFilename(tmp, fullname);
 		if (path_exists(tmp)) {
@@ -1460,9 +1467,10 @@ void CDROM_Image_Destroy(Section*) {
 	Sound_Quit();
 }
 
-void CDROM_Image_Init(Section* sec) {
+void CDROM_Image_Init(Section* sec)
+{
 	if (sec != nullptr) {
-		sec->AddDestroyFunction(CDROM_Image_Destroy, false);
+		sec->AddDestroyFunction(CDROM_Image_Destroy);
 	}
 	Sound_Init();
 }

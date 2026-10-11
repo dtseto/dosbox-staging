@@ -22,6 +22,7 @@
 #include "dosbox.h"
 
 #include <algorithm>
+#include <cassert>
 #include <vector>
 
 #ifndef DOSBOX_INOUT_H
@@ -47,6 +48,9 @@
 #if SERIAL_DEBUG
 #include "hardware.h"
 #endif
+
+constexpr uint32_t SerialMinBaudRate = 300u;
+constexpr uint32_t SerialMaxBaudRate = 115200u;
 
 // Serial port interface
 #define SERIAL_IO_HANDLERS 8
@@ -165,7 +169,7 @@ public:
 	bool dbg_register = false;
 	bool dbg_interrupt = false;
 	bool dbg_aux = false;
-	void log_ser(bool active, char const *format, ...);
+	void log_ser(bool active, const char* format, ...);
 #endif
 
 	static bool getUintFromString(const char *name,
@@ -289,6 +293,8 @@ public:
 	bool Putchar(uint8_t data, bool wait_dtr, bool wait_rts, uint32_t timeout);
 	bool Getchar(uint8_t *data, uint8_t *lsr, bool wait_dsr, uint32_t timeout);
 	uint8_t GetPortNumber() const { return port_index + 1; }
+
+	uint32_t GetPortBaudRate() const;
 
 	// What type of port is this?
 	SERIAL_PORT_TYPE serialType = SERIAL_PORT_TYPE::DISABLED;
@@ -487,12 +493,12 @@ public:
 	// Creates a COM device that communicates with the num-th parallel port,
 	// i.e. is LPTnum
 	device_COM(class CSerial* sc);
-	~device_COM();
-	bool Read(uint8_t *data, uint16_t *size);
-	bool Write(uint8_t *data, uint16_t *size);
-	bool Seek(uint32_t *pos, uint32_t type);
-	bool Close();
-	uint16_t GetInformation();
+	~device_COM() override;
+	bool Read(uint8_t* data, uint16_t* size) override;
+	bool Write(uint8_t* data, uint16_t* size) override;
+	bool Seek(uint32_t* pos, uint32_t type) override;
+	bool Close() override;
+	uint16_t GetInformation() override;
 
 private:
 	CSerial *sclass = nullptr;

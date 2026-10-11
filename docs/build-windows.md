@@ -1,6 +1,8 @@
+# Building on Windows
+
 Windows builds can be created using:
 
-- MSVC compiler, Visual Studio 2019 IDE suite, and vcpkg to provide dependencies
+- MSVC compiler, Visual Studio 2022 IDE suite, and vcpkg to provide dependencies
   *(recommended)*.
 - The Clang or GCC compilers using the Meson buildsystem running within the
   MSYS2 environment to provide dependencies.
@@ -8,7 +10,7 @@ Windows builds can be created using:
 
 ## Build using Visual Studio
 
-1. Install Visual Studio Community 2019: <https://visualstudio.microsoft.com/>.
+1. Install Visual Studio Community 2022: <https://visualstudio.microsoft.com/>.
 2. Install vcpkg: <https://github.com/Microsoft/vcpkg#quick-start-windows>.
 3. Follow instructions in [README.md](/README.md).
 
@@ -38,10 +40,11 @@ you build a binary optimized for gaming.
     ```
 
 4. Update the pacman database and packages:
-    - Open an MSYS2 console from your start menu.
-    - Run `pacman -Syu`, answer `Y`, and let it run to completion.
-    - Close your terminal when it's done.
-    - Re-open the terminal and repeat the process.
+
+   - Open an MSYS2 console from your start menu.
+   - Run `pacman -Syu`, answer `Y`, and let it run to completion.
+   - Close your terminal when it's done.
+   - Re-open the terminal and repeat the process one last time: Run `pacman -Syu`, answer `Y`, and let it run to completion.
 
 5. Install the GCC and Clang runtime groups:
 
@@ -49,6 +52,7 @@ you build a binary optimized for gaming.
    the GCC and Clang runtime groups along with Staging's dependencies.
 
     ``` shell
+    cd dosbox-staging
     pacman -R clang
     pacman -R gcc
     pacman -S $(cat packages/windows-msys2-clang-x86_64.txt packages/windows-msys2-gcc-x86_64.txt)
@@ -58,8 +62,8 @@ you build a binary optimized for gaming.
 
 6. Open a toolchain-specific MinGW terminal:
 
-    - **GCC**: _Start Menu > Programs > MSYS2 > MSYS2 MinGW x64_
-    - **Clang**: _Start Menu > Programs > MSYS2 > MSYS2 MinGW Clang x64_
+   - **GCC**: _Start Menu > Programs > MSYS2 > MSYS2 MinGW x64_
+   - **Clang**: _Start Menu > Programs > MSYS2 > MSYS2 MinGW Clang x64_
 
    You can then use those specific toolchains within the
    respecitive terminal.
@@ -75,6 +79,12 @@ you build a binary optimized for gaming.
    ``` shell
    meson setup build/release-clang --native-file=.github/meson/native-clang.ini
    ```
+
+   If building for Vista use instead:
+
+   ``` shell
+   meson setup -Duse_fluidsynth=false -Duse_slirp=false build/release-clang --native-file=.github/meson/native-clang.ini
+   ```   
 
 9. Compile:
 

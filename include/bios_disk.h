@@ -73,7 +73,7 @@ public:
 	uint32_t sector_size;
 	uint32_t heads,cylinders,sectors;
 private:
-	uint32_t current_fpos;
+	cross_off_t current_fpos;
 	enum { NONE,READ,WRITE } last_action;
 };
 
@@ -84,8 +84,10 @@ void incrementFDD(void);
 
 #define MAX_DISK_IMAGES (2 + MAX_HDD_IMAGES)
 
-extern std::array<std::shared_ptr<imageDisk>, MAX_DISK_IMAGES> imageDiskList;
-extern std::array<std::shared_ptr<imageDisk>, MAX_SWAPPABLE_DISKS> diskSwap;
+// Merely pointers. The actual raw image objects are managed by the drive
+// manager class.
+extern std::array<imageDisk*, MAX_DISK_IMAGES> imageDiskList;
+extern std::array<imageDisk*, MAX_SWAPPABLE_DISKS> diskSwap;
 
 extern uint16_t imgDTASeg; /* Real memory location of temporary DTA pointer for fat image disk access */
 extern RealPt imgDTAPtr; /* Real memory location of temporary DTA pointer for fat image disk access */

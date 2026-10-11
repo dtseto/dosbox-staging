@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -62,7 +63,7 @@ using callback_number_t = uint8_t;
 #define CB_SEG		0xF000
 #define CB_SOFFSET	0x1000
 
-enum {	
+enum {
 	CBRET_NONE=0,CBRET_STOP=1
 };
 
@@ -70,11 +71,13 @@ extern uint8_t lastint;
 
 static inline RealPt CALLBACK_RealPointer(callback_number_t cb_number)
 {
-	return RealMake(CB_SEG, (uint16_t)(CB_SOFFSET + cb_number * CB_SIZE));
+	const auto offset = CB_SOFFSET + cb_number * CB_SIZE;
+	return RealMake(CB_SEG, static_cast<uint16_t>(offset));
 }
 static inline PhysPt CALLBACK_PhysPointer(callback_number_t cb_number)
 {
-	return PhysMake(CB_SEG, (uint16_t)(CB_SOFFSET + cb_number * CB_SIZE));
+	const auto offset = CB_SOFFSET + cb_number * CB_SIZE;
+	return PhysicalMake(CB_SEG, static_cast<uint16_t>(offset));
 }
 
 static inline PhysPt CALLBACK_GetBase(void) {
@@ -126,7 +129,7 @@ public:
 	void Uninstall();
 
 	//Only allocate a callback number
-	void Allocate(CallBack_Handler handler,const char* description=0);
+	void Allocate(CallBack_Handler handler,const char* description=nullptr);
 	uint16_t Get_callback() {
 		return m_cb_number;
 	}

@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,7 +36,8 @@
 
 #include "mame/emu.h"
 #include "mame/saa1099.h"
-#include "../libs/residfp/resample/TwoPassSincResampler.h"
+
+#include "residfp/resample/TwoPassSincResampler.h"
 
 class GameBlaster {
 public:

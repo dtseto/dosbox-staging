@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2011-2011  ripa, from vogons.org
  *  Copyright (C) 2002-2019  The DOSBox Team
  *
@@ -290,7 +290,7 @@ void PcSpeakerImpulse::SetCounter(const int cntr, const PitMode pit_mode)
 
 	default:
 #ifdef SPKR_DEBUGGING
-		LOG_WARNING("Unhandled speaker PIT mode: %s at %f", pit_mode_to_string(pit_mode), PIC_FullIndex());
+		LOG_WARNING("PCSPEAKER: Unhandled speaker PIT mode: '%s' at %f", pit_mode_to_string(pit_mode), PIC_FullIndex());
 #endif
 		return;
 	}
@@ -505,7 +505,7 @@ void PcSpeakerImpulse::SetFilterState(const FilterState filter_state)
 	}
 }
 
-bool PcSpeakerImpulse::TryParseAndSetCustomFilter(const std::string &filter_choice)
+bool PcSpeakerImpulse::TryParseAndSetCustomFilter(const std::string_view filter_choice)
 {
 	assert(channel);
 	return channel->TryParseAndSetCustomFilter(filter_choice);
@@ -538,7 +538,7 @@ PcSpeakerImpulse::PcSpeakerImpulse()
 	                            ChannelFeature::Synthesizer});
 	assert(channel);
 
-	LOG_MSG("%s: Initialized %s model", device_name, model_name);
+	LOG_MSG("%s: Initialised %s model", device_name, model_name);
 
 	channel->SetPeakAmplitude(static_cast<uint32_t>(positive_amplitude));
 }

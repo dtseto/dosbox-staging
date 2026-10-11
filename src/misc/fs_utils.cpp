@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,14 +20,43 @@
 
 #include "fs_utils.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cerrno>
 #include <chrono>
+#include <cstring>
 #include <fstream>
 
 #include "checks.h"
+#include "dos_inc.h"
+#include "dos_system.h"
 #include "std_filesystem.h"
 
 CHECK_NARROWING();
+
+bool check_fseek(const char* module_name, const char* file_description,
+                 const char* filename, FILE*& stream, const long long offset,
+                 const int whence)
+{
+	assert(stream);
+	if (cross_fseeko(stream, offset, whence) == 0) {
+		return true;
+	}
+
+	assert(module_name);
+	assert(file_description);
+	assert(filename);
+	LOG_ERR("%s: Failed seeking to byte %lld in %s file '%s': %s",
+	        module_name,
+	        offset,
+	        file_description,
+	        filename,
+	        strerror(errno));
+
+	fclose(stream);
+	stream = nullptr;
+	return false;
+}
 
 bool is_directory(const std::string& candidate)
 {
@@ -41,6 +70,28 @@ bool is_directory(const std::string& candidate)
 	}
 	// If it's not a symlink then we can check it directly ..
 	return std_fs::is_directory(p, ec);
+}
+
+bool is_hidden_by_host(const std_fs::path& pathname)
+{
+	assert(!pathname.empty());
+	const auto filename = pathname.filename().string();
+
+	// Filenames that don't start with dot or are the two directory entries
+	// are not hidden by the host
+	if (filename.find('.') != 0 || filename == "." || filename == "..") {
+		return false;
+	}
+
+	assert(filename[0] == '.');
+	const auto extension = pathname.extension().string();
+
+	// Consider the file hidden by the host so long as the filename starts
+	// with a dot *and* has an extension longer that DOS's three characters
+	// or uses any lower-case characters.
+
+	return extension.length() > DOS_EXTLENGTH ||
+	       std::any_of(filename.begin(), filename.end(), islower);
 }
 
 // return the lines from the given text file or an empty optional
@@ -118,4 +169,15 @@ std::time_t to_time_t(const std_fs::file_time_type &fs_time)
 	        fs_time - fs_datum + fs_to_sys_delta);
 
 	return system_clock::to_time_t(sys_time);
+}
+
+// ***************************************************************************
+// Local drive file/directory attribute handling
+// ***************************************************************************
+
+uint16_t local_drive_create_dir(const std_fs::path& path)
+{
+	const auto result = create_dir(path.c_str(), 0775);
+
+	return (result == 0) ? DOSERR_NONE : DOSERR_ACCESS_DENIED;
 }

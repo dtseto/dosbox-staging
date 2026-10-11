@@ -52,24 +52,42 @@ install_doc()
     # Install common documentation files
     case $platform in
         linux)
-            install_file docs/README.template "${pkg_dir}/README"
-            install_file COPYING              "${pkg_dir}/COPYING"
-            install_file README               "${pkg_dir}/doc/manual.txt"
-            install_file docs/dosbox.1        "${pkg_dir}/man/dosbox.1"
+            install_file docs/README.template      "${pkg_dir}/README"
+            install_file LICENSE                   "${pkg_dir}/LICENSE"
+            install_file README                    "${pkg_dir}/doc/manual.txt"
+            install_file docs/dosbox.1             "${pkg_dir}/man/dosbox.1"
+            install_file licenses/BSD-2-Clause.txt "${pkg_dir}/doc/licenses/BSD-2-Clause.txt"
+            install_file licenses/BSD-3-Clause.txt "${pkg_dir}/doc/licenses/BSD-3-Clause.txt"
+            install_file licenses/GPL-2.0.txt      "${pkg_dir}/doc/licenses/GPL-2.0.txt"
+            install_file licenses/LGPL-2.1.txt     "${pkg_dir}/doc/licenses/LGPL-2.1.txt"
+            install_file licenses/MIT.txt          "${pkg_dir}/doc/licenses/MIT.txt"
+            install_file licenses/Zlib.txt         "${pkg_dir}/doc/licenses/Zlib.txt"
             readme_tmpl="${pkg_dir}/README"
             ;;
         macos)
-            install_file docs/README.template "${macos_content_dir}/SharedSupport/README"
-            install_file COPYING              "${macos_content_dir}/SharedSupport/COPYING"
-            install_file README               "${macos_content_dir}/SharedSupport/manual.txt"
-            install_file docs/README.video    "${macos_content_dir}/SharedSupport/video.txt"
+            install_file docs/README.template      "${macos_content_dir}/SharedSupport/README"
+            install_file LICENSE                   "${macos_content_dir}/SharedSupport/LICENSE"
+            install_file README                    "${macos_content_dir}/SharedSupport/manual.txt"
+            install_file docs/README.video         "${macos_content_dir}/SharedSupport/video.txt"
+            install_file licenses/BSD-2-Clause.txt "${macos_content_dir}/doc/licenses/BSD-2-Clause.txt"
+            install_file licenses/BSD-3-Clause.txt "${macos_content_dir}/doc/licenses/BSD-3-Clause.txt"
+            install_file licenses/GPL-2.0.txt      "${macos_content_dir}/doc/licenses/GPL-2.0.txt"
+            install_file licenses/LGPL-2.1.txt     "${macos_content_dir}/doc/licenses/LGPL-2.1.txt"
+            install_file licenses/MIT.txt          "${macos_content_dir}/doc/licenses/MIT.txt"
+            install_file licenses/Zlib.txt         "${macos_content_dir}/doc/licenses/Zlib.txt"
             readme_tmpl="${macos_content_dir}/SharedSupport/README"
             ;;
         msys2|msvc)
-            install_file COPYING              "${pkg_dir}/COPYING.txt"
-            install_file docs/README.template "${pkg_dir}/README.txt"
-            install_file docs/README.video    "${pkg_dir}/doc/video.txt"
-            install_file README               "${pkg_dir}/doc/manual.txt"
+            install_file docs/README.template      "${pkg_dir}/README.txt"
+            install_file LICENSE                   "${pkg_dir}/LICENSE.txt"
+            install_file docs/README.video         "${pkg_dir}/doc/video.txt"
+            install_file README                    "${pkg_dir}/doc/manual.txt"
+            install_file licenses/BSD-2-Clause.txt "${pkg_dir}/doc/licenses/BSD-2-Clause.txt"
+            install_file licenses/BSD-3-Clause.txt "${pkg_dir}/doc/licenses/BSD-3-Clause.txt"
+            install_file licenses/GPL-2.0.txt      "${pkg_dir}/doc/licenses/GPL-2.0.txt"
+            install_file licenses/LGPL-2.1.txt     "${pkg_dir}/doc/licenses/LGPL-2.1.txt"
+            install_file licenses/MIT.txt          "${pkg_dir}/doc/licenses/MIT.txt"
+            install_file licenses/Zlib.txt         "${pkg_dir}/doc/licenses/Zlib.txt"
             readme_tmpl="${pkg_dir}/README.txt"
             ;;
     esac
@@ -120,6 +138,8 @@ pkg_linux()
     install -DT "${build_dir}/dosbox" "${pkg_dir}/dosbox"
 
     install -DT contrib/linux/dosbox-staging.desktop "${pkg_dir}/desktop/dosbox-staging.desktop"
+    install -DT contrib/linux/install-icons.sh "${pkg_dir}/install-icons.sh"
+
     DESTDIR="$(realpath "$pkg_dir")" make -C contrib/icons/ install datadir=
 }
 
@@ -139,27 +159,28 @@ pkg_macos()
     mkdir dosbox-universal
     lipo dosbox-x86_64/dosbox dosbox-arm64/dosbox -create -output dosbox-universal/dosbox
 
-    # Generate icon
-    make -C contrib/icons/ dosbox-staging.icns
-
     install -d   "${macos_content_dir}/MacOS/"
-    install      dosbox-universal/dosbox           "${macos_content_dir}/MacOS/"
-    install_file contrib/macos/Info.plist.template "${macos_content_dir}/Info.plist"
-    install_file contrib/macos/PkgInfo             "${macos_content_dir}/PkgInfo"
-    install_file contrib/icons/dosbox-staging.icns "${macos_content_dir}/Resources/"
+    install      dosbox-universal/dosbox                 "${macos_content_dir}/MacOS/"
+    install_file contrib/macos/Info.plist.template       "${macos_content_dir}/Info.plist"
+    install_file contrib/macos/PkgInfo                   "${macos_content_dir}/PkgInfo"
+    install_file contrib/icons/macos/dosbox-staging.icns "${macos_content_dir}/Resources/"
 
     sed -i -e "s|%VERSION%|${dbox_version}|"       "${macos_content_dir}/Info.plist"
 
-	# Install "Start DOSBox Staging" command
+	# Install start commands
 	start_command="Start DOSBox Staging.command"
-	install -m 755 "contrib/macos/${start_command}" "${macos_dist_dir}/${start_command}"
+	start_logging_command="Start DOSBox Staging (logging).command"
+	install -m 755 "contrib/macos/${start_command}"         "${macos_dist_dir}/${start_command}"
+	install -m 755 "contrib/macos/${start_logging_command}" "${macos_dist_dir}/${start_logging_command}"
 
-	# Hide extension in Finder
-	xattr -x -w com.apple.FinderInfo "00 00 00 00 00 00 00 00 00 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00" "${macos_dist_dir}/${start_command}"
+	# Hide command extensions in Finder
+	file_attr="00 00 00 00 00 00 00 00 00 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+	xattr -x -w com.apple.FinderInfo "$file_attr" "${macos_dist_dir}/${start_command}"
+	xattr -x -w com.apple.FinderInfo "$file_attr" "${macos_dist_dir}/${start_logging_command}"
 
 	# Set up visual appearance of the root folder of the DMG image
 	install_file contrib/macos/background/background.tiff "${macos_dist_dir}/.hidden/background.tiff"
-	install_file contrib/macos/DS_Store            "${macos_dist_dir}/.DS_Store"
+	install_file contrib/macos/DS_Store "${macos_dist_dir}/.DS_Store"
 }
 
 pkg_msys2()

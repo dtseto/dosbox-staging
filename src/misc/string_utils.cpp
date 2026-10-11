@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,8 +28,9 @@
 bool is_hex_digits(const std::string_view s) noexcept
 {
 	for (const auto ch : s) {
-		if (!isxdigit(ch))
+		if (!isxdigit(ch)) {
 			return false;
+		}
 	}
 	return true;
 }
@@ -50,6 +51,10 @@ void strreplace(char *str, char o, char n)
 			*str = n;
 		str++;
 	}
+}
+
+void ltrim(std::string &str) {
+    str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](int c) {return !isspace(c);}));
 }
 
 char *ltrim(char *str)
@@ -121,7 +126,7 @@ void trim(std::string &str, const char trim_chars[])
 	str.erase(0, empty_pfx);
 }
 
-std::vector<std::string> split(const std::string &seq, const char delim)
+std::vector<std::string> split_with_empties(const std::string_view seq, const char delim)
 {
 	std::vector<std::string> words;
 	if (seq.empty())
@@ -148,30 +153,29 @@ std::vector<std::string> split(const std::string &seq, const char delim)
 	return words;
 }
 
-std::vector<std::string> split(const std::string &seq)
+std::vector<std::string> split(const std::string_view seq, const std::string_view delims)
 {
 	std::vector<std::string> words;
-	if (seq.empty())
+	if (seq.empty()) {
 		return words;
-
-	constexpr auto whitespace = " \f\n\r\t\v";
+	}
 
 	// count words to reserve space in our vector
 	size_t n  = 0;
-	auto head = seq.find_first_not_of(whitespace, 0);
+	auto head = seq.find_first_not_of(delims, 0);
 	while (head != std::string::npos) {
-		const auto tail = seq.find_first_of(whitespace, head);
-		head            = seq.find_first_not_of(whitespace, tail);
+		const auto tail = seq.find_first_of(delims, head);
+		head            = seq.find_first_not_of(delims, tail);
 		++n;
 	}
 	words.reserve(n);
 
 	// populate the vector with the words
-	head = seq.find_first_not_of(whitespace, 0);
+	head = seq.find_first_not_of(delims, 0);
 	while (head != std::string::npos) {
-		const auto tail = seq.find_first_of(whitespace, head);
+		const auto tail = seq.find_first_of(delims, head);
 		words.emplace_back(seq.substr(head, tail - head));
-		head = seq.find_first_not_of(whitespace, tail);
+		head = seq.find_first_not_of(delims, tail);
 	}
 
 	// did we reserve the exact space needed?
@@ -180,17 +184,64 @@ std::vector<std::string> split(const std::string &seq)
 	return words;
 }
 
+std::string join_with_commas(const std::vector<std::string>& items,
+                             const std::string_view and_conjunction,
+                             const std::string_view end_punctuation)
+{
+	const auto num_items = items.size();
+
+	std::string result = {};
+
+	const auto and_pair = std::string(" ") + and_conjunction.data() + " ";
+	const auto and_multi = std::string(", ") + and_conjunction.data() + " ";
+
+	std::string separator = (num_items == 2u) ? and_pair : ", ";
+
+	size_t item_num = 1;
+	for (const auto& item : items) {
+		assert(!item.empty());
+		result += item;
+		result += (item_num == num_items) ? end_punctuation : separator;
+		separator = (item_num + 2u == num_items) ? and_multi : separator;
+		++item_num;
+	}
+	return result;
+}
+
 bool ciequals(const char a, const char b)
 {
 	return tolower(a) == tolower(b);
 }
 
-bool iequals(const std::string &a, const std::string &b)
+bool natural_compare(const std::string& a_str, const std::string& b_str)
 {
-	return std::equal(a.begin(), a.end(), b.begin(), b.end(), ciequals);
+	auto parse_num = [](auto& it, const auto it_end) {
+		int num = 0;
+		while (it != it_end && isdigit(*it)) {
+			num = num * 10 + (*it - '0');
+			++it;
+		}
+		return num;
+	};
+	auto a = a_str.begin();
+	auto b = b_str.begin();
+
+	const auto a_end = a_str.end();
+	const auto b_end = b_str.end();
+
+	while (a != a_end && b != b_end) {
+		const auto found_nums = isdigit(*a) && isdigit(*b);
+		const auto a_val = found_nums ? parse_num(a, a_end) : tolower(*a++);
+		const auto b_val = found_nums ? parse_num(b, b_end) : tolower(*b++);
+		if (a_val != b_val) {
+			return a_val < b_val;
+		}
+	}
+	// the overlapping strings match, so finally check if A is shorter
+	return a == a_end && b != b_end;
 }
 
-char *strip_word(char *&line)
+char* strip_word(char*& line)
 {
 	char *scan = line;
 	scan       = ltrim(scan);
@@ -213,6 +264,30 @@ char *strip_word(char *&line)
 	return begin;
 }
 
+std::string strip_word(std::string& line)
+{
+	ltrim(line);
+	if (line.empty()) {
+		return "";
+	}
+	if (line[0] == '"') {
+		size_t end_quote = line.find('"', 1);
+		if (end_quote != std::string::npos) {
+			std::string word = line.substr(1, end_quote - 1);
+			line.erase(0, end_quote + 1);
+			ltrim(line);
+			return word;
+		}
+	}
+	auto end_word = std::find_if(line.begin(), line.end(), [](int c) {return isspace(c);});
+	std::string word(line.begin(), end_word);
+	if (end_word != line.end()) {
+		++end_word;
+	}
+	line.erase(line.begin(), end_word);
+	return word;
+}
+
 void strip_punctuation(std::string &str)
 {
 	str.erase(std::remove_if(str.begin(),
@@ -221,55 +296,109 @@ void strip_punctuation(std::string &str)
 	          str.end());
 }
 
-bool ends_with(const std::string &str, const std::string &suffix) noexcept
+// TODO in C++20: replace with str.starts_with(prefix)
+bool starts_with(const std::string_view str, const std::string_view prefix) noexcept
 {
-	return (str.size() >= suffix.size() &&
-	        str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0);
+	if (prefix.length() > str.length()) {
+		return false;
+	}
+	return std::equal(prefix.begin(), prefix.end(), str.begin());
+}
+
+// TODO in C++20: replace with str.ends_with(suffix)
+bool ends_with(const std::string_view str, const std::string_view suffix) noexcept
+{
+	if (suffix.length() > str.length()) {
+		return false;
+	}
+	return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
+}
+
+std::string strip_prefix(const std::string_view str, const std::string_view prefix) noexcept
+{
+	if (starts_with(str, prefix)) {
+		return std::string(str.substr(prefix.size()));
+	}
+	return std::string(str);
+}
+
+std::string strip_suffix(const std::string_view str, const std::string_view suffix) noexcept
+{
+	if (ends_with(str, suffix)) {
+		return std::string(str.substr(0, str.size() - suffix.size()));
+	}
+	return std::string(str);
 }
 
 void clear_language_if_default(std::string &l)
 {
 	lowcase(l);
-	if (l.size() < 2 || starts_with("c.", l) || l == "posix") {
+	if (l.size() < 2 || starts_with(l, "c.") || l == "posix") {
 		l.clear();
 	}
 }
 
-std::optional<float> parse_value(const std::string &s, const float min_value,
-                                 const float max_value)
+std::optional<float> parse_float(const std::string& s)
 {
-	// parse_value can check if a string holds a number (or not), so we expect
-	// exceptions and return an empty result to indicate conversion status.
+	// parse_float can check if a string holds a number (or not), so we
+	// expect exceptions and return an empty result to indicate conversion
+	// status.
 	try {
-		return std::clamp(std::stof(s), min_value, max_value);
+		if (!s.empty()) {
+			size_t num_chars_processed = 0;
+			const auto number = std::stof(s, &num_chars_processed);
+			if (s.size() == num_chars_processed) {
+				return number;
+			}
+		}
 		// Note: stof can throw invalid_argument and out_of_range
-	} catch (const std::invalid_argument &) {
+	} catch (const std::invalid_argument&) {
 		// do nothing, we expect these
-	} catch (const std::out_of_range &) {
+	} catch (const std::out_of_range&) {
 		// do nothing, we expect these
 	}
-	return {}; // empty
+	return {};
 }
 
-std::optional<float> parse_percentage(const std::string &s)
+std::optional<int> parse_int(const std::string& s, const int base)
 {
-	constexpr auto min_percentage = 0.0f;
-	constexpr auto max_percentage = 100.0f;
-	return parse_value(s, min_percentage, max_percentage);
+	try {
+		if (!s.empty()) {
+			size_t num_chars_processed = 0;
+			const auto number = std::stoi(s, &num_chars_processed, base);
+			if (s.size() == num_chars_processed) {
+				return number;
+			}
+		}
+		// Note: stof can throw invalid_argument and out_of_range
+	} catch (const std::invalid_argument&) {
+		// do nothing, we expect these
+	} catch (const std::out_of_range&) {
+		// do nothing, we expect these
+	}
+	return {};
 }
 
-std::optional<float> parse_prefixed_value(const char prefix, const std::string &s,
-                                          const float min_value, const float max_value)
+std::optional<float> parse_percentage(const std::string_view s,
+                                      const bool is_percent_sign_optional)
 {
-	if (s.size() <= 1 || !ciequals(s[0], prefix))
-		return {};
-
-	return parse_value(s.substr(1), min_value, max_value);
+	if (!is_percent_sign_optional) {
+		if (!ends_with(s, "%")) {
+			return {};
+		}
+	}
+	return {parse_float(strip_suffix(s, "%"))};
 }
 
-std::optional<float> parse_prefixed_percentage(const char prefix, const std::string &s)
+std::optional<float> parse_percentage_with_percent_sign(const std::string_view s)
 {
-	constexpr auto min_percentage = 0.0f;
-	constexpr auto max_percentage = 100.0f;
-	return parse_prefixed_value(prefix, s, min_percentage, max_percentage);
+	const auto is_percent_sign_optional = false;
+	return parse_percentage(s, is_percent_sign_optional);
 }
+
+std::optional<float> parse_percentage_with_optional_percent_sign(const std::string_view s)
+{
+	const auto is_percent_sign_optional = true;
+	return parse_percentage(s, is_percent_sign_optional);
+}
+

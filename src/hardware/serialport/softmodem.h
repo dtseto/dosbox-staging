@@ -29,7 +29,6 @@
 #include "serialport.h"
 #include "misc_util.h"
 
-#define MODEMSPD 57600
 #define SREGS 100
 
 //If it's too high you overflow terminal clients buffers i think
@@ -63,7 +62,7 @@ enum ResTypes {
 #define TEL_CLIENT 0
 #define TEL_SERVER 1
 
-bool MODEM_ReadPhonebook(const std::string &filename);
+bool MODEM_ReadPhonebook(const std_fs::path &path);
 void MODEM_ClearPhonebook();
 
 class CFifo {
@@ -178,7 +177,7 @@ private:
 class CSerialModem final : public CSerial {
 public:
 	CSerialModem(const uint8_t port_idx, CommandLine *cmd);
-	~CSerialModem();
+	~CSerialModem() override;
 	void Reset();
 
 	void SendLine(const char *line);
@@ -191,6 +190,8 @@ public:
 	void AcceptIncomingCall();
 	uint32_t ScanNumber(char *&scan) const;
 	char GetChar(char * & scan) const;
+	void SetModemSpeed(const uint32_t cfg_val);
+	void UpdateConnectString();
 
 	void DoCommand();
 
@@ -200,19 +201,19 @@ public:
 
 	void Echo(uint8_t ch);
 	void Timer2();
-	void handleUpperEvent(uint16_t type);
+	void handleUpperEvent(uint16_t type) override;
 
 	void RXBufferEmpty();
 
-	void transmitByte(uint8_t val, bool first);
-	void updatePortConfig(uint16_t divider, uint8_t lcr);
-	void updateMSR();
+	void transmitByte(uint8_t val, bool first) override;
+	void updatePortConfig(uint16_t divider, uint8_t lcr) override;
+	void updateMSR() override;
 
-	void setBreak(bool);
+	void setBreak(bool) override;
 
-	void setRTSDTR(bool rts, bool dtr);
-	void setRTS(bool val);
-	void setDTR(bool val);
+	void setRTSDTR(bool rts, bool dtr) override;
+	void setRTS(bool val) override;
+	void setDTR(bool val) override;
 
 	std::unique_ptr<CFifo> rqueue;
 	std::unique_ptr<CFifo> tqueue;
@@ -248,7 +249,8 @@ protected:
 	uint8_t tmpbuf[MODEM_BUFFER_QUEUE_SIZE] = {0};
 	uint16_t listenport = 23; // 23 is the default telnet TCP/IP port
 	uint8_t reg[SREGS] = {0};
-	SocketTypesE socketType = SOCKET_TYPE_TCP;
+	SocketType socketType = SocketType::Tcp;
+	uint32_t modem_bps_config = 0;
 	std::unique_ptr<NETServerSocket> serversocket = nullptr;
 	std::unique_ptr<NETClientSocket> clientsocket = nullptr;
 	std::unique_ptr<NETClientSocket> waitingclientsocket = nullptr;

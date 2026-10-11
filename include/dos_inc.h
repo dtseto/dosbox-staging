@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -25,7 +25,9 @@
 #include "dosbox.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
+#include <string>
 #include <type_traits>
 
 #include "dos_system.h"
@@ -38,7 +40,8 @@
 #endif
 struct CommandTail{
 	uint8_t count = 0;     /* number of bytes returned */
-	char buffer[127] = {}; /* the buffer itself */
+	static constexpr size_t MaxCmdtailBufferSize = 126;
+	char buffer[MaxCmdtailBufferSize + 1] = {}; /* the buffer itself */
 } GCC_ATTRIBUTE(packed);
 #ifdef _MSC_VER
 #pragma pack ()
@@ -98,7 +101,7 @@ enum { RETURN_EXIT=0,RETURN_CTRLC=1,RETURN_ABORT=2,RETURN_TSR=3};
 /* internal Dos Tables */
 
 extern DOS_File * Files[DOS_FILES];
-extern DOS_Drive * Drives[DOS_DRIVES];
+extern std::array<DOS_Drive*, DOS_DRIVES> Drives;
 extern DOS_Device * Devices[DOS_DEVICES];
 
 extern uint8_t dos_copybuf[0x10000];
@@ -116,12 +119,15 @@ void DOS_SetupFiles (void);
 bool DOS_ReadFile(uint16_t handle,uint8_t * data,uint16_t * amount, bool fcb = false);
 bool DOS_WriteFile(uint16_t handle,uint8_t * data,uint16_t * amount,bool fcb = false);
 bool DOS_SeekFile(uint16_t handle,uint32_t * pos,uint32_t type,bool fcb = false);
-bool DOS_CloseFile(uint16_t handle,bool fcb = false,uint8_t * refcnt = NULL);
+bool DOS_CloseFile(uint16_t handle,bool fcb = false,uint8_t * refcnt = nullptr);
 bool DOS_FlushFile(uint16_t handle);
 bool DOS_DuplicateEntry(uint16_t entry,uint16_t * newentry);
 bool DOS_ForceDuplicateEntry(uint16_t entry,uint16_t newentry);
 bool DOS_GetFileDate(uint16_t entry, uint16_t* otime, uint16_t* odate);
 bool DOS_SetFileDate(uint16_t entry, uint16_t ntime, uint16_t ndate);
+
+uint16_t DOS_GetBiosTimePacked();
+uint16_t DOS_GetBiosDatePacked();
 
 // Date and Time Conversion
 constexpr uint16_t DOS_PackTime(const uint16_t hour,
@@ -168,36 +174,41 @@ constexpr uint16_t DOS_PackDate(const struct tm &datetime) noexcept
 }
 
 /* Routines for Drive Class */
-bool DOS_OpenFile(char const * name,uint8_t flags,uint16_t * entry,bool fcb = false);
-bool DOS_OpenFileExtended(char const * name, uint16_t flags, uint16_t createAttr, uint16_t action, uint16_t *entry, uint16_t* status);
-bool DOS_CreateFile(char const * name,uint16_t attribute,uint16_t * entry, bool fcb = false);
-bool DOS_UnlinkFile(char const * const name);
-bool DOS_FindFirst(const char *search, uint16_t attr, bool fcb_findfirst = false);
+bool DOS_OpenFile(const char* name, uint8_t flags, uint16_t* entry, bool fcb = false);
+bool DOS_OpenFileExtended(const char* name, uint16_t flags,
+                          FatAttributeFlags createAttr, uint16_t action,
+                          uint16_t* entry, uint16_t* status);
+bool DOS_CreateFile(const char* name, FatAttributeFlags attribute,
+                    uint16_t* entry, bool fcb = false);
+bool DOS_UnlinkFile(const char* const name);
+bool DOS_FindFirst(const char* search, FatAttributeFlags attr,
+                   bool fcb_findfirst = false);
 bool DOS_FindNext(void);
-bool DOS_Canonicalize(char const * const name,char * const big);
-bool DOS_CreateTempFile(char * const name,uint16_t * entry);
-bool DOS_FileExists(char const * const name);
+bool DOS_Canonicalize(const char* const name, char* const canonicalized);
+std::string DOS_Canonicalize(const char* const name);
+bool DOS_CreateTempFile(char* const name, uint16_t* entry);
+bool DOS_FileExists(const char* const name);
 
 /* Helper Functions */
-bool DOS_MakeName(char const *const name, char *const fullname, uint8_t *drive);
+bool DOS_MakeName(const char* const name, char* const fullname, uint8_t* drive);
 
 /* Drive Handing Routines */
 uint8_t DOS_GetDefaultDrive(void);
 void DOS_SetDefaultDrive(uint8_t drive);
 bool DOS_SetDrive(uint8_t drive);
 bool DOS_GetCurrentDir(uint8_t drive,char * const buffer);
-bool DOS_ChangeDir(char const * const dir);
-bool DOS_MakeDir(char const * const dir);
-bool DOS_RemoveDir(char const * const dir);
-bool DOS_Rename(char const * const oldname,char const * const newname);
+bool DOS_ChangeDir(const char* const dir);
+bool DOS_MakeDir(const char* const dir);
+bool DOS_RemoveDir(const char* const dir);
+bool DOS_Rename(const char* const oldname, const char* const newname);
 bool DOS_GetFreeDiskSpace(uint8_t drive,uint16_t * bytes,uint8_t * sectors,uint16_t * clusters,uint16_t * free);
-bool DOS_GetFileAttr(char const * const name,uint16_t * attr);
-bool DOS_SetFileAttr(char const * const name,uint16_t attr);
+bool DOS_GetFileAttr(const char* const name, FatAttributeFlags* attr);
+bool DOS_SetFileAttr(const char* const name, FatAttributeFlags attr);
 
 /* IOCTL Stuff */
 bool DOS_IOCTL(void);
 bool DOS_GetSTDINStatus();
-uint8_t DOS_FindDevice(char const * name);
+uint8_t DOS_FindDevice(const char* name);
 void DOS_SetupDevices();
 void DOS_ShutDownDevices();
 
@@ -234,7 +245,8 @@ bool DOS_FCBGetFileSize(uint16_t seg,uint16_t offset);
 bool DOS_FCBDeleteFile(uint16_t seg,uint16_t offset);
 bool DOS_FCBRenameFile(uint16_t seg, uint16_t offset);
 void DOS_FCBSetRandomRecord(uint16_t seg, uint16_t offset);
-uint8_t FCB_Parsename(uint16_t seg,uint16_t offset,uint8_t parser ,char *string, uint8_t *change);
+uint8_t FCB_Parsename(uint16_t seg, uint16_t offset, uint8_t parser,
+                      const char* string, uint8_t* change);
 bool DOS_GetAllocationInfo(uint8_t drive,uint16_t * _bytes_sector,uint8_t * _sectors_cluster,uint16_t * _total_clusters);
 
 /* Extra DOS Interrupts */
@@ -292,10 +304,7 @@ static inline uint16_t long2para(uint32_t size) {
 #define DOSERR_FILE_ALREADY_EXISTS 80
 
 /* Wait/check user input */
-enum class UserDecision { Cancel, Continue, Next };
 bool DOS_IsCancelRequest();
-UserDecision DOS_WaitForCancelContinue();
-UserDecision DOS_WaitForCancelContinueNext();
 
 /* Macros SSET_* and SGET_* are used to safely access fields in memory-mapped
  * DOS structures represented via classes inheriting from MemStruct class.
@@ -342,10 +351,10 @@ constexpr PhysPt assert_macro_args_ok()
 class MemStruct {
 public:
 	MemStruct() = default;
-	MemStruct(uint16_t seg, uint16_t off) : pt(PhysMake(seg, off)) {}
-	MemStruct(RealPt addr) : pt(Real2Phys(addr)) {}
+	MemStruct(uint16_t seg, uint16_t off) : pt(PhysicalMake(seg, off)) {}
+	MemStruct(RealPt addr) : pt(RealToPhysical(addr)) {}
 
-	void SetPt(uint16_t seg) { pt = PhysMake(seg, 0); }
+	void SetPt(uint16_t seg) { pt = PhysicalMake(seg, 0); }
 
 protected:
 	PhysPt pt = 0;
@@ -389,6 +398,20 @@ public:
 	void SetStack(RealPt stackpt) { SSET_DWORD(sPSP, stack, stackpt); }
 	RealPt GetStack() const { return SGET_DWORD(sPSP, stack); }
 
+	void SetVersion(const uint8_t major, const uint8_t minor)
+	{
+		SSET_BYTE(sPSP, dos_version_major, major);
+		SSET_BYTE(sPSP, dos_version_minor, minor);
+	}
+	uint8_t GetVersionMajor() const
+	{
+		return SGET_BYTE(sPSP, dos_version_major);
+	}
+	uint8_t GetVersionMinor() const
+	{
+		return SGET_BYTE(sPSP, dos_version_minor);
+	}
+
 	bool SetNumFiles(uint16_t file_num);
 	void SetFCB1(RealPt src);
 	void SetFCB2(RealPt src);
@@ -399,31 +422,32 @@ private:
 	#pragma pack(1)
 	#endif
 	struct sPSP {
-		uint8_t   exit[2];     /* CP/M-like exit poimt */
-		uint16_t  next_seg;    /* Segment of first byte beyond memory allocated or program */
-		uint8_t   fill_1;      /* single char fill */
-		uint8_t   far_call;    /* far call opcode */
-		RealPt  cpm_entry;   /* CPM Service Request address*/
-		RealPt  int_22;      /* Terminate Address */
-		RealPt  int_23;      /* Break Address */
-		RealPt  int_24;      /* Critical Error Address */
-		uint16_t  psp_parent;  /* Parent PSP Segment */
-		uint8_t   files[20];   /* File Table - 0xff is unused */
-		uint16_t  environment; /* Segment of evironment table */
-		RealPt  stack;       /* SS:SP Save point for int 0x21 calls */
-		uint16_t  max_files;   /* Maximum open files */
-		RealPt  file_table;  /* Pointer to File Table PSP:0x18 */
-		RealPt  prev_psp;    /* Pointer to previous PSP */
-		uint8_t   interim_flag;
-		uint8_t   truename_flag;
-		uint16_t  nn_flags;
-		uint16_t  dos_version;
-		uint8_t   fill_2[14];  /* Lot's of unused stuff i can't care aboue */
-		uint8_t   service[3];  /* INT 0x21 Service call int 0x21;retf; */
-		uint8_t   fill_3[9];   /* This has some blocks with FCB info */
-		uint8_t   fcb1[16];    /* first FCB */
-		uint8_t   fcb2[16];    /* second FCB */
-		uint8_t   fill_4[4];   /* unused */
+		uint8_t  exit[2];     /* CP/M-like exit poimt */
+		uint16_t next_seg;    /* Segment of first byte beyond memory allocated or program */
+		uint8_t  fill_1;      /* single char fill */
+		uint8_t  far_call;    /* far call opcode */
+		RealPt   cpm_entry;   /* CPM Service Request address*/
+		RealPt   int_22;      /* Terminate Address */
+		RealPt   int_23;      /* Break Address */
+		RealPt   int_24;      /* Critical Error Address */
+		uint16_t psp_parent;  /* Parent PSP Segment */
+		uint8_t  files[20];   /* File Table - 0xff is unused */
+		uint16_t environment; /* Segment of evironment table */
+		RealPt   stack;       /* SS:SP Save point for int 0x21 calls */
+		uint16_t max_files;   /* Maximum open files */
+		RealPt   file_table;  /* Pointer to File Table PSP:0x18 */
+		RealPt   prev_psp;    /* Pointer to previous PSP */
+		uint8_t  interim_flag;
+		uint8_t  truename_flag;
+		uint16_t nn_flags;
+		uint8_t  dos_version_major;
+		uint8_t  dos_version_minor;
+		uint8_t  fill_2[14]; /* Lot's of unused stuff i can't care aboue */
+		uint8_t  service[3]; /* INT 0x21 Service call int 0x21;retf; */
+		uint8_t  fill_3[9];  /* This has some blocks with FCB info */
+		uint8_t  fcb1[16];   /* first FCB */
+		uint8_t  fcb2[16];   /* second FCB */
+		uint8_t  fill_4[4];  /* unused */
 		CommandTail cmdtail;
 	} GCC_ATTRIBUTE(packed);
 	#ifdef _MSC_VER
@@ -562,53 +586,101 @@ public:
  * Some documents refer to it also as Data Transfer Address or Disk Transfer Area.
  */
 
+#ifdef _MSC_VER
+#pragma pack(1)
+#endif
+struct sDTA {
+	uint8_t sdrive;						/* The Drive the search is taking place */
+	uint8_t sname[8];						/* The Search pattern for the filename */
+	uint8_t sext[3];						/* The Search pattern for the extension */
+	uint8_t sattr;						/* The Attributes that need to be found */
+	uint16_t dirID;						/* custom: dir-search ID for multiple searches at the same time */
+	uint16_t dirCluster;					/* custom (drive_fat only): cluster number for multiple searches at the same time */
+	uint8_t fill[4];
+	uint8_t attr;
+	uint16_t time;
+	uint16_t date;
+	uint32_t size;
+	char name[DOS_NAMELENGTH_ASCII];
+} GCC_ATTRIBUTE(packed);
+#ifdef _MSC_VER
+#pragma pack()
+#endif
+
 class DOS_DTA final : public MemStruct {
 public:
 	DOS_DTA(RealPt addr) : MemStruct(addr) {}
 
-	void SetupSearch(uint8_t drive, uint8_t attr, char *pattern);
+	void SetupSearch(uint8_t drive, FatAttributeFlags attr, char* pattern);
 	uint8_t GetSearchDrive() const { return SGET_BYTE(sDTA, sdrive); }
-	void GetSearchParams(uint8_t &attr, char *pattern) const;
+	void GetSearchParams(FatAttributeFlags& attr, char* pattern) const;
 
-	void SetResult(const char *name,
-	               uint32_t size,
-	               uint16_t date,
-	               uint16_t time,
-	               uint8_t attr);
-	void GetResult(char *name,
-	               uint32_t &size,
-	               uint16_t &date,
-	               uint16_t &time,
-	               uint8_t &attr) const;
+	struct Result {
+		std::string name = {};
+
+		uint32_t size = 0;
+		uint16_t date = 0;
+		uint16_t time = 0;
+
+		FatAttributeFlags attr = {};
+
+		std::string GetExtension() const;
+		std::string GetBareName() const; // name without extension
+
+		bool IsFile() const
+		{
+			return !attr.directory && !attr.volume && !attr.device;
+		}
+
+		bool IsDirectory() const
+		{
+			return attr.directory;
+		}
+
+		bool IsDummyDirectory() const
+		{
+			return attr.directory && (name == "." || name == "..");
+		}
+
+		bool IsDevice() const
+		{
+			return attr.device;
+		}
+
+		bool IsReadOnly() const
+		{
+			return attr.read_only;
+		}
+	};
+
+	void SetResult(const char* name, uint32_t size, uint16_t date,
+	               uint16_t time, FatAttributeFlags attr);
+	void GetResult(Result& result) const;
 
 	void SetDirID(uint16_t id) { SSET_WORD(sDTA, dirID, id); }
 	uint16_t GetDirID() const { return SGET_WORD(sDTA, dirID); }
 
 	void SetDirIDCluster(uint16_t cl) { SSET_WORD(sDTA, dirCluster, cl); }
 	uint16_t GetDirIDCluster() const { return SGET_WORD(sDTA, dirCluster); }
-
-private:
-	#ifdef _MSC_VER
-	#pragma pack(1)
-	#endif
-	struct sDTA {
-		uint8_t sdrive;						/* The Drive the search is taking place */
-		uint8_t sname[8];						/* The Search pattern for the filename */
-		uint8_t sext[3];						/* The Search pattern for the extension */
-		uint8_t sattr;						/* The Attributes that need to be found */
-		uint16_t dirID;						/* custom: dir-search ID for multiple searches at the same time */
-		uint16_t dirCluster;					/* custom (drive_fat only): cluster number for multiple searches at the same time */
-		uint8_t fill[4];
-		uint8_t attr;
-		uint16_t time;
-		uint16_t date;
-		uint32_t size;
-		char name[DOS_NAMELENGTH_ASCII];
-	} GCC_ATTRIBUTE(packed);
-	#ifdef _MSC_VER
-	#pragma pack()
-	#endif
 };
+
+enum class ResultGrouping {
+	None,
+	FilesFirst,
+	NonFilesFirst,
+};
+
+enum class ResultSorting {
+	None,
+	ByName,
+	ByExtension,
+	BySize,
+	ByDateTime,
+};
+
+void DOS_Sort(std::vector<DOS_DTA::Result>& list, const ResultSorting sorting,
+              const bool reverse_order      = false,
+              const ResultGrouping grouping = ResultGrouping::None);
 
 /* File Control Block */
 
@@ -638,10 +710,11 @@ public:
 	void SetRandom(uint32_t random) { SSET_DWORD(sFCB, rndm, random); }
 	uint32_t GetRandom() const { return SGET_DWORD(sFCB, rndm); }
 
-	void SetAttr(uint8_t attr);
-	void GetAttr(uint8_t &attr) const;
+	void SetAttr(FatAttributeFlags attr);
+	void GetAttr(FatAttributeFlags& attr) const;
 
-	void SetResult(uint32_t size,uint16_t date,uint16_t time,uint8_t attr);
+	void SetResult(uint32_t size, uint16_t date, uint16_t time,
+	               FatAttributeFlags attr);
 
 	uint8_t GetDrive() const;
 
@@ -687,7 +760,10 @@ class DOS_MCB final : public MemStruct {
 public:
 	DOS_MCB(uint16_t seg) : MemStruct(seg, 0) {}
 
-	void SetFileName(char const * const _name) { MEM_BlockWrite(pt+offsetof(sMCB,filename),_name,8); }
+	void SetFileName(const char* const _name)
+	{
+		MEM_BlockWrite(pt + offsetof(sMCB, filename), _name, 8);
+	}
 	void GetFileName(char * const _name) { MEM_BlockRead(pt+offsetof(sMCB,filename),_name,8);_name[8]=0;}
 
 	void SetType(uint8_t mcb_type) { SSET_BYTE(sMCB, type, mcb_type); }
@@ -802,81 +878,36 @@ static inline uint8_t RealHandle(uint16_t handle) {
 	return psp.GetFileHandle(handle);
 }
 
-#define DOS_DATE_FORMAT_OFS         0
-#define DOS_DATE_SEPARATOR_OFS      11
-#define DOS_TIME_FORMAT_OFS         17
-#define DOS_TIME_SEPARATOR_OFS      13
-#define DOS_THOUSANDS_SEPARATOR_OFS 7
-#define DOS_DECIMAL_SEPARATOR_OFS   9
+/* Locale information */
 
-enum class Country : uint16_t {
-	United_States  = 1,
-	Candian_French = 2,
-	Latin_America  = 3,
-	Russia         = 7,
-	Greece         = 30,
-	Netherlands    = 31,
-	Belgium        = 32,
-	France         = 33,
-	Spain          = 34,
-	Hungary        = 36,
-	Yugoslavia     = 38,
-	Italy          = 39,
-	Romania        = 40,
-	Switzerland    = 41,
-	Czech_Slovak   = 42,
-	Austria        = 43,
-	United_Kingdom = 44,
-	Denmark        = 45,
-	Sweden         = 46,
-	Norway         = 47,
-	Poland         = 48,
-	Germany        = 49,
-	Argentina      = 54,
-	Brazil         = 55,
-	Malaysia       = 60,
-	Australia      = 61,
-	Philippines    = 63,
-	Singapore      = 65,
-	Kazakhstan     = 77,
-	Japan          = 81,
-	South_Korea    = 82,
-	Vietnam        = 84,
-	China          = 86,
-	Turkey         = 90,
-	India          = 91,
-	Niger          = 227,
-	Benin          = 229,
-	Nigeria        = 234,
-	Faeroe_Islands = 298,
-	Portugal       = 351,
-	Iceland        = 354,
-	Albania        = 355,
-	Malta          = 356,
-	Finland        = 358,
-	Bulgaria       = 359,
-	Lithuania      = 370,
-	Latvia         = 371,
-	Estonia        = 372,
-	Armenia        = 374,
-	Belarus        = 375,
-	Ukraine        = 380,
-	Serbia         = 381,
-	Montenegro     = 382,
-	Croatia        = 384,
-	Slovenia       = 386,
-	Bosnia         = 387,
-	Macedonia      = 389,
-	Taiwan         = 886,
-	Arabic         = 785,
-	Israel         = 972,
-	Mongolia       = 976,
-	Tadjikistan    = 992,
-	Turkmenistan   = 993,
-	Azerbaijan     = 994,
-	Georgia        = 995,
-	Kyrgyzstan     = 996,
-	Uzbekistan     = 998,
+enum class DosDateFormat : uint8_t {
+	MonthDayYear = 0,
+	DayMonthYear = 1,
+	YearMonthDay = 2,
 };
+
+enum class DosTimeFormat : uint8_t {
+	Time12H = 0, // AM/PM
+	Time24H = 1,
+};
+
+enum class DosCurrencyFormat : uint8_t {
+	SymbolAmount      = 0,
+	AmountSymbol      = 1,
+	SymbolSpaceAmount = 2,
+	AmountSpaceSymbol = 3,
+
+	// Some sources claim that bit 2 set means currency symbol should
+	// replace decimal point; so far it is unknown which (if any)
+	// COUNTRY.SYS uses this bit, most likely no DOS software uses it.
+};
+
+DosDateFormat DOS_GetLocaleDateFormat();
+DosTimeFormat DOS_GetLocaleTimeFormat();
+char DOS_GetLocaleDateSeparator();
+char DOS_GetLocaleTimeSeparator();
+char DOS_GetLocaleThousandsSeparator();
+char DOS_GetLocaleDecimalSeparator();
+char DOS_GetLocaleListSeparator();
 
 #endif

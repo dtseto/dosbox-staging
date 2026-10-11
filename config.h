@@ -34,7 +34,7 @@
 // Additional labels for pre-release and build metadata are available as extensions to the MAJOR.MINOR.PATCH format.
 // Ref: https://semver.org/
 
-#define VERSION "0.80.1"
+#define VERSION "0.81.2"
 
 /* Strings to be returned by virtual drivers, etc.
 */

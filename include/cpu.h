@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -39,13 +40,17 @@
 
 #define CPU_CYCLES_LOWER_LIMIT		200
 
-
-#define CPU_ARCHTYPE_MIXED			0xff
-#define CPU_ARCHTYPE_386SLOW		0x30
-#define CPU_ARCHTYPE_386FAST		0x35
-#define CPU_ARCHTYPE_486OLDSLOW		0x40
-#define CPU_ARCHTYPE_486NEWSLOW		0x45
-#define CPU_ARCHTYPE_PENTIUMSLOW	0x50
+enum class ArchitectureType {
+	Intel86         = 0x05,
+	Intel186        = 0x15,
+	Intel286        = 0x25,
+	Intel386Slow    = 0x30,
+	Intel386Fast    = 0x35,
+	Intel486OldSlow = 0x40,
+	Intel486NewSlow = 0x45,
+	PentiumSlow     = 0x50,
+	Mixed           = 0xff,
+};
 
 /* CPU Cycle Timing */
 extern int32_t CPU_Cycles;
@@ -56,10 +61,9 @@ extern int32_t CPU_CyclePercUsed;
 extern int32_t CPU_CycleLimit;
 extern int64_t CPU_IODelayRemoved;
 extern bool CPU_CycleAutoAdjust;
-extern bool CPU_SkipCycleAutoAdjust;
 extern Bitu CPU_AutoDetermineMode;
 
-extern Bitu CPU_ArchitectureType;
+extern ArchitectureType CPU_ArchitectureType;
 
 extern Bitu CPU_PrefetchQueueSize;
 
@@ -73,20 +77,18 @@ constexpr bool CPU_ReuseCodepages = true;
 constexpr bool CPU_UseRwxMemProtect = true;
 #endif
 
-Bits CPU_Core_Normal_Run(void);
-Bits CPU_Core_Normal_Trap_Run(void);
-Bits CPU_Core_Simple_Run(void);
-Bits CPU_Core_Simple_Trap_Run(void);
-Bits CPU_Core_Full_Run(void);
-Bits CPU_Core_Dyn_X86_Run(void);
-Bits CPU_Core_Dyn_X86_Trap_Run(void);
-Bits CPU_Core_Dynrec_Run(void);
-Bits CPU_Core_Dynrec_Trap_Run(void);
-Bits CPU_Core_Prefetch_Run(void);
-Bits CPU_Core_Prefetch_Trap_Run(void);
+Bits CPU_Core_Normal_Run() noexcept;
+Bits CPU_Core_Normal_Trap_Run() noexcept;
+Bits CPU_Core_Simple_Run() noexcept;
+Bits CPU_Core_Simple_Trap_Run() noexcept;
+Bits CPU_Core_Full_Run() noexcept;
+Bits CPU_Core_Dyn_X86_Run() noexcept;
+Bits CPU_Core_Dyn_X86_Trap_Run() noexcept;
+Bits CPU_Core_Dynrec_Run() noexcept;
+Bits CPU_Core_Dynrec_Trap_Run() noexcept;
+Bits CPU_Core_Prefetch_Run() noexcept;
+Bits CPU_Core_Prefetch_Trap_Run() noexcept;
 
-void CPU_Enable_SkipAutoAdjust(void);
-void CPU_Disable_SkipAutoAdjust(void);
 void CPU_Reset_AutoAdjust(void);
 
 
@@ -167,10 +169,12 @@ bool CPU_SetSegGeneral(SegNames seg,Bitu value);
 bool CPU_PopSeg(SegNames seg,bool use32);
 
 bool CPU_CPUID(void);
-Bitu CPU_Pop16(void);
-Bitu CPU_Pop32(void);
-void CPU_Push16(Bitu value);
-void CPU_Push32(Bitu value);
+
+uint16_t CPU_Pop16();
+uint32_t CPU_Pop32();
+
+void CPU_Push16(const uint16_t value);
+void CPU_Push32(const uint32_t value);
 
 #define EXCEPTION_DB			1
 #define EXCEPTION_UD			6

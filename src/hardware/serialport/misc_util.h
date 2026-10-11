@@ -58,9 +58,14 @@
 
 #include "SDL_net.h"
 
-#include "../../libs/enet/include/enet.h"
+#include "enet/include/enet.h"
 
-enum SocketTypesE { SOCKET_TYPE_TCP = 0, SOCKET_TYPE_ENET, SOCKET_TYPE_COUNT };
+enum class SocketType {
+	Tcp  = 0, // +SOCK0 modem command
+	Enet = 1, // +SOCK1 modem command
+	Invalid,  // first invalid value
+};
+const char* to_string(const SocketType socket_type);
 
 // helper functions
 bool NetWrapper_InitializeSDLNet();
@@ -82,9 +87,9 @@ public:
 	NETClientSocket(const NETClientSocket &) = delete; // prevent copying
 	NETClientSocket &operator=(const NETClientSocket &) = delete; // prevent assignment
 
-	static NETClientSocket *NETClientFactory(SocketTypesE socketType,
-	                                         const char *destination,
-	                                         uint16_t port);
+	static NETClientSocket* NETClientFactory(const SocketType socketType,
+	                                         const char* destination,
+	                                         const uint16_t port);
 
 	virtual SocketState GetcharNonBlock(uint8_t &val) = 0;
 	virtual bool Putchar(uint8_t val) = 0;
@@ -111,8 +116,8 @@ public:
 	NETServerSocket(const NETServerSocket &) = delete; // prevent copying
 	NETServerSocket &operator=(const NETServerSocket &) = delete; // prevent assignment
 
-	static NETServerSocket *NETServerFactory(SocketTypesE socketType,
-	                                         uint16_t port);
+	static NETServerSocket* NETServerFactory(const SocketType socketType,
+	                                         const uint16_t port);
 
 	virtual NETClientSocket *Accept() = 0;
 
@@ -127,9 +132,9 @@ public:
 	ENETServerSocket(const ENETServerSocket &) = delete; // prevent copying
 	ENETServerSocket &operator=(const ENETServerSocket &) = delete; // prevent assignment
 
-	~ENETServerSocket();
+	~ENETServerSocket() override;
 
-	NETClientSocket *Accept();
+	NETClientSocket *Accept() override;
 
 private:
 	ENetHost    *host      = nullptr;
@@ -144,13 +149,13 @@ public:
 	ENETClientSocket(const ENETClientSocket &) = delete; // prevent copying
 	ENETClientSocket &operator=(const ENETClientSocket &) = delete; // prevent assignment
 
-	~ENETClientSocket();
+	~ENETClientSocket() override;
 
-	SocketState GetcharNonBlock(uint8_t &val);
-	bool Putchar(uint8_t val);
-	bool SendArray(const uint8_t *data, size_t n);
-	bool ReceiveArray(uint8_t *data, size_t &n);
-	bool GetRemoteAddressString(char *buffer);
+	SocketState GetcharNonBlock(uint8_t &val) override;
+	bool Putchar(uint8_t val) override;
+	bool SendArray(const uint8_t *data, size_t n) override;
+	bool ReceiveArray(uint8_t *data, size_t &n) override;
+	bool GetRemoteAddressString(char *buffer) override;
 
 private:
 	void updateState();
@@ -187,13 +192,13 @@ public:
 	TCPClientSocket(const TCPClientSocket&) = delete; // prevent copying
 	TCPClientSocket& operator=(const TCPClientSocket&) = delete; // prevent assignment
 
-	~TCPClientSocket();
+	~TCPClientSocket() override;
 
-	SocketState GetcharNonBlock(uint8_t &val);
-	bool Putchar(uint8_t val);
-	bool SendArray(const uint8_t *data, size_t n);
-	bool ReceiveArray(uint8_t *data, size_t &n);
-	bool GetRemoteAddressString(char *buffer);
+	SocketState GetcharNonBlock(uint8_t &val) override;
+	bool Putchar(uint8_t val) override;
+	bool SendArray(const uint8_t *data, size_t n) override;
+	bool ReceiveArray(uint8_t *data, size_t &n) override;
+	bool GetRemoteAddressString(char *buffer) override;
 
 private:
 
@@ -213,9 +218,9 @@ public:
 	TCPServerSocket(const TCPServerSocket&) = delete; // prevent copying
 	TCPServerSocket& operator=(const TCPServerSocket&) = delete; // prevent assignment
 
-	~TCPServerSocket();
+	~TCPServerSocket() override;
 
-	NETClientSocket *Accept();
+	NETClientSocket *Accept() override;
 };
 
 #endif // C_MODEM

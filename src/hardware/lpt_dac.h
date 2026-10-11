@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,7 +24,8 @@
 #include "dosbox.h"
 
 #include <queue>
-#include <string>
+#include <set>
+#include <string_view>
 
 #include "inout.h"
 #include "lpt.h"
@@ -33,15 +34,15 @@
 // Provides mandatory scafolding for derived LPT DAC devices
 class LptDac {
 public:
-	LptDac(const std::string &name, const uint16_t channel_rate_hz,
-	       channel_features_t extra_features = {});
+	LptDac(const std::string_view name, const uint16_t channel_rate_hz,
+	       std::set<ChannelFeature> extra_features = {});
 	virtual ~LptDac();
 
 	// public interfaces
 	virtual void ConfigureFilters(const FilterState state) = 0;
 	virtual void BindToPort(const io_port_t lpt_port)      = 0;
 
-	bool TryParseAndSetCustomFilter(const std::string filter_choice);
+	bool TryParseAndSetCustomFilter(const std::string_view filter_choice);
 
 protected:
 	LptDac()                          = delete;
@@ -58,7 +59,7 @@ protected:
 	double last_rendered_ms = 0.0;
 	double ms_per_frame     = 0.0;
 
-	std::string dac_name = {};
+	std::string_view dac_name = {};
 
 	// All LPT devices support data write, status read, and control write
 	void BindHandlers(const io_port_t lpt_port, const io_write_f write_data,

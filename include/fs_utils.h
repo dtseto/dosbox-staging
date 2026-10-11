@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 
 #include <cinttypes>
 #include <ctime>
+#include <deque>
 #include <optional>
 #include <string>
 #include <vector>
@@ -36,6 +37,8 @@ std::optional<std::vector<std::string>> get_lines(const std_fs::path &text_file)
 
 // Is the candidate a directory or a symlink that points to one?
 bool is_directory(const std::string& candidate);
+
+bool is_hidden_by_host(const std::filesystem::path& pathname);
 
 /* Check if the given path corresponds to an existing file or directory.
  */
@@ -84,9 +87,93 @@ std_fs::path simplify_path(const std_fs::path &path) noexcept;
 
 constexpr uint32_t OK_IF_EXISTS = 0x1;
 
-int create_dir(const char *path, uint32_t mode, uint32_t flags = 0x0) noexcept;
+int create_dir(const std_fs::path& path, uint32_t mode, uint32_t flags = 0x0) noexcept;
+
+// Behaves like fseek, but logs an error stating the module, byte offset, file
+// description, filename, and strerror on failure. Returns true on success and
+// false on failure. On failure, it closes the file as it's no longer in a good
+// state.
+//
+bool check_fseek(const char* module_name, const char* file_description,
+                 const char* filename, FILE*& stream, const long long offset,
+                 const int whence);
+
+// Returns a 'check_fseek' function object that behaves like the above. This can
+// be used when lots of sequential seeks are needed.
+//
+inline auto make_check_fseek_func(const std::string& module_name,
+                                  const std::string& file_description,
+                                  const std_fs::path& filepath)
+{
+	// Use the lambda copy-operator to keep copies of the arguments inside
+	// the lambda, as these arguments would normally go out of scope with
+	// respect to the lifetime of the lamda.
+	//
+	auto check_fseek_lambda = [=](FILE*& stream,
+	                              const long long offset,
+	                              const int whence) -> bool {
+		return check_fseek(module_name.c_str(),
+		                   file_description.c_str(),
+		                   filepath.string().c_str(),
+		                   stream,
+		                   offset,
+		                   whence);
+	};
+	return check_fseek_lambda;
+}
 
 // Convert a filesystem time to a raw time_t value
 std::time_t to_time_t(const std_fs::file_time_type &fs_time);
+
+#if !defined(WIN32) && !defined(MACOSX)
+
+/* Get directory for storing user configuration files.
+ *
+ * User can change this directory by overriding XDG_CONFIG_HOME, otherwise it
+ * defaults to "$HOME/.config/".
+ *
+ * https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+ */
+
+std_fs::path get_xdg_config_home() noexcept;
+
+/* Get directory for storing user-specific data files.
+ *
+ * User can change this directory by overriding XDG_DATA_HOME, otherwise it
+ * defaults to "$HOME/.local/share/".
+ *
+ * https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+ */
+
+std_fs::path get_xdg_data_home() noexcept;
+
+/* Get directories for searching for data files in addition to the XDG_DATA_HOME
+ * directory.
+ *
+ * The directories are ordered according to user preference.
+ *
+ * User can change this list by overriding XDG_DATA_DIRS, otherwise it defaults
+ * to "/usr/local/share/:/usr/share/".
+ *
+ * https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+ */
+
+std::deque<std_fs::path> get_xdg_data_dirs() noexcept;
+
+#endif
+
+// ***************************************************************************
+// Local drive file/directory attribute handling
+// ***************************************************************************
+
+union FatAttributeFlags; // forward declaration
+
+FILE* local_drive_create_file(const std_fs::path& path,
+                              const FatAttributeFlags attributes);
+uint16_t local_drive_create_dir(const std_fs::path& path);
+uint16_t local_drive_get_attributes(const std_fs::path& path,
+                                    FatAttributeFlags& attributes);
+uint16_t local_drive_set_attributes(const std_fs::path& path,
+                                    const FatAttributeFlags attributes);
 
 #endif

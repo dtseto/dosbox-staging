@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -160,6 +160,14 @@ TEST(iroundf, invalid)
 	EXPECT_DEBUG_DEATH({ iroundf(-80000000000.0f); }, "");
 }
 
+TEST(are_almost_equal_relative, QuakeValues)
+{
+	// Numbers taken from Quake startup
+	EXPECT_TRUE(are_almost_equal_relative(239.999999999999972, 240.0));
+	EXPECT_TRUE(are_almost_equal_relative(23.999999999999996, 24.0));
+	EXPECT_TRUE(are_almost_equal_relative(7.999999999999999, 8.0));
+}
+
 TEST(clamp_to_int8, signed_negatives)
 {
 	EXPECT_EQ(clamp_to_int8(INT16_MIN), INT8_MIN);
@@ -177,8 +185,8 @@ TEST(clamp_to_int16, signed_negatives)
 TEST(clamp_to_int32, signed_negatives)
 {
 	EXPECT_EQ(clamp_to_int32(INT64_MIN), INT32_MIN);
-	EXPECT_EQ(clamp_to_int32(INT32_MIN - 0), INT32_MIN);
-	EXPECT_EQ(clamp_to_int32(INT32_MIN + 1), INT32_MIN + 1);
+	EXPECT_EQ(clamp_to_int32(static_cast<int64_t>(INT32_MIN - 0)), INT32_MIN);
+	EXPECT_EQ(clamp_to_int32(static_cast<int64_t>(INT32_MIN + 1)), INT32_MIN + 1);
 }
 
 TEST(clamp_to_int8, signed_positives)
@@ -198,8 +206,8 @@ TEST(clamp_to_int16, signed_positives)
 TEST(clamp_to_int32, signed_positives)
 {
 	EXPECT_EQ(clamp_to_int32(INT64_MAX), INT32_MAX);
-	EXPECT_EQ(clamp_to_int32(INT32_MAX - 0), INT32_MAX);
-	EXPECT_EQ(clamp_to_int32(INT64_MAX - 1), INT32_MAX);
+	EXPECT_EQ(clamp_to_int32(INT64_MAX - static_cast<int64_t>(0)), INT32_MAX);
+	EXPECT_EQ(clamp_to_int32(INT64_MAX - static_cast<int64_t>(1)), INT32_MAX);
 }
 
 TEST(clamp_to_int8, signed_literals)
@@ -229,14 +237,15 @@ TEST(clamp_to_int16, signed_literals)
 TEST(clamp_to_int32, signed_literals)
 {
 	EXPECT_EQ(clamp_to_int32(-10'000'000'000), INT32_MIN);
-	EXPECT_EQ(clamp_to_int32(-1'000'000'000), -1'000'000'000);
-	EXPECT_EQ(clamp_to_int32(-1'000'000), -1'000'000);
-	EXPECT_EQ(clamp_to_int32(-100), -100);
-	EXPECT_EQ(clamp_to_int32(0), 0);
-	EXPECT_EQ(clamp_to_int32(100), 100);
-	EXPECT_EQ(clamp_to_int32(1'000'000), 1'000'000);
-	EXPECT_EQ(clamp_to_int32(1'000'000'000), 1'000'000'000);
-	EXPECT_EQ(clamp_to_int32(10'000'000'000), INT32_MAX);
+	EXPECT_EQ(clamp_to_int32(static_cast<int64_t>(-1'000'000'000)),
+	          -1'000'000'000);
+	EXPECT_EQ(clamp_to_int32(static_cast<int64_t>(-1'000'000)), -1'000'000);
+	EXPECT_EQ(clamp_to_int32(static_cast<int64_t>(-100)), -100);
+	EXPECT_EQ(clamp_to_int32(0u), 0);
+	EXPECT_EQ(clamp_to_int32(100u), 100);
+	EXPECT_EQ(clamp_to_int32(1'000'000u), 1'000'000);
+	EXPECT_EQ(clamp_to_int32(1'000'000'000u), 1'000'000'000);
+	EXPECT_EQ(clamp_to_int32(10'000'000'000u), INT32_MAX);
 }
 
 #ifndef UINT8_MIN

@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -52,7 +52,8 @@
 #endif
 
 #ifdef PAGESIZE
-constexpr uint16_t host_pagesize = { PAGESIZE };
+// Some platforms like ppc64 have page sizes of 64K, so uint16_t isn't enough.
+constexpr uint32_t host_pagesize = { PAGESIZE };
 #else
 constexpr uint16_t host_pagesize = 4096;
 #endif
@@ -226,9 +227,15 @@ struct FILE_closer {
 };
 using FILE_unique_ptr = std::unique_ptr<FILE, FILE_closer>;
 
+FILE* open_file(const char* filename, const char* mode);
+
 // Opens and returns a std::unique_ptr to a FILE, which automatically closes
 // itself when it goes out of scope
 FILE_unique_ptr make_fopen(const char *fname, const char *mode);
+
+int64_t stdio_size_bytes(FILE* f);
+int64_t stdio_size_kb(FILE* f);
+int64_t stdio_num_sectors(FILE* f);
 
 const std_fs::path &GetExecutablePath();
 std_fs::path GetResourcePath(const std_fs::path &name);
@@ -289,6 +296,16 @@ void remove_duplicates(container_t &c)
 	};
 	const auto end = std::remove_if(c.begin(), c.end(), val_is_duplicate);
 	c.erase(end, c.end());
+}
+
+// remove empty() values from a container using std::remove_if (C++17)
+template <typename container_t>
+void remove_empties(container_t& c)
+{
+	auto is_empty = [](const auto& item) { return item.empty(); };
+
+	auto new_c_end = std::remove_if(c.begin(), c.end(), is_empty);
+	c.erase(std::move(new_c_end), c.end());
 }
 
 // Convenience function to cast to the underlying type of an enum class

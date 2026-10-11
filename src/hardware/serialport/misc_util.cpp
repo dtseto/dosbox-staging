@@ -21,7 +21,6 @@
 #if C_MODEM
 
 #define ENET_IMPLEMENTATION
-#include "../../libs/enet/include/enet.h" // Must be included before misc_util.h
 
 #include "misc_util.h"
 
@@ -31,6 +30,15 @@
 
 // Constants
 constexpr int connection_timeout_ms = 5000;
+
+const char* to_string(const SocketType socket_type)
+{
+	switch (socket_type) {
+	case SocketType::Tcp: return "TCP";
+	case SocketType::Enet: return "ENet";
+	default: assert(false); return "Invalid SocketType value";
+	}
+}
 
 // --- GENERIC NET INTERFACE -------------------------------------------------
 
@@ -44,15 +52,13 @@ NETClientSocket::~NETClientSocket()
 	// nothing
 }
 
-NETClientSocket *NETClientSocket::NETClientFactory(SocketTypesE socketType,
-                                                   const char *destination,
-                                                   uint16_t port)
+NETClientSocket* NETClientSocket::NETClientFactory(const SocketType socketType,
+                                                   const char* destination,
+                                                   const uint16_t port)
 {
 	switch (socketType) {
-	case SOCKET_TYPE_TCP: return new TCPClientSocket(destination, port);
-
-	case SOCKET_TYPE_ENET: return new ENETClientSocket(destination, port);
-
+	case SocketType::Tcp: return new TCPClientSocket(destination, port);
+	case SocketType::Enet: return new ENETClientSocket(destination, port);
 	default: return nullptr;
 	}
 	return nullptr;
@@ -102,14 +108,12 @@ NETServerSocket::NETServerSocket()
 NETServerSocket::~NETServerSocket()
 {}
 
-NETServerSocket *NETServerSocket::NETServerFactory(SocketTypesE socketType,
-                                                   uint16_t port)
+NETServerSocket* NETServerSocket::NETServerFactory(const SocketType socketType,
+                                                   const uint16_t port)
 {
 	switch (socketType) {
-	case SOCKET_TYPE_TCP: return new TCPServerSocket(port);
-
-	case SOCKET_TYPE_ENET: return new ENETServerSocket(port);
-
+	case SocketType::Tcp: return new TCPServerSocket(port);
+	case SocketType::Enet: return new ENETServerSocket(port);
 	default: return nullptr;
 	}
 	return nullptr;
@@ -128,7 +132,7 @@ public:
 		         ENET_VERSION_MAJOR, ENET_VERSION_MINOR, ENET_VERSION_PATCH);
 		is_initialized = enet_initialize() == 0;
 		if (is_initialized)
-			LOG_INFO("ENET: Initialized successfully");
+			LOG_INFO("ENET: Initialised successfully");
 		else
 			LOG_WARNING("ENET: failed to initialize ENet\n");
 	}
@@ -503,7 +507,7 @@ public:
 
 		is_initialized = SDLNet_Init() != -1;
 		if (is_initialized)
-			LOG_INFO("SDLNET: Initialized SDL network subsystem");
+			LOG_INFO("SDLNET: Initialised SDL network subsystem");
 		else
 			LOG_WARNING("SDLNET: failed to initialize SDL network subsystem: %s\n",
 			            SDLNet_GetError());
@@ -581,7 +585,7 @@ TCPClientSocket::TCPClientSocket(TCPsocket source)
 	if (!NetWrapper_InitializeSDLNet())
 		return;
 
-	if(source!=0) {
+	if(source!=nullptr) {
 		mysock = source;
 		listensocketset = SDLNet_AllocSocketSet(1);
 		if(!listensocketset) return;
@@ -727,7 +731,7 @@ NETClientSocket *TCPServerSocket::Accept()
 	new_tcpsock=SDLNet_TCP_Accept(mysock);
 	if(!new_tcpsock) {
 		//printf("SDLNet_TCP_Accept: %s\n", SDLNet_GetError());
-		return 0;
+		return nullptr;
 	}
 	
 	return new TCPClientSocket(new_tcpsock);

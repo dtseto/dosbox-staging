@@ -24,6 +24,8 @@
 #include <memory>
 #include <sys/types.h>
 
+#include "../capture/capture.h"
+#include "channel_names.h"
 #include "cpu.h"
 #include "mapper.h"
 #include "mem.h"
@@ -160,7 +162,7 @@ public:
 			// if ( passed > 0 ) LOG_MSG( "Delay %d", passed ) ;
 
 			// If we passed more than 30 seconds since the last
-			// command, we'll restart the the capture
+			// command, we'll restart the capture
 			if (passed > 30000) {
 				CloseFile();
 				goto skipWrite;
@@ -195,7 +197,7 @@ public:
 		if (!(note_on || percussion_on))
 			return true;
 
-		handle = CAPTURE_OpenFile("Raw Opl", ".dro");
+		handle = CAPTURE_CreateFile(CaptureType::RawOplStream);
 		if (!handle)
 			return false;
 
@@ -218,14 +220,14 @@ public:
 
 	Capture(RegisterCache *_cache) : header(), cache(_cache)
 	{
-		LOG_MSG("OPL: Preparing to capture Raw OPL, will start with first note played.");
+		LOG_MSG("CAPTURE: Preparing to capture raw OPL output; capturing will start when OPL output starts");
 		MakeTables();
 	}
 
 	virtual ~Capture()
 	{
 		CloseFile();
-		LOG_MSG("OPL: Stopped Raw OPL capturing.");
+		LOG_MSG("CAPTURE: Stopped capturing raw OPL output");
 	}
 
 	// prevent copy
@@ -407,7 +409,7 @@ private:
 			fwrite(&header, 1, sizeof(header), handle);
 			fclose(handle);
 
-			handle = 0;
+			handle = nullptr;
 		}
 	}
 };
@@ -529,6 +531,7 @@ void OPL::RenderUpToNow()
 	const auto now = PIC_FullIndex();
 
 	// Wake up the channel and update the last rendered time datum.
+	assert(channel);
 	if (channel->WakeUp()) {
 		last_rendered_ms = now;
 		return;
@@ -633,8 +636,8 @@ void OPL::AdlibGoldControlWrite(const uint8_t val)
 			// Dune CD version uses 32 volume steps in an apparent
 			// mistake, should be 128
 			channel->SetAppVolume(
-			        static_cast<float>(ctrl.lvol & 0x1f) / 31.0f,
-			        static_cast<float>(ctrl.rvol & 0x1f) / 31.0f);
+			        {static_cast<float>(ctrl.lvol & 0x1f) / 31.0f,
+			         static_cast<float>(ctrl.rvol & 0x1f) / 31.0f});
 		}
 		break;
 
@@ -795,7 +798,7 @@ static void SaveRad()
 	char b[16 * 1024];
 	int w = 0;
 
-	FILE *handle = CAPTURE_OpenFile("RAD Capture", ".rad");
+	FILE *handle = CAPTURE_CreateFile(CaptureType::RadOplInstruments);
 	if (!handle)
 		return;
 
@@ -886,6 +889,7 @@ OPL::OPL(Section *configuration, const OplMode oplmode)
 	ctrl.mixer = section->Get_bool("sbmixer");
 
 	std::set channel_features = {ChannelFeature::Sleep,
+	                             ChannelFeature::FadeOut,
 	                             ChannelFeature::ReverbSend,
 	                             ChannelFeature::ChorusSend,
 	                             ChannelFeature::Synthesizer};
@@ -899,8 +903,11 @@ OPL::OPL(Section *configuration, const OplMode oplmode)
 	                                      this,
 	                                      std::placeholders::_1);
 
-	// Register the Audio channel
-	channel = MIXER_AddChannel(mixer_callback, use_mixer_rate, "OPL", channel_features);
+	// Register the audio channel
+	channel = MIXER_AddChannel(mixer_callback,
+	                           use_mixer_rate,
+	                           ChannelName::Opl,
+	                           channel_features);
 
 	// Used to be 2.0, which was measured to be too high. Exact value
 	// depends on card/clone.
@@ -912,6 +919,9 @@ OPL::OPL(Section *configuration, const OplMode oplmode)
 	// existence.
 	constexpr auto opl_volume_scale_factor = 1.5f;
 	channel->Set0dbScalar(opl_volume_scale_factor);
+
+	// Setup fadeout
+	channel->ConfigureFadeOut(section->Get_string("opl_fadeout"));
 
 	Init(check_cast<uint16_t>(channel->GetSampleRate()));
 
@@ -973,6 +983,9 @@ void OPL_ShutDown([[maybe_unused]] Section* sec)
 
 void OPL_Init(Section* sec, const OplMode oplmode)
 {
+	assert(sec);
 	opl = std::make_unique<OPL>(sec, oplmode);
-	sec->AddDestroyFunction(&OPL_ShutDown, true);
+
+	constexpr auto changeable_at_runtime = true;
+	sec->AddDestroyFunction(&OPL_ShutDown, changeable_at_runtime);
 }

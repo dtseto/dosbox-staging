@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2022-2024  The DOSBox Staging Team
  *  Copyright (C) 2022 Jon Dennis
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,6 +36,7 @@
 
 #include "../../dos/program_more_output.h"
 #include "callback.h"
+#include "channel_names.h"
 #include "dos_inc.h"
 #include "dos_system.h"
 #include "mapper.h"
@@ -154,8 +156,8 @@ struct RMException : ::std::exception {
 		va_end(vl);
 		LOG(LOG_REELMAGIC, LOG_ERROR)("%s", _msg.c_str());
 	}
-	virtual ~RMException() throw() {}
-	virtual const char* what() const throw()
+	~RMException() noexcept override = default;
+	const char* what() const noexcept override
 	{
 		return _msg.c_str();
 	}
@@ -187,7 +189,7 @@ class ReelMagic_MediaPlayerDOSFile : public ReelMagic_MediaPlayerFile {
 
 	static std::string strcpyFromDos(const uint16_t seg, const uint16_t ptr, const bool firstByteIsLen)
 	{
-		PhysPt dosptr = PhysMake(seg, ptr);
+		PhysPt dosptr = PhysicalMake(seg, ptr);
 		std::string rv;
 		rv.resize(firstByteIsLen ? ((size_t)mem_readb(dosptr++)) : 256);
 		for (char* rv_ptr = &rv[0]; rv_ptr <= &rv[rv.size() - 1]; ++rv_ptr) {
@@ -201,12 +203,12 @@ class ReelMagic_MediaPlayerDOSFile : public ReelMagic_MediaPlayerFile {
 	}
 
 protected:
-	const char* GetFileName() const
+	const char* GetFileName() const override
 	{
 		return _fileName.c_str();
 	}
 
-	uint32_t GetFileSize() const
+	uint32_t GetFileSize() const override
 	{
 		uint32_t currentPos = 0;
 		if (!DOS_SeekFile(_pspEntry, &currentPos, DOS_SEEK_CUR))
@@ -219,7 +221,7 @@ protected:
 		return result;
 	}
 
-	uint32_t Read(uint8_t* data, uint32_t amount)
+	uint32_t Read(uint8_t* data, uint32_t amount) override
 	{
 		uint32_t bytesRead = 0;
 		uint16_t transactionAmount;
@@ -236,7 +238,7 @@ protected:
 		return bytesRead;
 	}
 
-	void Seek(uint32_t pos, uint32_t type)
+	void Seek(uint32_t pos, uint32_t type) override
 	{
 		if (!DOS_SeekFile(_pspEntry, &pos, type))
 			throw RMException("DOS File: Seek failed.");
@@ -253,7 +255,7 @@ public:
 	                    strcpyFromDos(filenameStrSeg, filenameStrPtr, firstByteIsLen)),
 	          _pspEntry(OpenDosFileEntry(_fileName))
 	{}
-	virtual ~ReelMagic_MediaPlayerDOSFile()
+	~ReelMagic_MediaPlayerDOSFile() override
 	{
 		DOS_CloseFile(_pspEntry);
 	}
@@ -279,17 +281,17 @@ class ReelMagic_MediaPlayerHostFile : public ReelMagic_MediaPlayerFile {
 	}
 
 protected:
-	const char* GetFileName() const
+	const char* GetFileName() const override
 	{
 		return _fileName.c_str();
 	}
 
-	uint32_t GetFileSize() const
+	uint32_t GetFileSize() const override
 	{
 		return _fileSize;
 	}
 
-	uint32_t Read(uint8_t* data, uint32_t amount)
+	uint32_t Read(uint8_t* data, uint32_t amount) override
 	{
 		const size_t fread_result = fread(data, 1, amount, _fp);
 		if ((fread_result == 0) && ferror(_fp))
@@ -297,7 +299,7 @@ protected:
 		return (uint32_t)fread_result;
 	}
 
-	void Seek(uint32_t pos, uint32_t type)
+	void Seek(uint32_t pos, uint32_t type) override
 	{
 		if (fseek(_fp, (long)pos, (type == DOS_SEEK_SET) ? SEEK_SET : SEEK_CUR) == -1)
 			throw RMException("Host File: fseek() failed: %s", strerror(errno));
@@ -312,8 +314,6 @@ public:
 		assert(hostFilepath);
 		_fileName = std::string("HOST:") + hostFilepath;
 
-		// not using fopen_wrap() as this class is really intended for
-		// debug...
 		_fp = fopen(hostFilepath, "rb");
 		if (!_fp) {
 			throw RMException("Host File: fopen(\"%s\")failed: %s",
@@ -324,7 +324,7 @@ public:
 		// Only get the size if we've got a valid file pointer
 		_fileSize = GetFileSize(_fp);
 	}
-	virtual ~ReelMagic_MediaPlayerHostFile()
+	~ReelMagic_MediaPlayerHostFile() override
 	{
 		fclose(_fp);
 	}
@@ -512,10 +512,10 @@ static void EnqueueTopUserCallbackOnCPUResume()
 
 	case 0x2000:                                   // RTZ-style; shit is passed on the stack...
 		reg_ax = reg_bx = reg_cx = reg_dx = 0; // clear the GP regs for good measure...
-		mem_writew(PhysMake(SegValue(ss), reg_sp -= 2), ucc.param2);
-		mem_writew(PhysMake(SegValue(ss), reg_sp -= 2), ucc.param1);
-		mem_writew(PhysMake(SegValue(ss), reg_sp -= 2), ucc.handle);
-		mem_writew(PhysMake(SegValue(ss), reg_sp -= 2), ucc.command);
+		mem_writew(PhysicalMake(SegValue(ss), reg_sp -= 2), ucc.param2);
+		mem_writew(PhysicalMake(SegValue(ss), reg_sp -= 2), ucc.param1);
+		mem_writew(PhysicalMake(SegValue(ss), reg_sp -= 2), ucc.handle);
+		mem_writew(PhysicalMake(SegValue(ss), reg_sp -= 2), ucc.command);
 		break;
 
 	default:
@@ -535,14 +535,14 @@ static void EnqueueTopUserCallbackOnCPUResume()
 	// push the far-call return address...
 
 	// return address to invoke CleanupFromUserCallback()
-	mem_writew(PhysMake(SegValue(ss), reg_sp -= 2), RealSeg(_userCallbackReturnIp));
+	mem_writew(PhysicalMake(SegValue(ss), reg_sp -= 2), RealSegment(_userCallbackReturnIp));
 
 	// return address to invoke CleanupFromUserCallback()
-	mem_writew(PhysMake(SegValue(ss), reg_sp -= 2), RealOff(_userCallbackReturnIp));
+	mem_writew(PhysicalMake(SegValue(ss), reg_sp -= 2), RealOffset(_userCallbackReturnIp));
 
 	// then we blast off into the wild blue...
-	SegSet16(cs, RealSeg(_userCallbackFarPtr));
-	reg_ip = RealOff(_userCallbackFarPtr);
+	SegSet16(cs, RealSegment(_userCallbackFarPtr));
+	reg_ip = RealOffset(_userCallbackFarPtr);
 
 	APILOG(LOG_REELMAGIC, LOG_NORMAL)
 	("Post-Invoking registered user-callback on CPU resume. cmd=%04Xh handle=%04Xh p1=%04Xh p2=%04Xh",
@@ -1037,7 +1037,7 @@ public:
 		               HELP_CmdType::Program,
 		               "FMPDRV"};
 	}
-	void Run()
+	void Run() override
 	{
 		if (HelpRequested()) {
 			MoreOutputStrings output(*this);
@@ -1087,32 +1087,32 @@ public:
 		        "Load or unload the built-in ReelMagic Full Motion Player driver.\n"
 		        "\n"
 		        "Usage:\n"
-		        "  [color=green]fmpdrv[reset]    (loads the driver)\n"
-		        "  [color=green]fmpdrv[reset] /u (unloads the driver)\n"
+		        "  [color=light-green]fmpdrv[reset]     (load the driver)\n"
+		        "  [color=light-green]fmpdrv[reset] /u  (unload the driver)\n"
 		        "\n"
 		        "Notes:\n"
 		        "  The \"reelmagic = on\" configuration setting loads the\n"
-		        "  driver on start-up and prevents it from being unloaded.\n");
+		        "  driver on startup and prevents it from being unloaded.\n");
 
 		MSG_Add("PROGRAM_FMPDRV_TITLE",
 		        "ReelMagic Full Motion Player Driver (built-in) %hhu.%hhu\n");
 
 		MSG_Add("PROGRAM_FMPDRV_LOADED",
-		        "[reset][color=light-yellow]Loaded at interrupt %xh[reset]\n");
+		        "[reset][color=brown]Loaded at interrupt %xh[reset]\n");
 
 		MSG_Add("PROGRAM_FMPDRV_LOAD_FAILED_ALREADY_LOADED",
-		        "[reset][color=light-yellow]Already loaded at interrupt %xh[reset]\n");
+		        "[reset][color=brown]Already loaded at interrupt %xh[reset]\n");
 
 		MSG_Add("PROGRAM_FMPDRV_LOAD_FAILED_INT_CONFLICT",
-		        "[reset][color=red]Not loaded: No free interrupts![reset]\n");
+		        "[reset][color=light-red]Not loaded: No free interrupts![reset]\n");
 
-		MSG_Add("PROGRAM_FMPDRV_UNLOADED", "[reset][color=light-yellow]Driver unloaded[reset]\n");
+		MSG_Add("PROGRAM_FMPDRV_UNLOADED", "[reset][color=brown]Driver unloaded[reset]\n");
 
 		MSG_Add("PROGRAM_FMPDRV_UNLOAD_FAILED_NOT_LOADED",
-		        "[reset][color=light-yellow]Driver was not loaded[reset]\n");
+		        "[reset][color=brown]Driver was not loaded[reset]\n");
 
 		MSG_Add("PROGRAM_FMPDRV_UNLOAD_FAILED_BLOCKED",
-		        "[reset][color=light-yellow]Driver not unloaded: configured to stay resident[reset]\n");
+		        "[reset][color=brown]Driver not unloaded: configured to stay resident[reset]\n");
 
 		messages_were_added = true;
 	}
@@ -1172,7 +1172,7 @@ static void SetMixerVolume(const char* const channelName, const uint16_t percent
 
 	AudioFrame vol_gain     = chan->GetAppVolume();
 	vol_gain[right ? 1 : 0] = percentage_to_gain(percentage);
-	chan->SetAppVolume(vol_gain.left, vol_gain.right);
+	chan->SetAppVolume({vol_gain.left, vol_gain.right});
 }
 
 static bool RMDEV_SYS_int2fHandler()
@@ -1231,28 +1231,28 @@ static bool RMDEV_SYS_int2fHandler()
 			reg_ax = 100; // can't touch this
 			return true;
 		case 0x0012: // query MPEG left volume
-			reg_ax = GetMixerVolume(reelmagic_channel_name, false);
+			reg_ax = GetMixerVolume(ChannelName::ReelMagic, false);
 			return true;
 		case 0x0013: // query MPEG right volume
-			reg_ax = GetMixerVolume(reelmagic_channel_name, true);
+			reg_ax = GetMixerVolume(ChannelName::ReelMagic, true);
 			return true;
 		case 0x0014: // query SYNT left volume
-			reg_ax = GetMixerVolume("OPL", false);
+			reg_ax = GetMixerVolume(ChannelName::Opl, false);
 			return true;
 		case 0x0015: // query SYNT right volume
-			reg_ax = GetMixerVolume("OPL", true);
+			reg_ax = GetMixerVolume(ChannelName::Opl, true);
 			return true;
 		case 0x0016: // query PCM left volume
-			reg_ax = GetMixerVolume("SB", false);
+			reg_ax = GetMixerVolume(ChannelName::SoundBlasterDac, false);
 			return true;
 		case 0x0017: // query PCM right volume
-			reg_ax = GetMixerVolume("SB", true);
+			reg_ax = GetMixerVolume(ChannelName::SoundBlasterDac, true);
 			return true;
 		case 0x001C: // query CD left volume
-			reg_ax = GetMixerVolume("CDAUDIO", false);
+			reg_ax = GetMixerVolume(ChannelName::CdAudio, false);
 			return true;
 		case 0x001D: // query CD right volume
-			reg_ax = GetMixerVolume("CDAUDIO", true);
+			reg_ax = GetMixerVolume(ChannelName::CdAudio, true);
 			return true;
 		}
 		break;
@@ -1265,28 +1265,28 @@ static bool RMDEV_SYS_int2fHandler()
 			LOG(LOG_REELMAGIC, LOG_ERROR)("RMDEV.SYS: Can't update MAIN Right Volume");
 			return true;
 		case 0x0012: // set MPEG left volume
-			SetMixerVolume(reelmagic_channel_name, reg_dx, false);
+			SetMixerVolume(ChannelName::ReelMagic, reg_dx, false);
 			return true;
 		case 0x0013: // set MPEG right volume
-			SetMixerVolume(reelmagic_channel_name, reg_dx, true);
+			SetMixerVolume(ChannelName::ReelMagic, reg_dx, true);
 			return true;
 		case 0x0014: // set SYNT left volume
-			SetMixerVolume("OPL", reg_dx, false);
+			SetMixerVolume(ChannelName::Opl, reg_dx, false);
 			return true;
 		case 0x0015: // set SYNT right volume
-			SetMixerVolume("OPL", reg_dx, true);
+			SetMixerVolume(ChannelName::Opl, reg_dx, true);
 			return true;
 		case 0x0016: // set PCM left volume
-			SetMixerVolume("SB", reg_dx, false);
+			SetMixerVolume(ChannelName::SoundBlasterDac, reg_dx, false);
 			return true;
 		case 0x0017: // set PCM right volume
-			SetMixerVolume("SB", reg_dx, true);
+			SetMixerVolume(ChannelName::SoundBlasterDac, reg_dx, true);
 			return true;
 		case 0x001C: // set CD left volume
-			SetMixerVolume("CDAUDIO", reg_dx, false);
+			SetMixerVolume(ChannelName::CdAudio, reg_dx, false);
 			return true;
 		case 0x001D: // set CD right volume
-			SetMixerVolume("CDAUDIO", reg_dx, true);
+			SetMixerVolume(ChannelName::CdAudio, reg_dx, true);
 			return true;
 		}
 		break;
@@ -1296,7 +1296,7 @@ static bool RMDEV_SYS_int2fHandler()
 		//       before the "INT 2fh" call... therfore, I am assuming the segment to
 		//       output the string to is indeed DX and not DS...
 		reg_ax = 0;
-		MEM_BlockWrite(PhysMake(reg_dx, reg_bx),
+		MEM_BlockWrite(PhysicalMake(reg_dx, reg_bx),
 		               REELMAGIC_FMPDRV_EXE_LOCATION,
 		               sizeof(REELMAGIC_FMPDRV_EXE_LOCATION));
 		return true;
@@ -1367,7 +1367,7 @@ static void reelmagic_destroy([[maybe_unused]] Section* sec)
 	FMPDRV_UninstallINTHandler();
 
 	// un-register the interrupt handlers
-	DOS_DelMultiplexHandler(&RMDEV_SYS_int2fHandler);
+	DOS_DeleteMultiplexHandler(&RMDEV_SYS_int2fHandler);
 
 	// stop mixing VGA and MPEG signals; use pass-through mode
 	ReelMagic_SetVideoMixerEnabled(false);
@@ -1395,11 +1395,17 @@ void ReelMagic_Init(Section* sec)
 	const auto section = static_cast<Section_prop*>(sec);
 
 	// Does the user want ReelMagic emulation?
-	const auto reelmagic_choice = std::string_view(section->Get_string("reelmagic"));
-	const auto wants_reelmagic  = (reelmagic_choice == "on" || reelmagic_choice == "cardonly");
+	const auto reelmagic_choice = section->Get_string("reelmagic");
 
-	if (!wants_reelmagic) {
-		if (reelmagic_choice != "off") {
+	const auto wants_card_only = (reelmagic_choice == "cardonly");
+
+	const auto reelmagic_choice_has_bool = parse_bool_setting(reelmagic_choice);
+
+	const auto wants_card_and_driver = (reelmagic_choice_has_bool &&
+	                                    *reelmagic_choice_has_bool == true);
+
+	if (!wants_card_only && !wants_card_and_driver) {
+		if (!reelmagic_choice_has_bool) {
 			LOG_WARNING("REELMAGIC: Invalid 'reelmagic' value: '%s', shutting down.",
 			            reelmagic_choice.data());
 		}
@@ -1430,8 +1436,7 @@ void ReelMagic_Init(Section* sec)
 
 	REELMAGIC_MaybeCreateFmpdrvExecutable();
 
-	// User wants the hardware and the driver
-	if (reelmagic_choice == "on") {
+	if (wants_card_and_driver) {
 		_unloadAllowed = false;
 		FMPDRV_InstallINTHandler();
 	}
@@ -1441,9 +1446,9 @@ void ReelMagic_Init(Section* sec)
 	const bool driver_initialized = _installedInterruptNumber != 0;
 
 	if (card_initialized && driver_initialized)
-		LOG_MSG("REELMAGIC: Initialized ReelMagic MPEG playback card and driver");
+		LOG_MSG("REELMAGIC: Initialised ReelMagic MPEG playback card and driver");
 	else if (card_initialized)
-		LOG_MSG("REELMAGIC: Initialized ReelMagic MPEG playback card");
+		LOG_MSG("REELMAGIC: Initialised ReelMagic MPEG playback card");
 	else {
 		// Should be impossible to initialize the driver without the card
 		assert(driver_initialized == false);
@@ -1455,5 +1460,6 @@ void ReelMagic_Init(Section* sec)
 	_a206debug = true;
 #endif
 
-	sec->AddDestroyFunction(&reelmagic_destroy, true);
+	constexpr auto changeable_at_runtime = true;
+	sec->AddDestroyFunction(&reelmagic_destroy, changeable_at_runtime);
 }

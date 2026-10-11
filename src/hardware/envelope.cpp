@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2019-2021  kcgen <kcgen@users.noreply.github.com>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -59,12 +59,14 @@ void Envelope::Update(const int frame_rate, const int peak_amplitude,
 	assert(expansion_phase_frames);
 	edge_increment = static_cast<float>(ceil_sdivide(peak_amplitude, expansion_phase_frames));
 
-//	DEBUG_LOG_MSG("ENVELOPE: %s grows by %-3f to %-5f across %-3u frames (%u ms)",
-//	              channel_name,
-//	              edge_increment,
-//	              edge_limit,
-//	              expansion_phase_frames,
-//	              expansion_phase_ms);
+#if 0
+	LOG_DEBUG("ENVELOPE: %s grows by %-3f to %-5f across %-3u frames (%u ms)",
+	          channel_name.c_str(),
+	          edge_increment,
+	          edge_limit,
+	          expansion_phase_frames,
+	          expansion_phase_ms);
+#endif
 }
 
 bool Envelope::ClampSample(float &sample, const float lip)
@@ -100,10 +102,10 @@ void Envelope::Apply(const bool is_stereo, AudioFrame &frame)
 	if (++frames_done > expire_after_frames || edge >= edge_limit) {
 		process = &Envelope::Skip;
 		(void)channel_name; // [[maybe_unused]] in release builds
-		DEBUG_LOG_MSG("ENVELOPE: %s done after %u frames, peak sample was %f",
-		              channel_name,
-		              frames_done,
-		              edge);
+		LOG_DEBUG("ENVELOPE: %s done after %u frames, peak sample was %.4f",
+		          channel_name.c_str(),
+		          frames_done,
+		          edge);
 	}
 }
 

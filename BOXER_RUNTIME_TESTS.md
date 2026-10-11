@@ -4,7 +4,7 @@
 
 This suite protects Boxer/MaddTheSane behavior while DOSBox Staging is upgraded. It complements `BOXER_PATCHES.md`: that manifest explains the production changes, while these tests invoke the changed production entry points and record Boxer-visible outcomes. `boxer-compat-local:BOXER_TEST_COVERAGE.md` remains historical source-contract coverage; it is not evidence that a runtime path was executed.
 
-The current integration under test is the DOSBox v0.80.0 merge checkpoint at `78fea163c`; the prior v0.79.1 integration evidence remains anchored at `92281b3ee732508334b6d96df81d37e2780428ec`.
+The current integration under test is the DOSBox Staging v0.81.2 production checkpoint at `43144659d`; v0.81.0 (`fd23acfab`) remains the intermediate merge/build diagnostic, and the prior v0.79.1 integration evidence remains anchored at `92281b3ee732508334b6d96df81d37e2780428ec`.
 
 ## Architecture
 
@@ -13,8 +13,7 @@ Shared behavioral expectation
         |
         +-- DOSBox079Adapter -> v0.79.1 production sources/entry points
         +-- DOSBox080Adapter -> deliberately unavailable pending API comparison
-                +-- DOSBox0800Adapter, if a maintenance difference requires it
-                +-- DOSBox0801Adapter, if a maintenance difference requires it
+        +-- DOSBox081Adapter -> v0.81.0 production sources/entry points
 ```
 
 Expectations live in `Boxer Integration Tests/SharedBehavior`. Process execution, ordered events, clean-state checks, and adapter contracts live in `RuntimeHarnessSupport`. An adapter maps source locations and entry points; it must not alter expected behavior.
@@ -39,8 +38,9 @@ Each runtime harness compiles an unmodified production source into a child execu
 | Boxer-integrated v0.80.0 | Future | Not available | Pass except documented upstream mouse defect where applicable |
 | Official v0.80.1 | Unverified | Not run | Boxer expectations fail because integration is absent; restored acceleration detected |
 | Boxer-integrated v0.80.1 | Future | Not available | All shared tests pass |
+| Boxer-integrated v0.81.2 (`43144659d`) | `DOSBox081Adapter` | Source-layout, marker, MIDI, and configuration contracts pass; runtime API migration in progress | Adapt v0.79 fake signatures to v0.81.2 `std::array`, string-view, batch-stack, and capture/keyboard layouts |
 
-`DOSBox080Adapter` intentionally advertises no supported versions until v0.80.0 and v0.80.1 signatures and source layouts have been compared. Do not add runtime version branches to shared tests.
+`DOSBox080Adapter` intentionally advertises no supported versions until v0.80.0 and v0.80.1 signatures and source layouts have been compared. `DOSBox081Adapter` is the active v0.81.2 mapping; it relocates keyboard to `src/hardware/input/keyboard.cpp`, mouse to `src/hardware/input/mouse.cpp`, capture routing to `src/capture/capture.cpp`, and maps capture creation to `CAPTURE_CreateFile`. Do not add runtime version branches to shared tests.
 
 ## Current runtime evidence
 
@@ -209,6 +209,18 @@ Manual v0.80.0 validation subsequently confirmed that Boxer mouse detection is n
 ## Manual-only coverage
 
 Physical controller behavior, real MIDI/MT-32 output, audible audio, Cocoa/Metal presentation and frame pacing, fullscreen/window transitions, real printer UI/output, real removable-media handling, and user-facing localization selection remain manual. Automated fakes should protect routing and lifecycle semantics without claiming those physical or presentation checks.
+
+## v0.81.2 post-merge runtime fixes
+
+The following production fixes were required after the v0.81.2 merge and were manually verified in a fresh debug launch. They must remain visible during the eventual v0.81.2 production-test pass:
+
+| Fix | Commits | Verification and follow-up |
+|---|---|---|
+| Cocoa canvas dimensions replace SDL window-size queries | Submodule `6b818a517`; parent `9119301e` | Build-for-testing and DOS startup passed without the zero-sized canvas assertions. Add a production-linked render bridge test proving a positive canvas before VGA/shader initialization. |
+| Boxer mouse activation and window-active notification | Parent `fe4a44b6`, `2bf2cbfd` | Mouse events reached DOSBox after a fresh launch. Add deterministic bridge coverage for activation and event acceptance; physical pointer/capture behavior remains manual. |
+| Boxer MIDI autodetection and running-status parser | Submodule `47a322662`; parent `54811054` | MT-32 SysEx reached Boxer, `Conclusive MT-32 sysex` was logged, the MT-32 mixer ran at 32000 Hz, and the LCD overlay reached `showMT32BezelForMessage:`. Add a mutation-guarded MIDI harness covering unavailable upstream handlers, SysEx routing, and running-status reset. |
+
+These fixes are not regression “behavior changes” to be hidden by skips. The remaining automated tests should fail when the bridge/remapping or parser-reset lines are removed. The About Boxer investigation changed no source and requires no test entry.
 
 ## v0.80.1 pre-adaptation merge checkpoint (2026-09-11)
 

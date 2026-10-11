@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,6 +103,24 @@ TEST_F(DOS_Shell_REDIRTest, CMD_Redirection)
 	EXPECT_TRUE(in == "in.txt");
 	EXPECT_TRUE(out == "out.txt");
 	EXPECT_TRUE(pipe == "");
+	EXPECT_EQ(append, false);
+
+	in = out = pipe = "";
+	strcpy(line, "less<in.txt>NUL");
+	shell.GetRedirection(line, in, out, pipe, &append);
+	EXPECT_STREQ(line, "less");
+	EXPECT_EQ(in, "in.txt");
+	EXPECT_EQ(out, "NUL");
+	EXPECT_EQ(pipe, "");
+	EXPECT_EQ(append, false);
+
+	in = out = pipe = "";
+	strcpy(line, "less<in.txt>NUL:");
+	shell.GetRedirection(line, in, out, pipe, &append);
+	EXPECT_STREQ(line, "less:");
+	EXPECT_EQ(in, "in.txt");
+	EXPECT_EQ(out, "NUL");
+	EXPECT_EQ(pipe, "");
 	EXPECT_EQ(append, false);
 
 	in = out = pipe = "";

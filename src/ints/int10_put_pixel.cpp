@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -18,8 +19,9 @@
 
 #include "int10.h"
 
-#include "mem.h"
 #include "inout.h"
+#include "mem.h"
+#include "pci_bus.h"
 
 static uint8_t cga_masks[4]={0x3f,0xcf,0xf3,0xfc};
 static uint8_t cga_masks2[8]={0x7f,0xbf,0xdf,0xef,0xf7,0xfb,0xfd,0xfe};
@@ -185,13 +187,14 @@ void INT10_PutPixel(uint16_t x,uint16_t y,uint8_t page,uint8_t color) {
 	}
 
 	case M_VGA:
-		mem_writeb(PhysMake(0xa000,y*320+x),color);
+		mem_writeb(PhysicalMake(0xa000,y*320+x),color);
 		break;
 	case M_LIN8: {
 			if (CurMode->swidth!=(Bitu)real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS)*8)
 				LOG(LOG_INT10,LOG_ERROR)("PutPixel_VGA_w: %u!=%x",CurMode->swidth,real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS)*8);
-			PhysPt off=S3_LFB_BASE+y*real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS)*8+x;
-			mem_writeb(off,color);
+		        PhysPt off = PciGfxLfbBase + x +
+		                     y * real_readw(BIOSMEM_SEG, BIOSMEM_NB_COLS) * 8;
+		        mem_writeb(off,color);
 			break;
 		}
 	default:
@@ -264,13 +267,14 @@ void INT10_GetPixel(uint16_t x,uint16_t y,uint8_t page,uint8_t * color) {
 			break;
 		}
 	case M_VGA:
-		*color=mem_readb(PhysMake(0xa000,320*y+x));
+		*color=mem_readb(PhysicalMake(0xa000,320*y+x));
 		break;
 	case M_LIN8: {
 			if (CurMode->swidth!=(Bitu)real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS)*8)
 				LOG(LOG_INT10,LOG_ERROR)("GetPixel_VGA_w: %u!=%x",CurMode->swidth,real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS)*8);
-			PhysPt off=S3_LFB_BASE+y*real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS)*8+x;
-			*color = mem_readb(off);
+		        PhysPt off = PciGfxLfbBase + x +
+		                     y * real_readw(BIOSMEM_SEG, BIOSMEM_NB_COLS) * 8;
+		        *color = mem_readb(off);
 			break;
 		}
 	default:

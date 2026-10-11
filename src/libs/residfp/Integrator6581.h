@@ -113,7 +113,7 @@ namespace reSIDfp
  *     I0 = (2 * uCox * Ut^2) / k
  *
  * The remaining problem with the textbook model is that the transition
- * from subthreshold the triode/saturation is not continuous.
+ * from subthreshold to triode/saturation is not continuous.
  *
  * Realizing that the subthreshold and triode/saturation modes may both
  * be defined by independent (and equal) terms of Vgs and Vds,
@@ -252,7 +252,7 @@ int Integrator6581::solve(int vi) const
     const unsigned int Ir = static_cast<unsigned int>(fmc->getVcr_n_Ids_term(kVgt_Vd)) << 15;
 #ifdef SLOPE_FACTOR
     const double iVcr = static_cast<double>(If - Ir);
-    const int n_I_vcr = static_cast<int>((iVcr * n) + 0.5);
+    const int n_I_vcr = static_cast<int>(iVcr * n);
 #else
     const int n_I_vcr = If - Ir;
 #endif

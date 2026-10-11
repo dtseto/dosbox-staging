@@ -1,9 +1,12 @@
+#version 120
+
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
+ *  Copyright (C) 2020-2024  The DOSBox Staging Team
  *  Copyright (C) 2003-2020  The DOSBox Team
  *
- * Contributors:
+ *  Contributors:
  *   - 2003, Sjoerd van der Berg <harekiet@users.sourceforge.net>: authored
  *           https://svn.code.sf.net/p/dosbox/code-0/dosbox/trunk@1320
  *
@@ -27,6 +30,8 @@
 
 #pragma use_srgb_texture
 #pragma use_srgb_framebuffer
+#pragma force_single_scan
+#pragma force_no_pixel_doubling
 
 varying vec2 v_texCoord;
 uniform sampler2D rubyTexture;

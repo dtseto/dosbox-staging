@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2019-2021  kcgen <kcgen@users.noreply.github.com>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,7 +58,7 @@
 
 #include <cstdint>
 #include <functional>
-
+#include <string>
 
 typedef struct AudioFrame AudioFrame_;
 
@@ -88,7 +88,7 @@ private:
 	using process_f = std::function<void(Envelope &, const bool, AudioFrame &)>;
 	process_f process = &Envelope::Apply;
 
-	const char *channel_name = nullptr;
+	std::string channel_name = {};
 
 	int expire_after_frames = 0; // Stop enveloping when this many
 	                             // frames have been processed.

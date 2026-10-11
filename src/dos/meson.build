@@ -9,6 +9,7 @@ libdos_sources = files(
     'dos_files.cpp',
     'dos_ioctl.cpp',
     'dos_keyboard_layout.cpp',
+    'dos_locale.cpp',
     'dos_memory.cpp',
     'dos_misc.cpp',
     'dos_mscdex.cpp',
@@ -34,14 +35,19 @@ libdos_sources = files(
     'program_loadrom.cpp',
     'program_ls.cpp',
     'program_mem.cpp',
+    'program_mixer.cpp',
     'program_more.cpp',
     'program_more_output.cpp',
     'program_mount.cpp',
     'program_mount_common.cpp',
     'program_mousectl.cpp',
+    'program_move.cpp',
     'program_placeholder.cpp',
     'program_rescan.cpp',
     'program_serial.cpp',
+    'program_setver.cpp',
+    'program_subst.cpp',
+    'program_tree.cpp',
 )
 
 libdos = static_library(
@@ -50,11 +56,13 @@ libdos = static_library(
     include_directories: incdir,
     dependencies: [
         sdl2_dep,
+        sdl2_net_dep,
         libdecoders_dep,
         ghc_dep,
         libiir_dep,
         libloguru_dep,
     ],
+    cpp_args: warnings,
 )
 
 libdos_dep = declare_dependency(link_with: libdos)

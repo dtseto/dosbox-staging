@@ -179,7 +179,7 @@ static bool MakeCodePage(Bitu lin_addr, CodePageHandler *&cph)
 
 	// adjust previous and next page pointer
 	cpagehandler->prev=cache.last_page;
-	cpagehandler->next=0;
+	cpagehandler->next=nullptr;
 	if (cache.last_page) cache.last_page->next=cpagehandler;
 	cache.last_page=cpagehandler;
 	if (!cache.used_pages) cache.used_pages=cpagehandler;
@@ -196,7 +196,7 @@ static void decode_advancepage(void) {
 	// Advance to the next page
 	decode.active_block->page.end=4095;
 	// trigger possible page fault here
-	decode.page.first++;
+	++decode.page.first;
 	Bitu faddr=decode.page.first << 12;
 	mem_readb(faddr);
 	MakeCodePage(faddr,decode.page.code);
@@ -217,8 +217,8 @@ static uint8_t decode_fetchb(void) {
 		decode_advancepage();
 	}
 	decode.page.wmap[decode.page.index]+=0x01;
-	decode.page.index++;
-	decode.code+=1;
+	++decode.page.index;
+	++decode.code;
 	return mem_readb(decode.code-1);
 }
 // fetch the next word of the instruction stream
@@ -247,40 +247,6 @@ static uint32_t decode_fetchd(void) {
 	return mem_readd(decode.code-4);
 }
 
-#define START_WMMEM 64
-
-// adjust writemap mask to care for map holes due to special
-// codefetch functions
-static void inline decode_increase_wmapmask(Bitu size) {
-	size_t mapidx        = 0;
-	CacheBlock* activecb = decode.active_block;
-	if (GCC_UNLIKELY(!activecb->cache.wmapmask)) {
-		activecb->cache.wmapmask  = std::make_unique<uint8_t[]>(START_WMMEM);
-		activecb->cache.masklen   = START_WMMEM;
-		activecb->cache.maskstart = decode.page.index;
-	} else {
-		mapidx = decode.page.index - activecb->cache.maskstart;
-		if (GCC_UNLIKELY(mapidx + size >= activecb->cache.masklen)) {
-			size_t newmasklen = activecb->cache.masklen * 4;
-			if (newmasklen < mapidx + size) {
-				newmasklen = ((mapidx + size) & ~3) * 2;
-			}
-			auto tempmem = std::make_unique<uint8_t[]>(newmasklen);
-			memcpy(tempmem.get(),
-			       activecb->cache.wmapmask.get(),
-			       activecb->cache.masklen);
-			activecb->cache.wmapmask = std::move(tempmem);
-			activecb->cache.masklen  = check_cast<uint16_t>(newmasklen);
-		}
-	}
-	// update mask entries
-	switch (size) {
-	case 1: activecb->cache.wmapmask[mapidx] += 0x01; break;
-	case 2: add_to_unaligned_uint16(&activecb->cache.wmapmask[mapidx], 0x0101); break;
-	case 4: add_to_unaligned_uint32(&activecb->cache.wmapmask[mapidx], 0x01010101); break;
-	}
-}
-
 // fetch a byte, val points to the code location if possible,
 // otherwise val contains the current value read from the position
 static bool decode_fetchb_imm(Bitu & val) {
@@ -288,7 +254,7 @@ static bool decode_fetchb_imm(Bitu & val) {
 		decode_advancepage();
 	}
 	// see if position is directly accessible
-	if (decode.page.invmap != NULL) {
+	if (decode.page.invmap != nullptr) {
 		if (decode.page.invmap[decode.page.index] == 0) {
 			// position not yet modified
 			val=(uint32_t)decode_fetchb();
@@ -298,9 +264,9 @@ static bool decode_fetchb_imm(Bitu & val) {
 		HostPt tlb_addr=get_tlb_read(decode.code);
 		if (tlb_addr) {
 			val=(Bitu)(tlb_addr+decode.code);
-			decode_increase_wmapmask(1);
-			decode.code++;
-			decode.page.index++;
+			decode.active_block->cache.AddByteToWriteMaskAt(decode.page.index);
+			++decode.code;
+			++decode.page.index;
 			return true;
 		}
 	}
@@ -313,7 +279,7 @@ static bool decode_fetchb_imm(Bitu & val) {
 // otherwise val contains the current value read from the position
 static bool decode_fetchw_imm(Bitu & val) {
 	if (decode.page.index<4095) {
-		if (decode.page.invmap != NULL) {
+		if (decode.page.invmap != nullptr) {
 			if ((decode.page.invmap[decode.page.index] == 0) &&
 				(decode.page.invmap[decode.page.index + 1] == 0)) {
 				// position not yet modified
@@ -325,9 +291,9 @@ static bool decode_fetchw_imm(Bitu & val) {
 			// see if position is directly accessible
 			if (tlb_addr) {
 				val=(Bitu)(tlb_addr+decode.code);
-				decode_increase_wmapmask(2);
-				decode.code+=2;
-				decode.page.index+=2;
+				decode.active_block->cache.AddWordToWriteMaskAt(decode.page.index);
+				decode.code += 2;
+				decode.page.index += 2;
 				return true;
 			}
 		}
@@ -341,7 +307,7 @@ static bool decode_fetchw_imm(Bitu & val) {
 // otherwise val contains the current value read from the position
 static bool decode_fetchd_imm(Bitu & val) {
 	if (decode.page.index<4093) {
-		if (decode.page.invmap != NULL) {
+		if (decode.page.invmap != nullptr) {
 			if ((decode.page.invmap[decode.page.index] == 0) &&
 				(decode.page.invmap[decode.page.index + 1] == 0) &&
 				(decode.page.invmap[decode.page.index + 2] == 0) &&
@@ -355,9 +321,9 @@ static bool decode_fetchd_imm(Bitu & val) {
 			// see if position is directly accessible
 			if (tlb_addr) {
 				val=(Bitu)(tlb_addr+decode.code);
-				decode_increase_wmapmask(4);
-				decode.code+=4;
-				decode.page.index+=4;
+				decode.active_block->cache.AddDwordToWriteMaskAt(decode.page.index);
+				decode.code += 4;
+				decode.page.index += 4;
 				return true;
 			}
 		}
@@ -462,7 +428,9 @@ static void inline dyn_get_modrm(void) {
 
 // adjust CPU_Cycles value
 static void dyn_reduce_cycles(void) {
-	if (!decode.cycles) decode.cycles++;
+	if (!decode.cycles) {
+		++decode.cycles;
+	}
 	gen_sub_direct_word(&CPU_Cycles,decode.cycles,true);
 }
 
@@ -671,13 +639,15 @@ static void dyn_closeblock(void) {
 // add a check that can branch to the exception handling
 static void dyn_check_exception(HostReg reg) {
 	save_info_dynrec[used_save_info_dynrec].branch_pos=gen_create_branch_long_nonzero(reg,false);
-	if (!decode.cycles) decode.cycles++;
+	if (!decode.cycles) {
+		++decode.cycles;
+	}
 	save_info_dynrec[used_save_info_dynrec].cycles=decode.cycles;
 	// in case of an exception eip will point to the start of the current instruction
 	save_info_dynrec[used_save_info_dynrec].eip_change=decode.op_start-decode.code_start;
 	if (!cpu.code.big) save_info_dynrec[used_save_info_dynrec].eip_change&=0xffff;
 	save_info_dynrec[used_save_info_dynrec].type=db_exception;
-	used_save_info_dynrec++;
+	++used_save_info_dynrec;
 }
 
 bool DRC_CALL_CONV mem_readb_checked_drc(PhysPt address) DRC_FC;
@@ -805,7 +775,7 @@ static void dyn_write_word(HostReg reg_addr,HostReg reg_val,bool dword) {
                                          Bits imm)
 {
 	if (scale || imm) {
-		if (op1!=NULL) {
+		if (op1!=nullptr) {
 			gen_mov_word_to_reg(ea_reg,op1,true);
 			gen_mov_word_to_reg(TEMP_REG_DRC,op2,true);
 
@@ -816,7 +786,7 @@ static void dyn_write_word(HostReg reg_addr,HostReg reg_val,bool dword) {
 		}
 	} else {
 		gen_mov_word_to_reg(ea_reg,op2,true);
-		if (op1!=NULL) gen_add(ea_reg,op1);
+		if (op1!=nullptr) gen_add(ea_reg,op1);
 	}
 }
 
@@ -841,7 +811,7 @@ static void dyn_lea_regval_regval(HostReg ea_reg,Bitu op1_index,Bitu op2_index,B
 // op2 is cpu_regs[op2_index] 
 static void dyn_lea_mem_regval(HostReg ea_reg,void* op1,Bitu op2_index,Bitu scale,Bits imm) {
 	if (scale || imm) {
-		if (op1!=NULL) {
+		if (op1!=nullptr) {
 			gen_mov_word_to_reg(ea_reg,op1,true);
 			MOV_REG_VAL_TO_HOST_REG(TEMP_REG_DRC,op2_index);
 
@@ -852,7 +822,7 @@ static void dyn_lea_mem_regval(HostReg ea_reg,void* op1,Bitu op2_index,Bitu scal
 		}
 	} else {
 		MOV_REG_VAL_TO_HOST_REG(ea_reg,op2_index);
-		if (op1!=NULL) gen_add(ea_reg,op1);
+		if (op1!=nullptr) gen_add(ea_reg,op1);
 	}
 }
 #endif
@@ -991,7 +961,7 @@ skip_extend_word:
 								if (!scaled_reg_used) {
 									gen_mov_LE_word_to_reg(ea_reg,(void*)val,true);
 								} else {
-									DYN_LEA_MEM_REG_VAL(ea_reg,NULL,scaled_reg,scale,0);
+									DYN_LEA_MEM_REG_VAL(ea_reg,nullptr,scaled_reg,scale,0);
 									gen_add_LE(ea_reg,(void*)val);
 								}
 							} else {
@@ -1011,7 +981,7 @@ skip_extend_word:
 							if (!scaled_reg_used) {
 								gen_mov_dword_to_reg_imm(ea_reg,(uint32_t)imm);
 							} else {
-								DYN_LEA_MEM_REG_VAL(ea_reg,NULL,scaled_reg,scale,imm);
+								DYN_LEA_MEM_REG_VAL(ea_reg,nullptr,scaled_reg,scale,imm);
 							}
 						} else {
 							if (!scaled_reg_used) {
@@ -1224,7 +1194,7 @@ static void InvalidateFlagsPartially(void* current_simple_function,Bitu flags_ty
 	mf_functions[mf_functions_num].pos=cache.pos;
 	mf_functions[mf_functions_num].fct_ptr=current_simple_function;
 	mf_functions[mf_functions_num].ftype=flags_type;
-	mf_functions_num++;
+	++mf_functions_num;
 #endif
 }
 
@@ -1236,7 +1206,7 @@ static void InvalidateFlagsPartially(void* current_simple_function,const uint8_t
 	mf_functions[mf_functions_num].pos=cpos;
 	mf_functions[mf_functions_num].fct_ptr=current_simple_function;
 	mf_functions[mf_functions_num].ftype=flags_type;
-	mf_functions_num++;
+	++mf_functions_num;
 #endif
 }
 

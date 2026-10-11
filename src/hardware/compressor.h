@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2022-2022  The DOSBox Staging Team
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,7 +85,7 @@ public:
 	               const float release_time_ms, const float rms_window_ms);
 	void Reset();
 
-	AudioFrame Process(const AudioFrame &in);
+	AudioFrame Process(const AudioFrame in);
 
 	// prevent copying
 	Compressor(const Compressor &) = delete;

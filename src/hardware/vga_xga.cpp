@@ -1,4 +1,7 @@
 /*
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -621,12 +624,15 @@ static void DrawWaitSub(uint32_t mixmode, Bitu srcval)
 
 void XGA_DrawWait(uint32_t val, io_width_t width)
 {
-	if (!xga.waitcmd.wait)
+	if (!xga.waitcmd.wait) {
 		return;
+	}
+
 	uint32_t mixmode = (xga.pix_cntl >> 6) & 0x3;
+
 	Bitu srcval;
 	Bitu chunksize = 0;
-	Bitu chunks = 0;
+	Bitu chunks    = 0;
 
 	const uint8_t len = (width == io_width_t::dword  ? 4
 	                     : width == io_width_t::word ? 2
@@ -749,9 +755,9 @@ void XGA_DrawWait(uint32_t val, io_width_t width)
 					                     1) + chunksize * k;
 					const auto mask = static_cast<uint64_t>(1) << lshift;
 
-					const uint32_t mixmode = (val & mask)
-					                                 ? xga.foremix
-					                                 : xga.backmix;
+					mixmode = (val & mask) ? xga.foremix
+					                       : xga.backmix;
+
 					switch ((mixmode >> 5) & 0x03) {
 					case 0x00: // Src is background color
 						srcval = xga.backcolor;
@@ -1201,7 +1207,7 @@ void XGA_Write(io_port_t port, io_val_t val, io_width_t width)
 		if (width == io_width_t::byte)
 			vga_write_p3d4(0, val, io_width_t::byte);
 		else if (width == io_width_t::word) {
-			LOG_WARNING("XGA 16-bit write to vga_write_p3d4, vga_write_p3d5");
+			LOG_WARNING("XGA: 16-bit write to vga_write_p3d4, vga_write_p3d5");
 			vga_write_p3d4(0, val & 0xff, io_width_t::byte);
 			vga_write_p3d5(0, val >> 8, io_width_t::byte);
 		} else

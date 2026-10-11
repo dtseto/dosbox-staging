@@ -1,4 +1,7 @@
 /*
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ *  Copyright (C) 2022-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -16,7 +19,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-
 #include "dosbox.h"
 
 #include <algorithm>
@@ -27,8 +29,11 @@
 #include "../ints/int10.h"
 #include "inout.h"
 #include "mem.h"
+#include "pci_bus.h"
 #include "support.h"
 #include "vga.h"
+
+void PCI_AddSVGAS3_Device();
 
 void SVGA_S3_WriteCRTC(io_port_t reg, io_val_t value, io_width_t)
 {
@@ -109,7 +114,7 @@ void SVGA_S3_WriteCRTC(io_port_t reg, io_val_t value, io_width_t)
 	case 0x45:  /* Hardware cursor mode */
 		vga.s3.hgc.curmode = val;
 		// Activate hardware cursor code if needed
-		VGA_ActivateHardwareCursor();
+		(void)VGA_ActivateHardwareCursor();
 		break;
 	case 0x46:
 		vga.s3.hgc.originx = (vga.s3.hgc.originx & 0x00ff) | (val << 8);
@@ -613,15 +618,19 @@ uint8_t SVGA_S3_ReadSEQ(io_port_t reg, io_width_t)
 uint32_t SVGA_S3_GetClock(void)
 {
 	uint32_t clock = (vga.misc_output >> 2) & 3;
-	if (clock == 0)
-		clock = 25175000;
-	else if (clock == 1)
-		clock = 28322000;
-	else
-		clock=1000*S3_CLOCK(vga.s3.clk[clock].m,vga.s3.clk[clock].n,vga.s3.clk[clock].r);
-	/* Check for dual transfer, clock/2 */
-	if (vga.s3.pll.control_2 & 0x10)
+	if (clock == 0) {
+		clock = Vga640PixelClockHz;
+	} else if (clock == 1) {
+		clock = Vga720PixelClockHz;
+	} else {
+		clock = 1000 * S3_CLOCK(vga.s3.clk[clock].m,
+		                        vga.s3.clk[clock].n,
+		                        vga.s3.clk[clock].r);
+	}
+	// Check for dual transfer, clock/2
+	if (vga.s3.pll.control_2 & 0x10) {
 		clock /= 2;
+	}
 	return clock;
 }
 
@@ -741,17 +750,16 @@ void filter_s3_modes_to_oem_only()
 			return (m.mode == 0x10d || m.mode == 0x10e || m.mode == 0x10f);
 
 		// Allow all modes that aren't part of the VESA VGA set (CGA/EGA/Hercules/etc)
-		constexpr auto vesa_vga_modes = M_LIN4 | M_LIN8 | M_LIN15 | M_LIN16 | M_LIN24 | M_LIN32;
-		const bool is_a_vesa_vga_mode = m.type & vesa_vga_modes;
-		if (!is_a_vesa_vga_mode)
+		if (!VESA_IsVesaMode(m.mode)) {
 			return false;
+		}
 
 		// Does the S3 OEM list have this mode for the given DRAM size?
-		const auto it = oem_modes.find(hash(m.swidth, m.sheight, m.type));
+		const auto it = oem_modes.find(hash(m.swidth, m.sheight, enum_val(m.type)));
 		const bool is_an_oem_mode = (it != oem_modes.end()) && (it->second & dram_size);
 
-		// LOG_MSG("S3: %x: %ux%u - m.type=%d is_a_vesa_vga_mode=%d is_an_oem_mode=%d",
-		//         m.mode, m.swidth, m.sheight, m.type, is_a_vesa_vga_mode, is_an_oem_mode);
+		// LOG_MSG("S3: %x: %ux%u - m.type=%d is_vesa_mode=%d is_an_oem_mode=%d",
+		//         m.mode, m.swidth, m.sheight, m.type, VESA_IsVesaMode(m.mode), is_an_oem_mode);
 
 		return !is_an_oem_mode;
 	};
@@ -759,6 +767,7 @@ void filter_s3_modes_to_oem_only()
 	ModeList_VGA.erase(std::remove_if(ModeList_VGA.begin(),
 	                                  ModeList_VGA.end(), mode_not_allowed),
 	                   ModeList_VGA.end());
+	CurMode = std::prev(ModeList_VGA.end());
 }
 
 void SVGA_Setup_S3Trio(void)
@@ -767,12 +776,12 @@ void SVGA_Setup_S3Trio(void)
 	svga.read_p3d5 = &SVGA_S3_ReadCRTC;
 	svga.write_p3c5 = &SVGA_S3_WriteSEQ;
 	svga.read_p3c5 = &SVGA_S3_ReadSEQ;
-	svga.write_p3c0 = 0; /* no S3-specific functionality */
-	svga.read_p3c1 = 0; /* no S3-specific functionality */
+	svga.write_p3c0 = nullptr; /* no S3-specific functionality */
+	svga.read_p3c1 = nullptr; /* no S3-specific functionality */
 
-	svga.set_video_mode = 0; /* implemented in core */
-	svga.determine_mode = 0; /* implemented in core */
-	svga.set_clock = 0; /* implemented in core */
+	svga.set_video_mode = nullptr; /* implemented in core */
+	svga.determine_mode = nullptr; /* implemented in core */
+	svga.set_clock = nullptr; /* implemented in core */
 	svga.get_clock = &SVGA_S3_GetClock;
 	svga.hardware_cursor_active = &SVGA_S3_HWCursorActive;
 	svga.accepts_mode = &SVGA_S3_AcceptsMode;
@@ -822,4 +831,100 @@ void SVGA_Setup_S3Trio(void)
 
 	const auto num_modes = ModeList_VGA.size();
 	VGA_LogInitialization(description.c_str(), ram_type.c_str(), num_modes);
+
+	PCI_AddSVGAS3_Device();
 }
+
+struct PCI_VGADevice : public PCI_Device {
+	enum { vendor = 0x5333 }; // S3
+	enum { device = 0x8811 }; // trio64
+	//enum { device = 0x8810 }; // trio32
+
+	PCI_VGADevice():PCI_Device(vendor,device) { }
+
+	Bits ParseReadRegister(uint8_t regnum) override
+	{
+		return regnum;
+	}
+
+	bool OverrideReadRegister([[maybe_unused]] uint8_t regnum,
+	                          [[maybe_unused]] uint8_t* rval,
+	                          [[maybe_unused]] uint8_t* rval_mask) override
+	{
+		return false;
+	}
+
+	Bits ParseWriteRegister(uint8_t regnum, uint8_t value) override
+	{
+		if ((regnum>=0x18) && (regnum<0x28)) return -1;	// base addresses are read-only
+		if ((regnum>=0x30) && (regnum<0x34)) return -1;	// expansion rom addresses are read-only
+		switch (regnum) {
+			case 0x10:
+				return (PCI_GetCFGData(PCIId(), PCISubfunction(), 0x10)&0x0f);
+			case 0x11:
+				return 0x00;
+			case 0x12:
+				//return (value&0xc0);	// -> 4mb addressable
+				return (value&0x00);	// -> 16mb addressable
+			case 0x13:
+				return value;
+			case 0x14:
+				return (PCI_GetCFGData(PCIId(), PCISubfunction(), 0x10)&0x0f);
+			case 0x15:
+				return 0x00;
+			case 0x16:
+				return value;	// -> 64kb addressable
+			case 0x17:
+				return value;
+			default:
+				break;
+		}
+		return value;
+	}
+
+	bool InitializeRegisters(uint8_t registers[256]) override
+	{
+		// init (S3 graphics card)
+		//registers[0x08] = 0x44;	// revision ID (s3 trio64v+)
+		registers[0x08] = 0x00;	// revision ID
+		registers[0x09] = 0x00;	// interface
+		registers[0x0a] = 0x00;	// subclass type (vga compatible)
+		//registers[0x0a] = 0x01;	// subclass type (xga device)
+		registers[0x0b] = 0x03;	// class type (display controller)
+		registers[0x0c] = 0x00;	// cache line size
+		registers[0x0d] = 0x00;	// latency timer
+		registers[0x0e] = 0x00;	// header type (other)
+
+		// reset
+		registers[0x04] = 0x23;	// command register (vga palette snoop, ports enabled, memory space enabled)
+		registers[0x05] = 0x00;
+		registers[0x06] = 0x80;	// status register (medium timing, fast back-to-back)
+		registers[0x07] = 0x02;
+
+		//registers[0x3c] = 0x0b;	// irq line
+		//registers[0x3d] = 0x01;	// irq pin
+
+		// BAR0 - memory space, within first 4GB
+		// Check 8-byte alignment of LFB base
+		static_assert((PciGfxLfbBase & 0xf) == 0);
+		registers[0x10] = static_cast<uint8_t>(PciGfxLfbBase & 0xff);
+		registers[0x11] = static_cast<uint8_t>((PciGfxLfbBase >> 8) & 0xff);
+		registers[0x12] = static_cast<uint8_t>((PciGfxLfbBase >> 16) & 0xff);
+		registers[0x13] = static_cast<uint8_t>((PciGfxLfbBase >> 24) & 0xff);
+
+		// BAR1 - MMIO space, within first 4GB
+		// Check 8-byte alignment of MMIO base
+		static_assert((PciGfxMmioBase & 0xf) == 0);
+		registers[0x14] = static_cast<uint8_t>(PciGfxMmioBase & 0xff);
+		registers[0x15] = static_cast<uint8_t>((PciGfxMmioBase >> 8) & 0xff);
+		registers[0x16] = static_cast<uint8_t>((PciGfxMmioBase >> 16) & 0xff);
+		registers[0x17] = static_cast<uint8_t>((PciGfxMmioBase >> 24) & 0xff);
+
+		return true;
+	}
+};
+
+void PCI_AddSVGAS3_Device() {
+	PCI_AddDevice(new PCI_VGADevice());
+}
+

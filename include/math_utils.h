@@ -1,7 +1,7 @@
 /*
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- *  Copyright (C) 2020-2022  The DOSBox Staging Team
+ *  Copyright (C) 2020-2023  The DOSBox Staging Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #define DOSBOX_MATH_UTILS_H
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 #include "support.h"
@@ -41,7 +42,7 @@ template <class T> T clamp(const T& n, const T& lower, const T& upper) {
 
   All credit to Charles Bailey, https://stackoverflow.com/a/707426
 */
-constexpr int wrap(int val, int const lower_bound, int const upper_bound)
+constexpr int wrap(int val, const int lower_bound, const int upper_bound)
 {
 	const auto range_size = upper_bound - lower_bound + 1;
 	if (val < lower_bound)
@@ -87,6 +88,36 @@ inline int iroundf(const float x)
 	return static_cast<int>(roundf(x));
 }
 
+inline int ifloor(double x)
+{
+	assert(std::isfinite(x));
+	assert(x >= (std::numeric_limits<int>::min)());
+	assert(x <= (std::numeric_limits<int>::max)());
+	return static_cast<int>(floor(x));
+}
+
+inline int ifloor(const float x)
+{
+	assert(std::isfinite(x));
+	assert(x >= static_cast<float>((std::numeric_limits<int>::min)()));
+	assert(x <= static_cast<float>((std::numeric_limits<int>::max)()));
+	return static_cast<int>(floorf(x));
+}
+
+// Determine if two numbers are equal "enough" based on an epsilon value.
+// Uses a dynamic adjustment based on the magnitude of the numbers.
+// Based on ideas from Bruce Dawson's blog post:
+// https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
+inline bool are_almost_equal_relative(
+        const double a, const double b,
+        const double epsilon = std::numeric_limits<double>::epsilon())
+{
+	const auto diff    = std::fabs(a - b);
+	const auto largest = std::max(std::fabs(a), std::fabs(b));
+
+	return diff <= largest * epsilon;
+}
+
 // Left-shifts a signed value by a given amount, with overflow detection
 template <typename T1, typename T2>
 constexpr T1 left_shift_signed(T1 value, T2 amount)
@@ -128,27 +159,91 @@ constexpr T1 left_shift_signed(T1 value, T2 amount)
 }
 
 template <typename T>
-int8_t clamp_to_int8(const T val)
+constexpr int8_t clamp_to_int8(const T val)
 {
-	constexpr auto min_val = static_cast<T>(std::is_signed<T>{} ? INT8_MIN : 0);
+	static_assert(!std::is_same_v<T, int8_t>,
+	              "clamping unnecessary: val is already an int8_t");
+
+	constexpr auto min_val = static_cast<T>(std::is_signed_v<T> ? INT8_MIN : 0);
 	constexpr auto max_val = static_cast<T>(INT8_MAX);
 	return static_cast<int8_t>(std::clamp(val, min_val, max_val));
 }
 
 template <typename T>
-int16_t clamp_to_int16(const T val)
+constexpr uint8_t clamp_to_uint8(const T val)
 {
-	constexpr auto min_val = static_cast<T>(std::is_signed<T>{} ? INT16_MIN : 0);
+	static_assert(!std::is_same_v<T, uint8_t>,
+	              "clamping unnecessary: val is already an uint8_t");
+
+	constexpr auto min_val = static_cast<T>(0);
+	constexpr auto max_val = static_cast<T>(UINT8_MAX);
+	return static_cast<uint8_t>(std::clamp(val, min_val, max_val));
+}
+
+template <typename T>
+constexpr int16_t clamp_to_int16(const T val)
+{
+	static_assert(!std::is_same_v<T, int16_t>,
+	              "clamping unnecessary: val is already an int16_t");
+
+	static_assert(sizeof(T) >= sizeof(int16_t),
+	              "clamping unnecessary: val type fits within int16_t");
+
+	constexpr auto min_val = static_cast<T>(std::is_signed_v<T> ? INT16_MIN : 0);
 	constexpr auto max_val = static_cast<T>(INT16_MAX);
 	return static_cast<int16_t>(std::clamp(val, min_val, max_val));
 }
 
 template <typename T>
-int32_t clamp_to_int32(const T val)
+constexpr uint16_t clamp_to_uint16(const T val)
 {
-	constexpr auto min_val = static_cast<T>(std::is_signed<T>{} ? INT32_MIN : 0);
+	static_assert(!std::is_same_v<T, uint16_t>,
+	              "clamping unnecessary: val is already an uint16_t");
+
+	static_assert(std::is_signed_v<T> || sizeof(T) > sizeof(uint16_t),
+	              "clamping unnecessary: val type fits within uint16_t");
+
+	constexpr auto min_val = static_cast<T>(0);
+	constexpr auto max_val = static_cast<T>(UINT16_MAX);
+	return static_cast<uint16_t>(std::clamp(val, min_val, max_val));
+}
+
+template <typename T>
+constexpr int32_t clamp_to_int32(const T val)
+{
+	static_assert(!std::is_same_v<T, int32_t>,
+	              "clamping unnecessary: val is already an int32_t");
+
+	static_assert(sizeof(T) >= sizeof(int32_t),
+	              "clamping unnecessary: val type fits within int32_t");
+
+	constexpr auto min_val = static_cast<T>(std::is_signed_v<T> ? INT32_MIN : 0);
 	constexpr auto max_val = static_cast<T>(INT32_MAX);
 	return static_cast<int32_t>(std::clamp(val, min_val, max_val));
+}
+
+template <typename T>
+constexpr uint32_t clamp_to_uint32(const T val)
+{
+	static_assert(!std::is_same_v<T, uint32_t>,
+	              "clamping unnecessary: val is already an uint32_t");
+
+	static_assert(std::is_signed_v<T> || sizeof(T) > sizeof(uint32_t),
+	              "clamping unnecessary: val type fits within uint32_t");
+
+	constexpr auto min_val = static_cast<T>(0);
+	constexpr auto max_val = static_cast<T>(UINT32_MAX);
+	return static_cast<uint32_t>(std::clamp(val, min_val, max_val));
+}
+
+constexpr uint8_t read_low_nibble(const uint8_t byte)
+{
+	return static_cast<uint8_t>(byte & 0x0f);
+}
+
+constexpr uint8_t read_high_nibble(const uint8_t byte)
+{
+	return static_cast<uint8_t>(byte >> 4);
 }
 
 inline float decibel_to_gain(const float decibel)

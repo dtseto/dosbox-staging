@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 2021-2023  The DOSBox Staging Team
  *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -603,18 +604,18 @@ switch (inst.code.op) {
 		inst_op1_d&=~(1 << (inst_op2_d & 31));
 		break;
 	case O_BSWAPw:
-		if (CPU_ArchitectureType<CPU_ARCHTYPE_486OLDSLOW) goto illegalopcode;
+		if (CPU_ArchitectureType<ArchitectureType::Intel486OldSlow) goto illegalopcode;
 		BSWAPW(inst_op1_w);
 		break;
 	case O_BSWAPd:
-		if (CPU_ArchitectureType<CPU_ARCHTYPE_486OLDSLOW) goto illegalopcode;
+		if (CPU_ArchitectureType<ArchitectureType::Intel486OldSlow) goto illegalopcode;
 		BSWAPD(inst_op1_d);
 		break;
 	case O_CMPXCHG:
-		if (CPU_ArchitectureType<CPU_ARCHTYPE_486NEWSLOW) goto illegalopcode;
+		if (CPU_ArchitectureType<ArchitectureType::Intel486NewSlow) goto illegalopcode;
 		FillFlags();
 		if (inst_op1_d==reg_eax) {
-			inst_op1_d=reg_32(inst.rm_index);
+			inst_op1_d=reg_32(static_cast<uint8_t>(inst.rm_index));
 			if (inst.rm<0xc0) SaveMd(inst.rm_eaa,inst_op1_d);	// early write-pf
 			SETFLAGBIT(ZF,1);
 		} else {

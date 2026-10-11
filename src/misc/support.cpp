@@ -134,24 +134,11 @@ char * ScanCMDRemain(char * cmd) {
 		while ( *scan && !isspace(*reinterpret_cast<unsigned char*>(scan)) ) scan++;
 		*scan=0;
 		return found;
-	} else return 0;
+	} else return nullptr;
 }
 
-/*
-static char e_exit_buf[1024]; // greater scope as else it doesn't always gets
-                              // thrown right
-void E_Exit(const char *format, ...)
-{
-#if C_DEBUG && C_HEAVY_DEBUG
-	DEBUG_HeavyWriteLogInstruction();
-#endif
-	va_list msg;
-	va_start(msg, format);
-	vsnprintf(e_exit_buf, ARRAY_LEN(e_exit_buf), format, msg);
-	va_end(msg);
-	ABORT_F("%s", e_exit_buf);
-}
-*/
+// BOXER-HOOK: coalface-e-exit - Boxer remaps E_Exit to its Cocoa error
+// handler via BXCoalface.h; the upstream abort implementation stays disabled.
 
 /* Overloaded function to handle different return types of POSIX and GNU
  * strerror_r variants */
@@ -204,10 +191,60 @@ void FILE_closer::operator()(FILE *f) noexcept
 	}
 }
 
+FILE* open_file(const char* filename, const char* mode)
+{
+#if defined(_WIN32) && defined(__STDC_WANT_SECURE_LIB__)
+	FILE* f;
+	if (0 == fopen_s(&f, filename, mode)) {
+		return f;
+	}
+#else
+	return fopen(filename, mode);
+#endif
+	return nullptr;
+}
+
 FILE_unique_ptr make_fopen(const char *fname, const char *mode)
 {
-	FILE *f = fopen(fname, mode);
+	FILE *f = open_file(fname, mode);
 	return f ? FILE_unique_ptr(f) : nullptr;
+}
+
+// File size in bytes, returns -1 on error
+// The file position will be restored
+int64_t stdio_size_bytes(FILE* f)
+{
+	const auto orig_pos = cross_ftello(f);
+	if (orig_pos >= 0 && !cross_fseeko(f, 0L, SEEK_END)) {
+		const auto end_pos = cross_ftello(f);
+		if (end_pos >= 0 && !cross_fseeko(f, orig_pos, SEEK_SET)) {
+			return end_pos;
+		}
+	}
+	return -1;
+}
+
+static int64_t stdio_size_with_divisor(FILE* f, const int divisor)
+{
+	auto s = stdio_size_bytes(f);
+	if (s >= 0) {
+		return static_cast<int64_t>(s / divisor);
+	}
+	return -1;
+}
+
+// File size in KB, returns -1 on error
+// The file position will be restored
+int64_t stdio_size_kb(FILE* f)
+{
+	return stdio_size_with_divisor(f, 1024L);
+}
+
+// Number of sectors in file, returns -1 on error
+// The file position will be restored
+int64_t stdio_num_sectors(FILE* f)
+{
+	return stdio_size_with_divisor(f, 512L);
 }
 
 const std_fs::path &GetExecutablePath()
@@ -257,48 +294,16 @@ static const std::deque<std_fs::path> &GetResourceParentPaths()
 	// compile time.
 	add_if_exists(std_fs::path(CUSTOM_DATADIR) / CANONICAL_PROJECT_NAME);
 
-	// Fourth priority is the user's XDG data specification
-	//
-	// $XDG_DATA_HOME defines the base directory relative to which
-	// user-specific data files should be stored. If $XDG_DATA_HOME is
-	// either not set or empty, a default equal to $HOME/.local/share should
-	// be used.
-	// Ref:https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
-	//
-	const char *xdg_data_home_env = getenv("XDG_DATA_HOME");
-	if (!xdg_data_home_env)
-		xdg_data_home_env = "~/.local/share";
+	// Fourth priority is the user and system XDG data specification
+#if !defined(WIN32) && !defined(MACOSX)
+	add_if_exists(get_xdg_data_home() / CANONICAL_PROJECT_NAME);
 
-	const std_fs::path xdg_data_home = CROSS_ResolveHome(xdg_data_home_env);
-	add_if_exists(xdg_data_home / CANONICAL_PROJECT_NAME);
-
-	// Fifth priority is the system's XDG data specification
-	//
-	//  $XDG_DATA_DIRS defines the preference-ordered set of base
-	//  directories to search for data files in addition to the
-	//  $XDG_DATA_HOME base directory. The directories in $XDG_DATA_DIRS
-	//  should be seperated with a colon ':'.
-	//
-	// If $XDG_DATA_DIRS is either not set or empty, a value equal to
-	// /usr/local/share/:/usr/share/ should be used.
-	// Ref:https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
-	//
-	const char *xdg_data_dirs_env = getenv("XDG_DATA_DIRS");
-
-	// If XDG_DATA_DIRS is undefined, use the default:
-	if (!xdg_data_dirs_env)
-		xdg_data_dirs_env = "/usr/local/share:/usr/share";
-
-	for (auto& xdg_data_dir : split(xdg_data_dirs_env, ':')) {
-		trim(xdg_data_dir);
-		if (!xdg_data_dir.empty()) {
-			const std_fs::path resolved_dir = CROSS_ResolveHome(
-			        xdg_data_dir);
-			add_if_exists(resolved_dir / CANONICAL_PROJECT_NAME);
-		}
+	for (const auto& data_dir : get_xdg_data_dirs()) {
+		add_if_exists(data_dir / CANONICAL_PROJECT_NAME);
 	}
+#endif
 
-	// Sixth priority is a best-effort fallback for --prefix installations
+	// Fifth priority is a best-effort fallback for --prefix installations
 	// into paths not pointed to by the system's XDG_DATA_ variables. Note
 	// that This lookup is deliberately relative to the executable to permit
 	// portability of the install tree (do not replace this with --prefix,
@@ -307,7 +312,7 @@ static const std::deque<std_fs::path> &GetResourceParentPaths()
 	add_if_exists(GetExecutablePath() / "../share" / CANONICAL_PROJECT_NAME);
 
 	// Last priority is the user's configuration directory
-	add_if_exists(std_fs::path(CROSS_GetPlatformConfigDir()));
+	add_if_exists(GetConfigDir());
 
 	return paths;
 }
@@ -403,22 +408,23 @@ std::map<std_fs::path, std::vector<std_fs::path>> GetFilesInResource(
 }
 
 // Get resource lines from a text file
-std::vector<std::string> GetResourceLines(const std_fs::path &name,
+std::vector<std::string> GetResourceLines(const std_fs::path& name,
                                           const ResourceImportance importance)
 {
-	auto lines = get_lines(name);
-	if (lines)
-		return std::move(*lines);
-
+	const auto resource_path = GetResourcePath(name);
+	if (auto maybe_lines = get_lines(resource_path); maybe_lines) {
+		return std::move(*maybe_lines);
+	}
 	// the resource didn't exist but it's optional
-	if (importance == ResourceImportance::Optional)
+	if (importance == ResourceImportance::Optional) {
 		return {};
+	}
 
 	// the resource didn't exist and it was mandatory, so verbosely quit
 	assert(importance == ResourceImportance::Mandatory);
 	LOG_ERR("RESOURCE: Could not open mandatory resource '%s', tried:",
 	        name.string().c_str());
-	for (const auto &path : GetResourceParentPaths()) {
+	for (const auto& path : GetResourceParentPaths()) {
 		LOG_WARNING("RESOURCE:  - '%s'", (path / name).string().c_str());
 	}
 	E_Exit("RESOURCE: Mandatory resource failure (see detailed message)");
@@ -454,9 +460,9 @@ std::vector<uint8_t> LoadResourceBlob(const std_fs::path &name,
 
 	// non-const to allow movement out of the function
 	std::vector<uint8_t> buffer(std::istreambuf_iterator<char>{file}, {});
-	// DEBUG_LOG_MSG("RESOURCE: Loaded resource '%s' [%d bytes]",
-	//               resource_path.string().c_str(),
-	//               check_cast<int>(buffer.size()));
+	// LOG_DEBUG("RESOURCE: Loaded resource '%s' [%d bytes]",
+	//           resource_path.string().c_str(),
+	//           check_cast<int>(buffer.size()));
 	return buffer;
 }
 

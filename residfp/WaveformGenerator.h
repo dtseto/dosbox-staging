@@ -137,7 +137,11 @@ private:
 
     bool is6581 = false;
 private:
-    void clock_shift_register(unsigned int bit0);
+    void clock_shift_register(unsigned int bit0)
+    {
+        shift_register = (shift_register >> 1) | bit0;
+        set_noise_output();
+    }
 
     unsigned int get_noise_writeback();
 

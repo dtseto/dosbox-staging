@@ -36,11 +36,11 @@ public:
 	isoFile(const isoFile &) = delete;            // prevent copying
 	isoFile &operator=(const isoFile &) = delete; // prevent assignment
 
-	bool Read(uint8_t *data, uint16_t *size);
-	bool Write(uint8_t *data, uint16_t *size);
-	bool Seek(uint32_t *pos, uint32_t type);
-	bool Close();
-	uint16_t GetInformation(void);
+	bool Read(uint8_t *data, uint16_t *size) override;
+	bool Write(uint8_t *data, uint16_t *size) override;
+	bool Seek(uint32_t *pos, uint32_t type) override;
+	bool Close() override;
+	uint16_t GetInformation(void) override;
 
 private:
 	isoDrive *drive = nullptr;
@@ -63,7 +63,7 @@ isoFile::isoFile(isoDrive *iso_drive, const char *name, FileStat_Block *stat, ui
 	assert(stat);
 	time = stat->time;
 	date = stat->date;
-	attr = stat->attr;
+	attr = static_cast<uint8_t>(stat->attr);
 	open = true;
 }
 
@@ -224,7 +224,7 @@ bool isoDrive::FileOpen(DOS_File **file, char *name, uint32_t flags) {
 	if (success) {
 		FileStat_Block file_stat;
 		file_stat.size = DATA_LENGTH(de);
-		file_stat.attr = DOS_ATTR_ARCHIVE | DOS_ATTR_READ_ONLY;
+		file_stat.attr = FatAttributeFlags::ReadOnly;
 		file_stat.date = DOS_PackDate(1900 + de.dateYear, de.dateMonth, de.dateDay);
 		file_stat.time = DOS_PackTime(de.timeHour, de.timeMin, de.timeSec);
 		*file = new isoFile(this, name, &file_stat, EXTENT_LOCATION(de) * ISO_FRAMESIZE);
@@ -233,7 +233,9 @@ bool isoDrive::FileOpen(DOS_File **file, char *name, uint32_t flags) {
 	return success;
 }
 
-bool isoDrive::FileCreate(DOS_File** /*file*/, char* /*name*/, uint16_t /*attributes*/) {
+bool isoDrive::FileCreate(DOS_File** /*file*/, char* /*name*/,
+                          FatAttributeFlags /*attributes*/)
+{
 	DOS_SetError(DOSERR_ACCESS_DENIED);
 	return false;
 }
@@ -258,7 +260,8 @@ bool isoDrive::TestDir(char *dir) {
 	return (lookup(&de, dir) && IS_DIR(FLAGS1));
 }
 
-bool isoDrive::FindFirst(char *dir, DOS_DTA &dta, bool fcb_findfirst) {
+bool isoDrive::FindFirst(char* dir, DOS_DTA& dta, bool fcb_findfirst)
+{
 	isoDirEntry de;
 	if (!lookup(&de, dir)) {
 		DOS_SetError(DOSERR_PATH_NOT_FOUND);
@@ -271,17 +274,18 @@ bool isoDrive::FindFirst(char *dir, DOS_DTA &dta, bool fcb_findfirst) {
 	dirIterators[dirIterator].root = isRoot;
 	dta.SetDirID((uint16_t)dirIterator);
 
-	uint8_t attr;
+	FatAttributeFlags attr = {};
 	char pattern[ISO_MAXPATHNAME];
 	dta.GetSearchParams(attr, pattern);
 
-	if (attr == DOS_ATTR_VOLUME) {
-		dta.SetResult(discLabel, 0, 0, 0, DOS_ATTR_VOLUME);
+	if (attr == FatAttributeFlags::Volume) {
+		dta.SetResult(discLabel, 0, 0, 0, FatAttributeFlags::Volume);
 		return true;
-	} else if ((attr & DOS_ATTR_VOLUME) && isRoot && !fcb_findfirst) {
+	} else if (attr.volume && isRoot && !fcb_findfirst) {
 		if (WildFileCmp(discLabel,pattern)) {
-			// Get Volume Label (DOS_ATTR_VOLUME) and only in basedir and if it matches the searchstring
-			dta.SetResult(discLabel, 0, 0, 0, DOS_ATTR_VOLUME);
+			// Get Volume Label and only in basedir and if it
+			// matches the searchstring
+			dta.SetResult(discLabel, 0, 0, 0, FatAttributeFlags::Volume);
 			return true;
 		}
 	}
@@ -289,25 +293,31 @@ bool isoDrive::FindFirst(char *dir, DOS_DTA &dta, bool fcb_findfirst) {
 	return FindNext(dta);
 }
 
-bool isoDrive::FindNext(DOS_DTA &dta) {
-	uint8_t attr;
+bool isoDrive::FindNext(DOS_DTA& dta)
+{
+	FatAttributeFlags attr = {};
 	char pattern[DOS_NAMELENGTH_ASCII];
 	dta.GetSearchParams(attr, pattern);
 
 	int dirIterator = dta.GetDirID();
 	bool isRoot = dirIterators[dirIterator].root;
 
+	FatAttributeFlags attr_mask = {};
+	attr_mask.directory         = true;
+	attr_mask.hidden            = true;
+	attr_mask.system            = true;
+
 	isoDirEntry de;
 	while (GetNextDirEntry(dirIterator, &de)) {
-		uint8_t findAttr = 0;
-		if (IS_DIR(FLAGS1)) findAttr |= DOS_ATTR_DIRECTORY;
-		else findAttr |= DOS_ATTR_ARCHIVE;
-		if (IS_HIDDEN(FLAGS1)) findAttr |= DOS_ATTR_HIDDEN;
+		FatAttributeFlags findAttr = {};
+		findAttr.directory         = IS_DIR(FLAGS1);
+		findAttr.hidden            = IS_HIDDEN(FLAGS1);
 
-		if (!IS_ASSOC(FLAGS1) && !(isRoot && de.ident[0]=='.') && WildFileCmp((char*)de.ident, pattern)
-			&& !(~attr & findAttr & (DOS_ATTR_DIRECTORY | DOS_ATTR_HIDDEN | DOS_ATTR_SYSTEM))) {
-
-			/* file is okay, setup everything to be copied in DTA Block */
+		if (!IS_ASSOC(FLAGS1) && !(isRoot && de.ident[0] == '.') &&
+		    WildFileCmp((char*)de.ident, pattern) &&
+		    !(~(attr._data) & findAttr._data & attr_mask._data)) {
+			/* file is okay, setup everything to be copied in DTA
+			 * Block */
 			char findName[DOS_NAMELENGTH_ASCII];
 			findName[0] = 0;
 			if(strlen((char*)de.ident) < DOS_NAMELENGTH_ASCII) {
@@ -317,6 +327,7 @@ bool isoDrive::FindNext(DOS_DTA &dta) {
 			uint32_t findSize = DATA_LENGTH(de);
 			uint16_t findDate = DOS_PackDate(1900 + de.dateYear, de.dateMonth, de.dateDay);
 			uint16_t findTime = DOS_PackTime(de.timeHour, de.timeMin, de.timeSec);
+			findAttr.read_only = true;
 			dta.SetResult(findName, findSize, findDate, findTime, findAttr);
 			return true;
 		}
@@ -333,19 +344,26 @@ bool isoDrive::Rename(char* /*oldname*/, char* /*newname*/) {
 	return false;
 }
 
-bool isoDrive::GetFileAttr(char *name, uint16_t *attr) {
-	*attr = 0;
+bool isoDrive::GetFileAttr(char* name, FatAttributeFlags* attr)
+{
+	*attr = {};
 	isoDirEntry de;
 	bool success = lookup(&de, name);
 	if (success) {
-		*attr = DOS_ATTR_ARCHIVE | DOS_ATTR_READ_ONLY;
-		if (IS_HIDDEN(FLAGS1)) *attr |= DOS_ATTR_HIDDEN;
-		if (IS_DIR(FLAGS1)) *attr |= DOS_ATTR_DIRECTORY;
+		attr->read_only = true;
+		if (IS_HIDDEN(FLAGS1)) {
+			attr->hidden = true;
+		}
+		if (IS_DIR(FLAGS1)) {
+			attr->directory = true;
+		}
 	}
 	return success;
 }
 
-bool isoDrive::SetFileAttr(const char * name, [[maybe_unused]] const uint16_t attr) {
+bool isoDrive::SetFileAttr(const char* name,
+                           [[maybe_unused]] const FatAttributeFlags attr)
+{
 	isoDirEntry de;
 	if (lookup(&de, name))
 		DOS_SetError(DOSERR_ACCESS_DENIED);
@@ -372,11 +390,15 @@ bool isoDrive::FileStat(const char *name, FileStat_Block *const stat_block) {
 	bool success = lookup(&de, name);
 
 	if (success) {
-		stat_block->date = DOS_PackDate(1900 + de.dateYear, de.dateMonth, de.dateDay);
+		FatAttributeFlags attr = {FatAttributeFlags::ReadOnly};
+		attr.directory = IS_DIR(FLAGS1);
+
+		stat_block->date = DOS_PackDate(1900 + de.dateYear,
+		                                de.dateMonth,
+		                                de.dateDay);
 		stat_block->time = DOS_PackTime(de.timeHour, de.timeMin, de.timeSec);
 		stat_block->size = DATA_LENGTH(de);
-		stat_block->attr = DOS_ATTR_ARCHIVE | DOS_ATTR_READ_ONLY;
-		if (IS_DIR(FLAGS1)) stat_block->attr |= DOS_ATTR_DIRECTORY;
+		stat_block->attr = attr._data;
 	}
 
 	return success;
@@ -394,12 +416,9 @@ bool isoDrive::isRemovable(void) {
 	return true;
 }
 
-Bits isoDrive::UnMount(void) {
-	if(MSCDEX_RemoveDrive(driveLetter)) {
-		delete this;
-		return 0;
-	}
-	return 2;
+Bits isoDrive::UnMount()
+{
+	return MSCDEX_RemoveDrive(driveLetter) ? 0 : 2;
 }
 
 int isoDrive::GetDirIterator(const isoDirEntry* de) {
@@ -424,7 +443,7 @@ int isoDrive::GetDirIterator(const isoDirEntry* de) {
 
 bool isoDrive::GetNextDirEntry(const int dirIteratorHandle, isoDirEntry* de) {
 	bool result = false;
-	uint8_t* buffer = NULL;
+	uint8_t* buffer = nullptr;
 	DirIterator& dirIterator = dirIterators[dirIteratorHandle];
 
 	// check if the directory entry is valid
@@ -524,7 +543,7 @@ int isoDrive :: readDirEntry(isoDirEntry *de, uint8_t *data) {
 		}
 	}
 	char* dotpos = strchr((char*)de->ident, '.');
-	if (dotpos!=NULL) {
+	if (dotpos!=nullptr) {
 		if (strlen(dotpos)>4) dotpos[4]=0;
 		if (dotpos-(char*)de->ident>8) {
 			constexpr int pos = 8;
@@ -561,7 +580,7 @@ bool isoDrive :: lookup(isoDirEntry *de, const char *path) {
 	strreplace(isoPath, '\\', '/');
 
 	// iterate over all path elements (name), and search each of them in the current de
-	for(char* name = strtok(isoPath, "/"); NULL != name; name = strtok(NULL, "/")) {
+	for(char* name = strtok(isoPath, "/"); nullptr != name; name = strtok(nullptr, "/")) {
 
 		bool found = false;
 		// current entry must be a directory, abort otherwise
