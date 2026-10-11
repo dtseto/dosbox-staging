@@ -10,6 +10,7 @@
 
 #include "BXDOSBoxBridgeRegistration.h"
 
+#if !defined(BXDOSBOX_PRODUCTION) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 static inline bool boxer_filesystemBridgeShouldShowFileWithName(const char *name)
 {
     return boxer_shouldShowFileWithName(name);
@@ -46,7 +47,6 @@ static inline void boxer_filesystemBridgeDriveDidUnmount(uint8_t driveIndex)
     boxer_driveDidUnmount(driveIndex);
 }
 
-#if !defined(BXDOSBOX_PRODUCTION) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
 static inline const BXDOSBoxFilesystemBridgeCallbacks *boxer_registeredDOSBoxFilesystemBridge(void)
 {
     static const BXDOSBoxFilesystemBridgeCallbacks callbacks = {

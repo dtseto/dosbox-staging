@@ -47,6 +47,10 @@ typedef struct BXDOSBoxInputBridgeCallbacks {
     void (*setScrollLockActive)(bool active);
 } BXDOSBoxInputBridgeCallbacks;
 
+typedef struct BXDOSBoxJoystickBridgeCallbacks {
+    void (*setActive)(bool active);
+} BXDOSBoxJoystickBridgeCallbacks;
+
 typedef struct BXDOSBoxShellBridgeCallbacks {
     void (*willStart)(uintptr_t shell);
     void (*didFinish)(uintptr_t shell);
@@ -133,6 +137,8 @@ void boxer_registerDOSBoxPrinterBridge(const BXDOSBoxPrinterBridgeCallbacks *cal
 const BXDOSBoxPrinterBridgeCallbacks *boxer_registeredDOSBoxPrinterBridge(void);
 void boxer_registerDOSBoxInputBridge(const BXDOSBoxInputBridgeCallbacks *callbacks);
 const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBridge(void);
+void boxer_registerDOSBoxJoystickBridge(const BXDOSBoxJoystickBridgeCallbacks *callbacks);
+const BXDOSBoxJoystickBridgeCallbacks *boxer_registeredDOSBoxJoystickBridge(void);
 void boxer_registerDOSBoxShellBridge(const BXDOSBoxShellBridgeCallbacks *callbacks);
 const BXDOSBoxShellBridgeCallbacks *boxer_registeredDOSBoxShellBridge(void);
 void boxer_registerDOSBoxFilesystemBridge(const BXDOSBoxFilesystemBridgeCallbacks *callbacks);

@@ -17,6 +17,7 @@
  */
 
 #include "joystick.h"
+#define BXDOSBOX_JOYSTICK_CALLSITE 1
 
 #include <cfloat>
 #include <string.h>
@@ -652,3 +653,5 @@ void JOYSTICK_Init(Section* sec) {
 	test = new JOYSTICK(sec);
 	sec->AddDestroyFunction(&JOYSTICK_Destroy,true); 
 }
+
+#undef BXDOSBOX_JOYSTICK_CALLSITE

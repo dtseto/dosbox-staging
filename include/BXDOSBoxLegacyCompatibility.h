@@ -41,6 +41,7 @@ const char *boxer_preferredKeyboardLayout(void) BXDOSBOX_WEAK;
 void boxer_setCapsLockActive(bool active) BXDOSBOX_WEAK;
 void boxer_setNumLockActive(bool active) BXDOSBOX_WEAK;
 void boxer_setScrollLockActive(bool active) BXDOSBOX_WEAK;
+void boxer_setJoystickActive(bool active) BXDOSBOX_WEAK;
 }
 
 static inline void boxer_bridgeSuggestMIDIHandler(const char *handlerName,
@@ -109,6 +110,14 @@ static inline const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBri
     return &callbacks;
 }
 
+static inline const BXDOSBoxJoystickBridgeCallbacks *boxer_registeredDOSBoxJoystickBridge(void)
+{
+    static const BXDOSBoxJoystickBridgeCallbacks callbacks = {
+        boxer_setJoystickActive
+    };
+    return &callbacks;
+}
+
 #endif
 
 #if defined(BXDOSBOX_PRINTER_CALLSITE) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
@@ -128,6 +137,10 @@ static inline const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBri
 #define boxer_setCapsLockActive(active) boxer_registeredDOSBoxInputBridge()->setCapsLockActive(active)
 #define boxer_setNumLockActive(active) boxer_registeredDOSBoxInputBridge()->setNumLockActive(active)
 #define boxer_setScrollLockActive(active) boxer_registeredDOSBoxInputBridge()->setScrollLockActive(active)
+#endif
+
+#if defined(BXDOSBOX_JOYSTICK_CALLSITE) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)
+#define boxer_setJoystickActive(active) boxer_registeredDOSBoxJoystickBridge()->setActive(active)
 #endif
 
 #endif /* __cplusplus */
