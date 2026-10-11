@@ -37,6 +37,7 @@ void boxer_PRINTER_writecontrol(uintptr_t port, uintptr_t value, uintptr_t width
 uintptr_t boxer_numKeyCodesInPasteBuffer(void) BXDOSBOX_WEAK;
 bool boxer_continueListeningForKeyEvents(void) BXDOSBOX_WEAK;
 bool boxer_getNextKeyCodeInPasteBuffer(uint16_t *outKeyCode, bool consumeKey) BXDOSBOX_WEAK;
+const char *boxer_preferredKeyboardLayout(void) BXDOSBOX_WEAK;
 void boxer_setCapsLockActive(bool active) BXDOSBOX_WEAK;
 void boxer_setNumLockActive(bool active) BXDOSBOX_WEAK;
 void boxer_setScrollLockActive(bool active) BXDOSBOX_WEAK;
@@ -100,6 +101,7 @@ static inline const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBri
         boxer_numKeyCodesInPasteBuffer,
         boxer_continueListeningForKeyEvents,
         boxer_getNextKeyCodeInPasteBuffer,
+        boxer_preferredKeyboardLayout,
         boxer_setCapsLockActive,
         boxer_setNumLockActive,
         boxer_setScrollLockActive
@@ -122,6 +124,7 @@ static inline const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBri
 #define boxer_numKeyCodesInPasteBuffer() boxer_registeredDOSBoxInputBridge()->numKeyCodesInPasteBuffer()
 #define boxer_continueListeningForKeyEvents() boxer_registeredDOSBoxInputBridge()->continueListeningForKeyEvents()
 #define boxer_getNextKeyCodeInPasteBuffer(outKeyCode, consumeKey) boxer_registeredDOSBoxInputBridge()->getNextKeyCodeInPasteBuffer(outKeyCode, consumeKey)
+#define boxer_preferredKeyboardLayout() boxer_registeredDOSBoxInputBridge()->preferredKeyboardLayout()
 #define boxer_setCapsLockActive(active) boxer_registeredDOSBoxInputBridge()->setCapsLockActive(active)
 #define boxer_setNumLockActive(active) boxer_registeredDOSBoxInputBridge()->setNumLockActive(active)
 #define boxer_setScrollLockActive(active) boxer_registeredDOSBoxInputBridge()->setScrollLockActive(active)

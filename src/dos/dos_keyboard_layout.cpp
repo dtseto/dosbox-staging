@@ -1851,4 +1851,5 @@ void DOS_KeyboardLayout_Init(Section *sec)
 	set_country_from_pref(settings->Get_int("country"));
 }
 
+#undef boxer_preferredKeyboardLayout
 #undef BXDOSBOX_INPUT_CALLSITE

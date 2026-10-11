@@ -41,6 +41,7 @@ typedef struct BXDOSBoxInputBridgeCallbacks {
     uintptr_t (*numKeyCodesInPasteBuffer)(void);
     bool (*continueListeningForKeyEvents)(void);
     bool (*getNextKeyCodeInPasteBuffer)(uint16_t *outKeyCode, bool consumeKey);
+    const char *(*preferredKeyboardLayout)(void);
     void (*setCapsLockActive)(bool active);
     void (*setNumLockActive)(bool active);
     void (*setScrollLockActive)(bool active);
