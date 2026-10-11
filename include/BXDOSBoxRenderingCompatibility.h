@@ -2,6 +2,7 @@
 #define BXDOSBoxRenderingCompatibility_h
 
 #include "video.h"
+#include "BXDOSBoxLegacyDeclarations.h"
 #include "BXDOSBoxBridgeRegistration.h"
 
 static inline void boxer_renderingBridgeApplyStrategy(void)

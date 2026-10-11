@@ -27,13 +27,17 @@ void boxer_updateVolumes(void) BXDOSBOX_WEAK;
 void boxer_suggestMIDIHandler(std::string const &handlerName,
                               const char *configParams) BXDOSBOX_WEAK;
 
-extern "C" {
+/* These weak declarations intentionally use C++ linkage so standalone
+ * harnesses can define their legacy fallbacks directly in the harness TU. */
 bool boxer_PRINTER_isInited(uintptr_t port) BXDOSBOX_WEAK;
 uintptr_t boxer_PRINTER_readdata(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
 uintptr_t boxer_PRINTER_readcontrol(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
 uintptr_t boxer_PRINTER_readstatus(uintptr_t port, uintptr_t width) BXDOSBOX_WEAK;
 void boxer_PRINTER_writedata(uintptr_t port, uintptr_t value, uintptr_t width) BXDOSBOX_WEAK;
 void boxer_PRINTER_writecontrol(uintptr_t port, uintptr_t value, uintptr_t width) BXDOSBOX_WEAK;
+void boxer_setJoystickActive(bool active) BXDOSBOX_WEAK;
+
+/* Standalone harnesses provide these C++-linkage callbacks directly. */
 uintptr_t boxer_numKeyCodesInPasteBuffer(void) BXDOSBOX_WEAK;
 bool boxer_continueListeningForKeyEvents(void) BXDOSBOX_WEAK;
 bool boxer_getNextKeyCodeInPasteBuffer(uint16_t *outKeyCode, bool consumeKey) BXDOSBOX_WEAK;
@@ -41,8 +45,6 @@ const char *boxer_preferredKeyboardLayout(void) BXDOSBOX_WEAK;
 void boxer_setCapsLockActive(bool active) BXDOSBOX_WEAK;
 void boxer_setNumLockActive(bool active) BXDOSBOX_WEAK;
 void boxer_setScrollLockActive(bool active) BXDOSBOX_WEAK;
-void boxer_setJoystickActive(bool active) BXDOSBOX_WEAK;
-}
 
 static inline void boxer_bridgeSuggestMIDIHandler(const char *handlerName,
                                                    const char *configParams)

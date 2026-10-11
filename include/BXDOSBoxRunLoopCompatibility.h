@@ -1,6 +1,7 @@
 #ifndef BXDOSBoxRunLoopCompatibility_h
 #define BXDOSBoxRunLoopCompatibility_h
 
+#include "BXDOSBoxLegacyDeclarations.h"
 #include "BXDOSBoxBridgeRegistration.h"
 
 static inline bool boxer_runLoopBridgeShouldContinue(void)

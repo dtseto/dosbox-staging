@@ -8,8 +8,7 @@
 #ifndef BXDOSBoxCoalfaceCompatibility_h
 #define BXDOSBoxCoalfaceCompatibility_h
 
-#include "BXCoalface.h"
-
+#include "BXDOSBoxLegacyDeclarations.h"
 #include "BXDOSBoxDiagnosticsCompatibility.h"
 
 #endif /* BXDOSBoxCoalfaceCompatibility_h */

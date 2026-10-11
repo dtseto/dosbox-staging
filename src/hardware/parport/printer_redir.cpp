@@ -32,8 +32,7 @@
 #define BXDOSBOX_PRINTER_CALLSITE 1
 #include "BXDOSBoxLegacyCompatibility.h"
 #undef BXDOSBOX_PRINTER_CALLSITE
-// Legacy contract retained: #import "BXCoalface.h"
-// Legacy symbols retained: boxer_PRINTER_isInited, boxer_PRINTER_writedata
+// The typed printer adapter remains the sole bridge contract for this source.
 
 // Purpose of this is to pass LPT register access to the virtual printer 
 

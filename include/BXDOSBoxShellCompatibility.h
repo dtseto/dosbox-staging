@@ -10,6 +10,8 @@
 #define BXDOSBoxShellCompatibility_h
 
 #include "shell.h"
+#include "BXDOSBoxLegacyDeclarations.h"
+#include "BXDOSBoxLegacyCompatibility.h"
 #include "BXDOSBoxBridgeRegistration.h"
 
 static inline void boxer_shellBridgeWillStart(uintptr_t shell)

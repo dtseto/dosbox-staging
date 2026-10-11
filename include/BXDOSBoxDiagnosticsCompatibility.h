@@ -9,6 +9,7 @@
 #ifndef BXDOSBoxDiagnosticsCompatibility_h
 #define BXDOSBoxDiagnosticsCompatibility_h
 
+#include "BXDOSBoxLegacyDeclarations.h"
 #include "BXDOSBoxBridgeRegistration.h"
 
 #ifdef __cplusplus
