@@ -133,6 +133,21 @@ static inline const BXDOSBoxJoystickBridgeCallbacks *boxer_registeredDOSBoxJoyst
     return &callbacks;
 }
 
+static inline const BXDOSBoxConfigurationBridgeCallbacks *boxer_registeredDOSBoxConfigurationBridge(void)
+{
+    static const BXDOSBoxConfigurationBridgeCallbacks callbacks = {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    };
+    return &callbacks;
+}
+
 #endif
 
 #if defined(BXDOSBOX_PRINTER_CALLSITE) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)

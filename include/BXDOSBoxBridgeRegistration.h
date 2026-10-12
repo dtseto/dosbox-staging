@@ -99,6 +99,17 @@ typedef struct BXDOSBoxRunLoopBridgeCallbacks {
     void (*didFinishWithContextInfo)(void *contextInfo);
 } BXDOSBoxRunLoopBridgeCallbacks;
 
+typedef struct BXDOSBoxConfigurationBridgeCallbacks {
+    uintptr_t (*create)(void);
+    void (*initializeConfigDirectory)(void);
+    void (*initializeDOSBox)(void);
+    void (*parseConfigFile)(uintptr_t configuration, const char *path);
+    void (*initialize)(uintptr_t configuration);
+    void (*startUp)(uintptr_t configuration);
+    void (*destroy)(uintptr_t configuration);
+    bool (*shutdownRequested)(void);
+} BXDOSBoxConfigurationBridgeCallbacks;
+
 typedef struct BXDOSBoxEventBridgeCallbacks {
     bool (*processEvents)(void);
     void (*handleTitleChange)(int32_t cycles, bool paused);
@@ -164,6 +175,8 @@ void boxer_registerDOSBoxFilesystemBridge(const BXDOSBoxFilesystemBridgeCallback
 const BXDOSBoxFilesystemBridgeCallbacks *boxer_registeredDOSBoxFilesystemBridge(void);
 void boxer_registerDOSBoxRunLoopBridge(const BXDOSBoxRunLoopBridgeCallbacks *callbacks);
 const BXDOSBoxRunLoopBridgeCallbacks *boxer_registeredDOSBoxRunLoopBridge(void);
+void boxer_registerDOSBoxConfigurationBridge(const BXDOSBoxConfigurationBridgeCallbacks *callbacks);
+const BXDOSBoxConfigurationBridgeCallbacks *boxer_registeredDOSBoxConfigurationBridge(void);
 void boxer_registerDOSBoxEventBridge(const BXDOSBoxEventBridgeCallbacks *callbacks);
 const BXDOSBoxEventBridgeCallbacks *boxer_registeredDOSBoxEventBridge(void);
 void boxer_registerDOSBoxRenderingBridge(const BXDOSBoxRenderingBridgeCallbacks *callbacks);
