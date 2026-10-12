@@ -115,6 +115,9 @@ typedef struct BXDOSBoxFilesystemControlBridgeCallbacks {
     bool (*makeName)(const char *dosPath, char *outPath, uintptr_t outPathLength,
                      uint8_t *outDriveIndex);
     uintptr_t (*driveAtIndex)(uint8_t driveIndex);
+    uint8_t (*driveType)(uintptr_t drive);
+    const char *(*driveSystemPath)(uintptr_t drive);
+    const char *(*driveCurrentDirectory)(uintptr_t drive);
     void (*emptyDriveCache)(uintptr_t drive);
     bool (*addDrive)(uintptr_t drive, uint8_t driveIndex, uint8_t mediaByte);
     int32_t (*unmountDrive)(uint8_t driveIndex);
