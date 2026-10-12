@@ -118,6 +118,11 @@ typedef struct BXDOSBoxFilesystemControlBridgeCallbacks {
     uint8_t (*driveType)(uintptr_t drive);
     const char *(*driveSystemPath)(uintptr_t drive);
     const char *(*driveCurrentDirectory)(uintptr_t drive);
+    bool (*driveFileExists)(uintptr_t drive, const char *path);
+    bool (*driveTestDirectory)(uintptr_t drive, const char *path);
+    uintptr_t (*maximumShortNameLength)(void);
+    bool (*driveGetShortName)(uintptr_t drive, const char *directory, const char *name,
+                              char *outName, uintptr_t outNameLength);
     void (*emptyDriveCache)(uintptr_t drive);
     bool (*addDrive)(uintptr_t drive, uint8_t driveIndex, uint8_t mediaByte);
     int32_t (*unmountDrive)(uint8_t driveIndex);
