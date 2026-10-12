@@ -201,6 +201,8 @@ typedef struct BXDOSBoxCPUControlBridgeCallbacks {
     void (*setCycleAutoAdjust)(bool enabled);
     void (*setCyclePercentageUsed)(int value);
     void (*resetCycleCounters)(void);
+    uint8_t (*coreMode)(void);
+    bool (*setCoreMode)(uint8_t mode);
 } BXDOSBoxCPUControlBridgeCallbacks;
 
 typedef struct BXDOSBoxEventBridgeCallbacks {
