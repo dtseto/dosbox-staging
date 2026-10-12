@@ -19,6 +19,24 @@ typedef enum BXDOSBoxAudioChannel {
     BXDOSBoxAudioChannelRight
 } BXDOSBoxAudioChannel;
 
+typedef enum BXDOSBoxAudioMixerState {
+    BXDOSBoxAudioMixerStateOn,
+    BXDOSBoxAudioMixerStateMuted
+} BXDOSBoxAudioMixerState;
+
+typedef enum BXDOSBoxAudioSampleFormat {
+    BXDOSBoxAudioSampleFormatM8,
+    BXDOSBoxAudioSampleFormatS8,
+    BXDOSBoxAudioSampleFormatM8Signed,
+    BXDOSBoxAudioSampleFormatS8Signed,
+    BXDOSBoxAudioSampleFormatM16,
+    BXDOSBoxAudioSampleFormatS16,
+    BXDOSBoxAudioSampleFormatM16Unsigned,
+    BXDOSBoxAudioSampleFormatS16Unsigned,
+    BXDOSBoxAudioSampleFormatMFloat,
+    BXDOSBoxAudioSampleFormatSFloat
+} BXDOSBoxAudioSampleFormat;
+
 typedef struct BXDOSBoxAudioBridgeCallbacks {
     bool (*midiAvailable)(void);
     void (*sendMIDIMessage)(uint8_t *message);
@@ -26,6 +44,13 @@ typedef struct BXDOSBoxAudioBridgeCallbacks {
     float (*masterVolume)(BXDOSBoxAudioChannel channel);
     void (*updateVolumes)(void);
     void (*suggestMIDIHandler)(const char *handlerName, const char *configParams);
+    void (*setMixerState)(BXDOSBoxAudioMixerState state);
+    uintptr_t (*addMIDIChannel)(uint32_t sampleRate);
+    void (*setMIDIChannelSampleRate)(uintptr_t channel, uint32_t sampleRate);
+    void (*enableMIDIChannel)(uintptr_t channel, bool enabled);
+    void (*addMIDIChannelSilence)(uintptr_t channel);
+    void (*addMIDIChannelSamples)(uintptr_t channel, BXDOSBoxAudioSampleFormat format,
+                                  uint32_t frames, const void *samples);
 } BXDOSBoxAudioBridgeCallbacks;
 
 typedef struct BXDOSBoxPrinterBridgeCallbacks {
