@@ -122,6 +122,7 @@ typedef struct BXDOSBoxShellControlBridgeCallbacks {
     bool (*changeDirectory)(const char *path);
     bool (*setDrive)(uint8_t driveIndex);
     uintptr_t (*maximumCommandLineLength)(void);
+    void (*clearScreen)(void);
 } BXDOSBoxShellControlBridgeCallbacks;
 
 typedef struct BXDOSBoxFilesystemBridgeCallbacks {

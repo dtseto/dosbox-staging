@@ -111,6 +111,7 @@ static inline const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBri
         NULL,
         NULL,
         NULL,
+        NULL,
         NULL
     };
     return &callbacks;
