@@ -93,7 +93,10 @@ static inline const BXDOSBoxPrinterBridgeCallbacks *boxer_registeredDOSBoxPrinte
         boxer_PRINTER_readcontrol,
         boxer_PRINTER_readstatus,
         boxer_PRINTER_writedata,
-        boxer_PRINTER_writecontrol
+        boxer_PRINTER_writecontrol,
+        NULL,
+        NULL,
+        NULL
     };
     return &callbacks;
 }

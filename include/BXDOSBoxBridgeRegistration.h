@@ -60,6 +60,9 @@ typedef struct BXDOSBoxPrinterBridgeCallbacks {
     uintptr_t (*readStatus)(uintptr_t port, uintptr_t width);
     void (*writeData)(uintptr_t port, uintptr_t value, uintptr_t width);
     void (*writeControl)(uintptr_t port, uintptr_t value, uintptr_t width);
+    const uint16_t *(*charmapForCodepage)(uint32_t codepage);
+    const uint16_t *(*internationalCharset)(uint32_t index);
+    uint32_t (*codepageAtIndex)(uint32_t index);
 } BXDOSBoxPrinterBridgeCallbacks;
 
 typedef struct BXDOSBoxInputBridgeCallbacks {
