@@ -152,6 +152,19 @@ static inline const BXDOSBoxConfigurationBridgeCallbacks *boxer_registeredDOSBox
     return &callbacks;
 }
 
+static inline const BXDOSBoxCPUControlBridgeCallbacks *boxer_registeredDOSBoxCPUControlBridge(void)
+{
+    static const BXDOSBoxCPUControlBridgeCallbacks callbacks = {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    };
+    return &callbacks;
+}
+
 static inline const BXDOSBoxShellControlBridgeCallbacks *boxer_registeredDOSBoxShellControlBridge(void)
 {
     static const BXDOSBoxShellControlBridgeCallbacks callbacks = {

@@ -194,6 +194,15 @@ typedef struct BXDOSBoxConfigurationBridgeCallbacks {
     void (*requestShutdown)(void);
 } BXDOSBoxConfigurationBridgeCallbacks;
 
+typedef struct BXDOSBoxCPUControlBridgeCallbacks {
+    int (*cycleMaximum)(void);
+    void (*setCycleMaximum)(int value);
+    bool (*cycleAutoAdjust)(void);
+    void (*setCycleAutoAdjust)(bool enabled);
+    void (*setCyclePercentageUsed)(int value);
+    void (*resetCycleCounters)(void);
+} BXDOSBoxCPUControlBridgeCallbacks;
+
 typedef struct BXDOSBoxEventBridgeCallbacks {
     bool (*processEvents)(void);
     void (*handleTitleChange)(int32_t cycles, bool paused);
@@ -265,6 +274,7 @@ void boxer_registerDOSBoxRunLoopBridge(const BXDOSBoxRunLoopBridgeCallbacks *cal
 const BXDOSBoxRunLoopBridgeCallbacks *boxer_registeredDOSBoxRunLoopBridge(void);
 void boxer_registerDOSBoxConfigurationBridge(const BXDOSBoxConfigurationBridgeCallbacks *callbacks);
 const BXDOSBoxConfigurationBridgeCallbacks *boxer_registeredDOSBoxConfigurationBridge(void);
+const BXDOSBoxCPUControlBridgeCallbacks *boxer_registeredDOSBoxCPUControlBridge(void);
 void boxer_registerDOSBoxEventBridge(const BXDOSBoxEventBridgeCallbacks *callbacks);
 const BXDOSBoxEventBridgeCallbacks *boxer_registeredDOSBoxEventBridge(void);
 void boxer_registerDOSBoxRenderingBridge(const BXDOSBoxRenderingBridgeCallbacks *callbacks);
