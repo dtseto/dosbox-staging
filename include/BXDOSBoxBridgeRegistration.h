@@ -74,6 +74,7 @@ typedef struct BXDOSBoxInputBridgeCallbacks {
     void (*mouseMoved)(float deltaX, float deltaY, int32_t absoluteX, int32_t absoluteY);
     void (*mouseButton)(uint8_t button, bool pressed);
     void (*keyboardKey)(uint16_t key, bool pressed);
+    void (*keyboardClearBuffer)(void);
 } BXDOSBoxInputBridgeCallbacks;
 
 typedef struct BXDOSBoxJoystickBridgeCallbacks {
