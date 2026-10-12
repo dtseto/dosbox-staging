@@ -191,6 +191,7 @@ typedef struct BXDOSBoxConfigurationBridgeCallbacks {
     void (*startUp)(uintptr_t configuration);
     void (*destroy)(uintptr_t configuration);
     bool (*shutdownRequested)(void);
+    void (*requestShutdown)(void);
 } BXDOSBoxConfigurationBridgeCallbacks;
 
 typedef struct BXDOSBoxEventBridgeCallbacks {
