@@ -51,6 +51,17 @@ typedef struct BXDOSBoxInputBridgeCallbacks {
 
 typedef struct BXDOSBoxJoystickBridgeCallbacks {
     void (*setActive)(bool active);
+    void (*enable)(uint8_t which, bool enabled);
+    void (*setButton)(uint8_t which, uint8_t button, bool pressed);
+    void (*moveX)(uint8_t which, int16_t value);
+    void (*moveY)(uint8_t which, int16_t value);
+    bool (*isAccessible)(uint8_t which);
+    bool (*getButton)(uint8_t which, uint8_t button);
+    double (*getMoveX)(uint8_t which);
+    double (*getMoveY)(uint8_t which);
+    uint8_t (*gameportTimingMode)(void);
+    void (*setGameportTimingMode)(uint8_t mode);
+    uint8_t (*joystickSupportLevel)(void);
 } BXDOSBoxJoystickBridgeCallbacks;
 
 typedef struct BXDOSBoxShellBridgeCallbacks {

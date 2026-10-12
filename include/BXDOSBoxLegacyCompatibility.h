@@ -117,7 +117,18 @@ static inline const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBri
 static inline const BXDOSBoxJoystickBridgeCallbacks *boxer_registeredDOSBoxJoystickBridge(void)
 {
     static const BXDOSBoxJoystickBridgeCallbacks callbacks = {
-        boxer_setJoystickActive
+        boxer_setJoystickActive,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
     };
     return &callbacks;
 }
