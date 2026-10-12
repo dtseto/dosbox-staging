@@ -203,6 +203,8 @@ typedef struct BXDOSBoxCPUControlBridgeCallbacks {
     void (*resetCycleCounters)(void);
     uint8_t (*coreMode)(void);
     bool (*setCoreMode)(uint8_t mode);
+    bool (*ticksLocked)(void);
+    void (*setTicksLocked)(bool locked);
 } BXDOSBoxCPUControlBridgeCallbacks;
 
 typedef struct BXDOSBoxEventBridgeCallbacks {

@@ -162,6 +162,8 @@ static inline const BXDOSBoxCPUControlBridgeCallbacks *boxer_registeredDOSBoxCPU
         NULL,
         NULL,
         NULL,
+        NULL,
+        NULL,
         NULL
     };
     return &callbacks;
