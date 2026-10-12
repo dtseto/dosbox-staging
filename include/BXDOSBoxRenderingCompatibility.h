@@ -62,6 +62,12 @@ static inline const BXDOSBoxRenderingBridgeCallbacks *boxer_registeredDOSBoxRend
         NULL,
         NULL,
         NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
         NULL
     };
     return &callbacks;

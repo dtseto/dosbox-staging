@@ -115,6 +115,12 @@ typedef struct BXDOSBoxRenderingBridgeCallbacks {
     uint8_t (*cgaComponentMode)(void);
     void (*setCGAComponentMode)(uint8_t mode);
     int (*getDisplayRefreshRate)(void);
+    uintptr_t (*currentVideoWidth)(void);
+    uintptr_t (*currentVideoHeight)(void);
+    bool (*currentVideoModeIsText)(void);
+    bool (*currentMachineIsHercules)(void);
+    bool (*currentMachineIsCGA)(void);
+    void (*setRenderScale)(uintptr_t scale);
 } BXDOSBoxRenderingBridgeCallbacks;
 
 typedef struct BXDOSBoxDiagnosticsBridgeCallbacks {
