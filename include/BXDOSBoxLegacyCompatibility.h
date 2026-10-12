@@ -166,6 +166,19 @@ static inline const BXDOSBoxShellControlBridgeCallbacks *boxer_registeredDOSBoxS
     return &callbacks;
 }
 
+static inline const BXDOSBoxFilesystemControlBridgeCallbacks *boxer_registeredDOSBoxFilesystemControlBridge(void)
+{
+    static const BXDOSBoxFilesystemControlBridgeCallbacks callbacks = {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    };
+    return &callbacks;
+}
+
 #endif
 
 #if defined(BXDOSBOX_PRINTER_CALLSITE) && !defined(BXDOSBOX_BRIDGE_IMPLEMENTATION)

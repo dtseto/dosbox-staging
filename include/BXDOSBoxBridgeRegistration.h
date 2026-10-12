@@ -107,6 +107,17 @@ typedef struct BXDOSBoxFilesystemBridgeCallbacks {
     void (*driveDidUnmount)(uint8_t driveIndex);
 } BXDOSBoxFilesystemBridgeCallbacks;
 
+/* Host-facing filesystem queries. DOSBox drive objects remain opaque to Boxer. */
+typedef struct BXDOSBoxFilesystemControlBridgeCallbacks {
+    uintptr_t (*driveCount)(void);
+    uint8_t (*defaultDriveIndex)(void);
+    uintptr_t (*maximumPathLength)(void);
+    bool (*makeName)(const char *dosPath, char *outPath, uintptr_t outPathLength,
+                     uint8_t *outDriveIndex);
+    uintptr_t (*driveAtIndex)(uint8_t driveIndex);
+    void (*emptyDriveCache)(uintptr_t drive);
+} BXDOSBoxFilesystemControlBridgeCallbacks;
+
 typedef struct BXDOSBoxRunLoopBridgeCallbacks {
     bool (*shouldContinue)(void);
     void (*willStartWithContextInfo)(void **contextInfo);
@@ -189,6 +200,8 @@ void boxer_registerDOSBoxShellControlBridge(const BXDOSBoxShellControlBridgeCall
 const BXDOSBoxShellControlBridgeCallbacks *boxer_registeredDOSBoxShellControlBridge(void);
 void boxer_registerDOSBoxFilesystemBridge(const BXDOSBoxFilesystemBridgeCallbacks *callbacks);
 const BXDOSBoxFilesystemBridgeCallbacks *boxer_registeredDOSBoxFilesystemBridge(void);
+void boxer_registerDOSBoxFilesystemControlBridge(const BXDOSBoxFilesystemControlBridgeCallbacks *callbacks);
+const BXDOSBoxFilesystemControlBridgeCallbacks *boxer_registeredDOSBoxFilesystemControlBridge(void);
 void boxer_registerDOSBoxRunLoopBridge(const BXDOSBoxRunLoopBridgeCallbacks *callbacks);
 const BXDOSBoxRunLoopBridgeCallbacks *boxer_registeredDOSBoxRunLoopBridge(void);
 void boxer_registerDOSBoxConfigurationBridge(const BXDOSBoxConfigurationBridgeCallbacks *callbacks);
