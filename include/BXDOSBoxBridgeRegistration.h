@@ -116,6 +116,12 @@ typedef struct BXDOSBoxFilesystemControlBridgeCallbacks {
                      uint8_t *outDriveIndex);
     uintptr_t (*driveAtIndex)(uint8_t driveIndex);
     void (*emptyDriveCache)(uintptr_t drive);
+    bool (*addDrive)(uintptr_t drive, uint8_t driveIndex, uint8_t mediaByte);
+    int32_t (*unmountDrive)(uint8_t driveIndex);
+    void (*closeFilesForDrive)(uint8_t driveIndex);
+    void (*destroyDrive)(uintptr_t drive);
+    void (*setDriveLabel)(uintptr_t drive, const char *label, bool isCDROM);
+    const char *(*driveLabel)(uintptr_t drive);
 } BXDOSBoxFilesystemControlBridgeCallbacks;
 
 typedef struct BXDOSBoxRunLoopBridgeCallbacks {

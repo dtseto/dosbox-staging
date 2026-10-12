@@ -174,6 +174,11 @@ static inline const BXDOSBoxFilesystemControlBridgeCallbacks *boxer_registeredDO
         NULL,
         NULL,
         NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
         NULL
     };
     return &callbacks;
