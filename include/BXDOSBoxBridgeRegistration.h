@@ -113,6 +113,7 @@ typedef struct BXDOSBoxShellBridgeCallbacks {
 
 typedef struct BXDOSBoxShellControlBridgeCallbacks {
     uintptr_t (*currentShell)(void);
+    const char *(*currentRunningProgram)(void);
     void (*writeOutput)(uintptr_t shell, const char *text);
     bool (*echoEnabled)(uintptr_t shell);
     bool (*hasNoBatchFiles)(uintptr_t shell);

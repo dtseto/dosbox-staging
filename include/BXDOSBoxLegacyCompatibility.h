@@ -182,6 +182,7 @@ static inline const BXDOSBoxShellControlBridgeCallbacks *boxer_registeredDOSBoxS
         NULL,
         NULL,
         NULL,
+        NULL,
         NULL
     };
     return &callbacks;
