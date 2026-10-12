@@ -109,6 +109,7 @@ static inline const BXDOSBoxInputBridgeCallbacks *boxer_registeredDOSBoxInputBri
         boxer_setNumLockActive,
         boxer_setScrollLockActive,
         NULL,
+        NULL,
         NULL
     };
     return &callbacks;

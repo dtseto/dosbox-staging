@@ -45,6 +45,7 @@ typedef struct BXDOSBoxInputBridgeCallbacks {
     void (*setCapsLockActive)(bool active);
     void (*setNumLockActive)(bool active);
     void (*setScrollLockActive)(bool active);
+    void (*switchKeyboardLayout)(const char *layout, int32_t codepage);
     void (*mouseMoved)(float deltaX, float deltaY, int32_t absoluteX, int32_t absoluteY);
     void (*mouseButton)(uint8_t button, bool pressed);
 } BXDOSBoxInputBridgeCallbacks;
