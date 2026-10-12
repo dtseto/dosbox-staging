@@ -83,6 +83,19 @@ typedef struct BXDOSBoxShellBridgeCallbacks {
     void (*didEndBatchFile)(uintptr_t shell, const char *path);
 } BXDOSBoxShellBridgeCallbacks;
 
+typedef struct BXDOSBoxShellControlBridgeCallbacks {
+    uintptr_t (*currentShell)(void);
+    void (*writeOutput)(uintptr_t shell, const char *text);
+    bool (*echoEnabled)(uintptr_t shell);
+    bool (*hasNoBatchFiles)(uintptr_t shell);
+    void (*showPrompt)(uintptr_t shell);
+    void (*parseLine)(uintptr_t shell, char *line);
+    void (*doCommand)(uintptr_t shell, char *command);
+    bool (*changeDirectory)(const char *path);
+    bool (*setDrive)(uint8_t driveIndex);
+    uintptr_t (*maximumCommandLineLength)(void);
+} BXDOSBoxShellControlBridgeCallbacks;
+
 typedef struct BXDOSBoxFilesystemBridgeCallbacks {
     bool (*shouldShowFileWithName)(const char *name);
     bool (*shouldAllowWriteAccessToPath)(const char *path, uintptr_t drive);
@@ -171,6 +184,8 @@ void boxer_registerDOSBoxJoystickBridge(const BXDOSBoxJoystickBridgeCallbacks *c
 const BXDOSBoxJoystickBridgeCallbacks *boxer_registeredDOSBoxJoystickBridge(void);
 void boxer_registerDOSBoxShellBridge(const BXDOSBoxShellBridgeCallbacks *callbacks);
 const BXDOSBoxShellBridgeCallbacks *boxer_registeredDOSBoxShellBridge(void);
+void boxer_registerDOSBoxShellControlBridge(const BXDOSBoxShellControlBridgeCallbacks *callbacks);
+const BXDOSBoxShellControlBridgeCallbacks *boxer_registeredDOSBoxShellControlBridge(void);
 void boxer_registerDOSBoxFilesystemBridge(const BXDOSBoxFilesystemBridgeCallbacks *callbacks);
 const BXDOSBoxFilesystemBridgeCallbacks *boxer_registeredDOSBoxFilesystemBridge(void);
 void boxer_registerDOSBoxRunLoopBridge(const BXDOSBoxRunLoopBridgeCallbacks *callbacks);
